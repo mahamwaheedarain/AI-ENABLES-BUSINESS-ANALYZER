@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import PaymentPage from "./components/PaymentPage";
+import PaymentSuccess from "./components/PaymentSuccess";
+import "./Subscription.css";
 
-// Only Pro & Enterprise plans
 const plans = [
   { name: "Pro", price: "$25/month", features: ["Dashboards", "Upload Files"] },
   { name: "Enterprise", price: "$50/month", features: ["All Features + AI Insights"] },
@@ -8,134 +10,74 @@ const plans = [
 
 function Subscription({ onSubscribe }) {
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [paymentStatus, setPaymentStatus] = useState(null);
+  const [goToPayment, setGoToPayment] = useState(false);
+  const [paymentComplete, setPaymentComplete] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
 
-  const handlePayment = () => {
-    setPaymentStatus("Processing Payment...");
-    setTimeout(() => {
-      setPaymentStatus("Payment Successful! 🎉");
-      setTimeout(() => onSubscribe(selectedPlan), 1500);
-    }, 2000);
-  };
+  useEffect(() => {
+    const handleScroll = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
-  if (selectedPlan) {
-    return (
-      <div style={{ fontFamily: "Segoe UI", textAlign: "center", padding: "50px" }}>
-        <h1>Payment for {selectedPlan.name} Plan</h1>
-        <p>Price: {selectedPlan.price}</p>
-        <p>Choose a demo payment method:</p>
-        <div style={{ display: "flex", justifyContent: "center", gap: "20px", margin: "20px 0" }}>
-          <button style={styles.paymentBtn} onClick={handlePayment}>Credit Card</button>
-          <button style={styles.paymentBtn} onClick={handlePayment}>PayPal</button>
-          <button style={styles.paymentBtn} onClick={handlePayment}>Demo UPI</button>
-        </div>
-        {paymentStatus && <p style={{ marginTop: "20px", fontWeight: "bold" }}>{paymentStatus}</p>}
-      </div>
-    );
+  if (paymentComplete && selectedPlan) {
+    return <PaymentSuccess plan={selectedPlan} onContinue={() => onSubscribe(selectedPlan)} />;
   }
 
-  // Subscription / Story Page
+  if (goToPayment && selectedPlan) {
+    return <PaymentPage plan={selectedPlan} onSuccess={() => setPaymentComplete(true)} onBack={() => setGoToPayment(false)} />;
+  }
+
   return (
-    <div style={{ fontFamily: "Segoe UI", lineHeight: 1.6 }}>
+    <div className="subscription-container">
+
+      {/* Animated Particle Background */}
+      <div className="particle-background" />
+
       {/* Hero Section */}
-      <div style={{
-        background: "linear-gradient(90deg, #667eea, #764ba2)",
-        color: "white",
-        padding: "80px 20px",
-        textAlign: "center",
-        borderRadius: "0 0 50px 50px",
-        marginBottom: "40px"
-      }}>
-        <h1 style={{ fontSize: "48px", marginBottom: "20px" }}>AI Business Analyzer</h1>
-        <p style={{ fontSize: "20px", maxWidth: "600px", margin: "0 auto 30px" }}>
-          Make smarter business decisions with AI insights for Finance, HR, and Marketing.
-        </p>
-        <button 
-          style={{
-            padding: "15px 40px",
-            fontSize: "18px",
-            borderRadius: "30px",
-            background: "white",
-            color: "#667eea",
-            fontWeight: "bold",
-            cursor: "pointer"
-          }}
-          onClick={() => window.scrollTo({top: 600, behavior: "smooth"})}
-        >
-          Explore Plans
-        </button>
-      </div>
+      <section className={`hero ${scrollY > 50 ? "fade-in" : ""}`}>
+        <div className="hero-content">
+          <h1>InsightIQ</h1>
+          <p>Smarter business decisions with AI insights for Finance, HR & Marketing.</p>
+          <button onClick={() => window.scrollTo({ top: 700, behavior: "smooth" })}>
+            Explore Plans
+          </button>
+        </div>
+      </section>
 
       {/* Story Section */}
-      <div style={{ maxWidth: "900px", margin: "0 auto", textAlign: "center", marginBottom: "50px" }}>
-        <h2 style={{ fontSize: "32px", marginBottom: "20px" }}>Our Story</h2>
+      <section className={`story ${scrollY > 300 ? "slide-up" : ""}`}>
+        <h2>Our Story</h2>
         <p>
-          AI Business Analyzer started with a mission to empower businesses with AI-driven insights.
-          From small startups to large enterprises, our goal is to provide actionable intelligence 
-          that helps you grow, optimize, and make data-driven decisions.
+          AI Business Analyzer empowers businesses with AI-driven insights. From startups to enterprises, actionable intelligence to optimize growth and make data-driven decisions.
         </p>
-      </div>
+      </section>
 
       {/* Benefits Section */}
-      <div style={{ maxWidth: "900px", margin: "0 auto", textAlign: "center", marginBottom: "60px" }}>
-        <h2 style={{ fontSize: "28px", marginBottom: "20px" }}>What You’ll Get</h2>
-        <div style={{ display: "flex", justifyContent: "space-around", flexWrap: "wrap", gap: "20px" }}>
-          <div style={{ width: "250px", background: "#eef2fb", padding: "20px", borderRadius: "15px" }}>📊 Detailed Dashboards</div>
-          <div style={{ width: "250px", background: "#eef2fb", padding: "20px", borderRadius: "15px" }}>📁 Upload & Analyze Files</div>
-          <div style={{ width: "250px", background: "#eef2fb", padding: "20px", borderRadius: "15px" }}>🤖 AI Business Insights</div>
+      <section className={`benefits ${scrollY > 600 ? "slide-up" : ""}`}>
+        <h2>What You’ll Get</h2>
+        <div className="benefits-grid">
+          <div className="benefit-card">📊 Dashboards & Analytics</div>
+          <div className="benefit-card">📁 Upload & Process Files</div>
+          <div className="benefit-card">🤖 AI Insights & Forecasts</div>
         </div>
-      </div>
+      </section>
 
-      {/* Subscription Plans Section */}
-      <div style={{ display: "flex", justifyContent: "center", gap: "30px", marginBottom: "60px", flexWrap: "wrap" }}>
+      {/* Subscription Plans */}
+      <section className={`plans ${scrollY > 900 ? "slide-up" : ""}`}>
         {plans.map(plan => (
-          <div key={plan.name} style={styles.planCard}
-               onClick={() => setSelectedPlan(plan)}
-               onMouseEnter={e => e.currentTarget.style.transform = "translateY(-10px)"}
-               onMouseLeave={e => e.currentTarget.style.transform = "translateY(0)"}
-          >
-            <h3 style={{ fontSize: "24px", marginBottom: "10px" }}>{plan.name}</h3>
-            <p style={{ fontSize: "20px", fontWeight: "bold", marginBottom: "15px" }}>{plan.price}</p>
-            <ul style={{ listStyle: "none", padding: 0, marginBottom: "20px" }}>
-              {plan.features.map((f, i) => <li key={i} style={{ marginBottom: "8px" }}>✔ {f}</li>)}
+          <div key={plan.name} className="plan-card" onClick={() => { setSelectedPlan(plan); setGoToPayment(true); }}>
+            <h3>{plan.name}</h3>
+            <p className="plan-price">{plan.price}</p>
+            <ul>
+              {plan.features.map((f, i) => <li key={i}>✔ {f}</li>)}
             </ul>
-            <button style={styles.subscribeBtn}>Subscribe</button>
+            <button>Subscribe</button>
           </div>
         ))}
-      </div>
+      </section>
     </div>
   );
 }
-
-const styles = {
-  planCard: {
-    padding: "30px",
-    borderRadius: "20px",
-    background: "#f7f9fc",
-    boxShadow: "0 15px 35px rgba(0,0,0,0.1)",
-    width: "250px",
-    textAlign: "center",
-    transition: "transform 0.3s",
-    cursor: "pointer"
-  },
-  subscribeBtn: {
-    padding: "12px 25px",
-    borderRadius: "25px",
-    background: "#667eea",
-    color: "white",
-    fontWeight: "bold",
-    border: "none",
-    cursor: "pointer"
-  },
-  paymentBtn: {
-    padding: "12px 25px",
-    borderRadius: "25px",
-    background: "#764ba2",
-    color: "white",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold"
-  }
-};
 
 export default Subscription;

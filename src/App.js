@@ -1,9 +1,31 @@
+// src/App.js
 import React, { useState } from "react";
 import FinanceDashboard from "./components/FinanceDashboard";
 import HRDashboard from "./components/HRDashboard";
 import MarketingDashboard from "./components/MarketingDashboard";
-import Subscription from "./SubscriptionPlans"; // <-- new
+import Subscription from "./SubscriptionPlans"; 
+import { Login, Signup } from "./components/Auth"; 
 
+// ----------------- Styles -----------------
+const styles = {
+  app: { display: "flex", height: "100vh", background: "#0d0d14", color: "#e0e0e0" },
+  sidebar: { width: 250, background: "#1a1a2e", padding: 20, display: "flex", flexDirection: "column", gap: 15 },
+  menuItem: { padding: 10, cursor: "pointer", color: "#fff" },
+  main: { flex: 1, display: "flex", flexDirection: "column" },
+  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: 10, background: "#0d0d14" },
+  sidebarToggle: { fontSize: 20, cursor: "pointer" },
+  search: { padding: 5, borderRadius: 5, border: "1px solid #444", background: "#0d0d14", color: "#fff" },
+  profile: { fontSize: 20 },
+  notifications: { fontSize: 20 },
+  dashboard: { padding: 20, flex: 1, overflowY: "auto" },
+  authContainer: { maxWidth: 400, margin: "100px auto", padding: 30, background: "rgba(255,255,255,0.05)", borderRadius: 20, textAlign: "center" },
+  authForm: { display: "flex", flexDirection: "column", gap: 15 },
+  authInput: { padding: 12, borderRadius: 10, border: "1px solid #444", background: "rgba(0,0,0,0.2)", color: "#fff" },
+  primaryBtn: { padding: "12px 0", borderRadius: 25, border: "none", background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)", color: "#fff", cursor: "pointer", fontWeight: "bold" },
+  link: { color: "#4ac6ff", cursor: "pointer", textDecoration: "underline" },
+};
+
+// ----------------- App Component -----------------
 function App() {
   const [page, setPage] = useState("login"); // login / signup / subscription / dashboard
   const [module, setModule] = useState("finance"); // finance/hr/marketing
@@ -11,10 +33,19 @@ function App() {
   const [user, setUser] = useState(null);
 
   // Dummy login/signup
-  const handleLogin = (e) => { e.preventDefault(); setUser({ name: "Maham" }); setPage("subscription"); };
-  const handleSignup = (e) => { e.preventDefault(); setUser({ name: "Maham" }); setPage("subscription"); };
+  const handleLogin = (e) => {
+    e.preventDefault();
+    setUser({ name: "Maham" });
+    setPage("subscription");
+  };
 
-  // After subscription payment
+  const handleSignup = (e) => {
+    e.preventDefault();
+    setUser({ name: "Maham" });
+    setPage("subscription");
+  };
+
+  // After payment success
   const handleSubscriptionComplete = (plan) => {
     console.log("Subscribed to:", plan);
     setPage("dashboard");
@@ -33,6 +64,7 @@ function App() {
             <div style={styles.menuItem} onClick={() => setPage("subscription")}>🏠 Home</div>
           </div>
         )}
+
         <div style={styles.main}>
           <div style={styles.topbar}>
             <button onClick={() => setSidebarOpen(!sidebarOpen)} style={styles.sidebarToggle}>☰</button>
@@ -40,6 +72,7 @@ function App() {
             <div style={styles.profile}>👤</div>
             <div style={styles.notifications}>🔔</div>
           </div>
+
           <div style={styles.dashboard}>
             {module === "finance" && <FinanceDashboard />}
             {module === "hr" && <HRDashboard />}
@@ -55,134 +88,12 @@ function App() {
     return <Subscription onSubscribe={handleSubscriptionComplete} />;
   }
 
-  // ----------------- Login -----------------
+  // ----------------- Login & Signup -----------------
   if (page === "login") {
-    return (
-      <div style={styles.authContainer}>
-        <h1>Login</h1>
-        <form onSubmit={handleLogin} style={styles.authForm}>
-          <input type="email" placeholder="Email" required style={styles.authInput}/>
-          <input type="password" placeholder="Password" required style={styles.authInput}/>
-          <button style={styles.primaryBtn} type="submit">Login</button>
-        </form>
-        <p>Don't have an account? <span style={styles.link} onClick={() => setPage("signup")}>Sign Up</span></p>
-      </div>
-    );
+    return <Login onLogin={handleLogin} switchToSignup={() => setPage("signup")} styles={styles} />;
   }
 
-  // ----------------- Signup -----------------
-  return (
-    <div style={styles.authContainer}>
-      <h1>Sign Up</h1>
-      <form onSubmit={handleSignup} style={styles.authForm}>
-        <input type="text" placeholder="Name" required style={styles.authInput}/>
-        <input type="email" placeholder="Email" required style={styles.authInput}/>
-        <input type="password" placeholder="Password" required style={styles.authInput}/>
-        <button style={styles.primaryBtn} type="submit">Sign Up</button>
-      </form>
-      <p>Already have an account? <span style={styles.link} onClick={() => setPage("login")}>Login</span></p>
-    </div>
-  );
+  return <Signup onSignup={handleSignup} switchToLogin={() => setPage("login")} styles={styles} />;
 }
-
-// Keep your styles unchanged
-const styles = {
-  authContainer: {
-    fontFamily: "Segoe UI",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100vh",
-    background: "#f0f2f5",
-    padding: "20px"
-  },
-  authForm: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "15px",
-    width: "300px"
-  },
-  authInput: {
-    padding: "10px",
-    borderRadius: "5px",
-    border: "1px solid #ccc"
-  },
-  primaryBtn: {
-    padding: "12px",
-    border: "none",
-    borderRadius: "25px",
-    cursor: "pointer",
-    background: "#667eea",
-    color: "white",
-    fontWeight: "bold"
-  },
-  link: {
-    color: "#667eea",
-    cursor: "pointer"
-  },
-  paymentBtn: {
-    padding: "12px 25px",
-    borderRadius: "25px",
-    background: "#764ba2",
-    color: "white",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: "bold"
-  },
-  app: {
-    display: "flex",
-    height: "100vh",
-    fontFamily: "Segoe UI"
-  },
-  sidebar: {
-    width: "220px",
-    background: "#2C3E50",
-    color: "white",
-    padding: "20px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "15px"
-  },
-  menuItem: {
-    padding: "10px",
-    cursor: "pointer",
-    borderRadius: "5px",
-    transition: "0.2s"
-  },
-  main: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column"
-  },
-  topbar: {
-    display: "flex",
-    alignItems: "center",
-    padding: "10px 20px",
-    background: "#ECF0F1",
-    gap: "10px"
-  },
-  sidebarToggle: {
-    padding: "5px 10px",
-    cursor: "pointer"
-  },
-  search: {
-    flex: 1,
-    padding: "5px 10px",
-    borderRadius: "5px",
-    border: "1px solid #BDC3C7"
-  },
-  profile: {
-    fontSize: "20px",
-    cursor: "pointer"
-  },
-  notifications: {
-    fontSize: "20px",
-    cursor: "pointer"
-  },
-  dashboard: {
-    padding: "20px",
-    overflowY: "auto"
-  } }; 
 
 export default App;

@@ -1,0 +1,545 @@
+/* ----------------- General Styles ----------------- */
+/* Add at the top of your CSS */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif; /* changed from Inter */
+    background: #0d0d14;
+    color: #e0e0e0;
+    overflow-x: hidden;
+}
+body {
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+    background: #0d0d14;
+    color: #e0e0e0;
+    overflow-x: hidden;
+  }
+  /* Logo on Login/Signup */
+.auth-logo {
+    width: 120px;       /* Adjust size as needed */
+    margin-bottom: 20px;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+  /* ----------------- Particle Background ----------------- */
+  .particle-background {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(circle at 30% 30%, #1a1a2e 0%, #0d0d14 70%, #0d0d14 100%);
+    animation: gradientMove 25s ease infinite;
+    z-index: -1;
+  }
+  
+  @keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  /* ----------------- Hero Section ----------------- */
+  .hero {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    margin-bottom: 100px;
+    transition: all 1s ease;
+  }
+  
+  .hero-content h1 {
+    font-size: 4rem;
+    background: linear-gradient(90deg, #7f8cff, #4ac6ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .hero-content p {
+    font-size: 1.5rem;
+    margin: 20px 0 40px;
+    color: rgba(224, 224, 224, 0.85);
+  }
+  
+  .hero-content button {
+    padding: 18px 55px;
+    border-radius: 50px;
+    font-weight: bold;
+    font-size: 1.2rem;
+    background: linear-gradient(90deg, #4ac6ff, #2a2f4a);
+    border: none;
+    cursor: pointer;
+    color: white;
+    transition: all 0.3s ease;
+  }
+  
+  .hero-content button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px #4ac6ff, 0 0 30px #2a2f4a;
+  }
+  
+  /* ----------------- Story Section ----------------- */
+  .story, .benefits, .plans {
+    max-width: 1100px;
+    margin: 0 auto 80px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(50px);
+    transition: all 0.8s ease;
+  }
+  
+  .story.fade-in, .story.slide-up,
+  .benefits.slide-up, .plans.slide-up {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .story h2 {
+    font-size: 2.8rem;
+    color: #7f8cff;
+    margin-bottom: 20px;
+  }
+  
+  .story p {
+    font-size: 1.3rem;
+    color: #ccc;
+    line-height: 1.8;
+  }
+  
+  /* ----------------- Benefits Section ----------------- */
+  .benefits h2 {
+    font-size: 2.5rem;
+    color: #4ac6ff;
+    margin-bottom: 50px;
+  }
+  
+  .benefits-grid {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 30px;
+  }
+  
+  .benefit-card {
+    width: 270px;
+    padding: 35px;
+    border-radius: 25px;
+    backdrop-filter: blur(15px);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(74, 198, 255, 0.2);
+    font-weight: bold;
+    transition: all 0.3s ease;
+  }
+  
+  .benefit-card:hover {
+    transform: translateY(-10px) scale(1.05);
+    box-shadow: 0 10px 40px rgba(74, 198, 255, 0.3);
+  }
+  
+  /* ----------------- Plans Section ----------------- */
+  .plans {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 50px;
+  }
+  
+  .plan-card {
+    padding: 45px;
+    border-radius: 30px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(74, 198, 255, 0.2);
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+    width: 300px;
+    text-align: center;
+    transition: all 0.4s ease;
+    cursor: pointer;
+  }
+  
+  .plan-card:hover {
+    transform: translateY(-15px) scale(1.05) rotateZ(0.5deg);
+    box-shadow: 0 20px 60px rgba(74, 198, 255, 0.4);
+  }
+  
+  .plan-card h3 {
+    font-size: 2rem;
+    margin-bottom: 15px;
+    color: #7f8cff;
+  }
+  
+  .plan-card .plan-price {
+    font-size: 1.5rem;
+    color: #4ac6ff;
+    font-weight: bold;
+    margin-bottom: 20px;
+  }
+  
+  .plan-card ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 30px;
+    color: #ccc;
+  }
+  
+  .plan-card button {
+    padding: 14px 35px;
+    border-radius: 50px;
+    background: linear-gradient(90deg, #4ac6ff, #2a2f4a);
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    color: white;
+    transition: all 0.3s ease;
+  }
+  
+  .plan-card button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px #4ac6ff, 0 0 30px #2a2f4a;
+  }
+  /* Payment Page Dark Theme */
+.payment-container {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at 30% 30%, #1a1a2e 0%, #0d0d14 70%);
+    font-family: 'Inter', sans-serif;
+    color: #e0e0e0;
+  }
+  
+  .method-card, .demo-card {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(15px);
+    padding: 50px;
+    border-radius: 25px;
+    text-align: center;
+    width: 400px;
+    border: 1px solid rgba(74,198,255,0.2);
+  }
+  
+  .method-card h2, .demo-card h2 {
+    font-size: 2rem;
+    color: #4ac6ff;
+    margin-bottom: 30px;
+  }
+  
+  .methods button, .demo-card button, .card-payment button {
+    width: 100%;
+    padding: 14px 0;
+    margin-top: 15px;
+    border-radius: 25px;
+    border: none;
+    background: linear-gradient(90deg, #4ac6ff, #2a2f4a);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s ease;
+  }
+  
+  .methods button:hover, .demo-card button:hover, .card-payment button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px #4ac6ff, 0 0 30px #2a2f4a;
+  }
+  
+  .back-btn {
+    background: none;
+    border: none;
+    color: #4ac6ff;
+    margin-top: 15px;
+    cursor: pointer;
+  }
+  
+  .card-payment {
+    display: flex;
+    width: 800px;
+    border-radius: 25px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(74,198,255,0.2);
+    box-shadow: 0 15px 50px rgba(0,0,0,0.3);
+  }
+  
+  .card-payment .left, .card-payment .right {
+    flex: 1;
+    padding: 40px;
+  }
+  
+  .card-payment .left {
+    background: rgba(0,0,0,0.05);
+  }
+  
+  .card-payment h2 {
+    font-size: 2rem;
+    color: #7f8cff;
+    margin-bottom: 15px;
+  }
+  
+  .card-payment h1 {
+    font-size: 2rem;
+    color: #4ac6ff;
+    margin-bottom: 20px;
+  }
+  
+  .card-payment ul {
+    list-style: none;
+    padding: 0;
+    color: #ccc;
+  }
+  
+  .card-payment .secure {
+    margin-top: 20px;
+    color: gray;
+  }
+  
+  .card-payment input {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    border-radius: 10px;
+    border: 1px solid #444;
+    background: rgba(0,0,0,0.2);
+    color: white;
+  }
+  
+  .card-payment .card-row {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .qr-box {
+    margin: 20px 0;
+    padding: 40px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 20px;
+    font-size: 30px;
+  }
+  /* Payment Success Dark Theme */
+.payment-success-container {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at 30% 30%, #1a1a2e 0%, #0d0d14 70%);
+    font-family: 'Poppins', sans-serif;
+    color: #e0e0e0;
+    padding: 20px;
+  }
+  
+  .success-card {
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(15px);
+    border-radius: 25px;
+    padding: 50px;
+    max-width: 600px;
+    text-align: center;
+    border: 1px solid rgba(74, 198, 255, 0.2);
+    box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 1;
+  }
+  
+  .success-title {
+    font-size: 42px;
+    margin-bottom: 20px;
+    background: linear-gradient(90deg, white); /* Pink → Purple */
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  .success-subtitle {
+    font-size: 20px;
+    margin-bottom: 40px;
+    color: #ccc;
+  }
+  
+  .plan-box {
+    background: rgba(0, 0, 0, 0.05);
+    padding: 25px;
+    border-radius: 20px;
+    margin-bottom: 40px;
+    border: 1px solid rgba(74, 198, 255, 0.2);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  }
+  
+  .plan-box h2 {
+    font-size: 2rem;
+    color: #7f8cff;
+    margin-bottom: 10px;
+  }
+  
+  .plan-box .plan-price {
+    font-size: 1.5rem;
+    color: #4ac6ff;
+    font-weight: bold;
+    margin-bottom: 15px;
+  }
+  
+  .plan-box ul {
+    list-style: none;
+    padding: 0;
+    color: #ccc;
+  }
+  
+  .continue-btn {
+    padding: 15px 50px;
+    font-size: 18px;
+    border-radius: 30px;
+    border: none;
+    background: linear-gradient(90deg, #4ac6ff, #2a2f4a);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  
+  .continue-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px #4ac6ff, 0 0 30px #2a2f4a;
+  }
+  /* ----------------- Auth (Login / Signup) ----------------- */
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: rgba(0,0,0,0.6);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 320px;
+}
+
+.auth-input {
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background: rgba(255,255,255,0.05);
+    color: #e0e0e0;
+}
+
+.auth-btn {
+    padding: 14px 0;
+    border-radius: 25px;
+    border: none;
+    background: linear-gradient(90deg, #4ac6ff, #2a2f4a);
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.auth-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px #4ac6ff, 0 0 30px #2a2f4a;
+}
+
+.auth-link {
+    text-align: center;
+    color: #4ac6ff;
+    cursor: pointer;
+    font-weight: 500;
+    margin-top: 10px;
+}
+
+/* ----------------- Dashboard Layout ----------------- */
+.app {
+    display: flex;
+    height: 100vh;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 220px;
+    background: #2C3E50;
+    color: white;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.menu-item {
+    padding: 12px;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.menu-item:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* Main Content */
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Topbar */
+.topbar {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    background: #1a1a2e;
+    gap: 10px;
+    border-bottom: 1px solid #444;
+}
+
+.sidebar-toggle {
+    padding: 5px 10px;
+    cursor: pointer;
+    background: rgba(255,255,255,0.05);
+    border-radius: 5px;
+}
+
+.search {
+    flex: 1;
+    padding: 6px 12px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: rgba(255,255,255,0.05);
+    color: #e0e0e0;
+}
+
+.profile, .notifications {
+    font-size: 20px;
+    cursor: pointer;
+}
+
+/* Dashboard Content */
+.dashboard {
+    padding: 20px;
+    overflow-y: auto;
+    background: #0d0d14;
+}
+
+/* Cards / Boxes */
+.card {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(15px);
+    padding: 25px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(74,198,255,0.2);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px) scale(1.02);
+    box-shadow: 0 15px 30px rgba(74,198,255,0.3);
+}
