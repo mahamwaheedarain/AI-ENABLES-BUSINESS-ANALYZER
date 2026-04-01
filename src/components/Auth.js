@@ -1,6 +1,6 @@
 // src/components/Auth.js
 import React from "react";
-import "../Subscription.css"; // make sure this points to your main CSS file
+import "../Subscription.css";
 
 export const Login = ({ onLogin, switchToSignup, styles }) => {
   const handleSubmit = (e) => {
@@ -10,7 +10,12 @@ export const Login = ({ onLogin, switchToSignup, styles }) => {
 
   return (
     <div className="auth-container" style={styles?.authContainer}>
-      <h1>Login</h1>
+      
+      {/* ✅ Brand */}
+      <h2 className="brand-title">InsightIQ</h2>
+      <p className="brand-sub">AI Business Analyzer</p>
+
+      <h1 className="auth-heading">Login</h1>
 
       <form onSubmit={handleSubmit} className="auth-form" style={styles?.authForm}>
         <input
@@ -20,6 +25,7 @@ export const Login = ({ onLogin, switchToSignup, styles }) => {
           className="auth-input"
           style={styles?.authInput}
         />
+
         <input
           type="password"
           placeholder="Password"
@@ -27,14 +33,15 @@ export const Login = ({ onLogin, switchToSignup, styles }) => {
           className="auth-input"
           style={styles?.authInput}
         />
+
         <button className="auth-btn" type="submit" style={styles?.primaryBtn}>
           Login
         </button>
       </form>
 
-      <p>
+      <p className="auth-text">
         Don't have an account?{" "}
-        <span className="auth-link" style={styles?.link} onClick={switchToSignup}>
+        <span className="auth-link" onClick={switchToSignup}>
           Sign Up
         </span>
       </p>
@@ -50,7 +57,12 @@ export const Signup = ({ onSignup, switchToLogin, styles }) => {
 
   return (
     <div className="auth-container" style={styles?.authContainer}>
-      <h1>Sign Up</h1>
+      
+      {/* ✅ Brand */}
+      <h2 className="brand-title">InsightIQ</h2>
+      <p className="brand-sub">AI Business Analyzer</p>
+
+      <h1 className="auth-heading">Sign Up</h1>
 
       <form onSubmit={handleSubmit} className="auth-form" style={styles?.authForm}>
         <input
@@ -60,6 +72,7 @@ export const Signup = ({ onSignup, switchToLogin, styles }) => {
           className="auth-input"
           style={styles?.authInput}
         />
+
         <input
           type="email"
           placeholder="Email"
@@ -67,6 +80,7 @@ export const Signup = ({ onSignup, switchToLogin, styles }) => {
           className="auth-input"
           style={styles?.authInput}
         />
+
         <input
           type="password"
           placeholder="Password"
@@ -74,14 +88,15 @@ export const Signup = ({ onSignup, switchToLogin, styles }) => {
           className="auth-input"
           style={styles?.authInput}
         />
+
         <button className="auth-btn" type="submit" style={styles?.primaryBtn}>
           Sign Up
         </button>
       </form>
 
-      <p>
+      <p className="auth-text">
         Already have an account?{" "}
-        <span className="auth-link" style={styles?.link} onClick={switchToLogin}>
+        <span className="auth-link" onClick={switchToLogin}>
           Login
         </span>
       </p>

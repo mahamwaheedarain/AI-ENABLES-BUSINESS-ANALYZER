@@ -1,6 +1,9 @@
+// src/SubscriptionPlans.js
 import React, { useState, useEffect } from "react";
 import PaymentPage from "./components/PaymentPage";
 import PaymentSuccess from "./components/PaymentSuccess";
+import ContactUs from "./components/ContactUs";
+import AboutApp from "./components/AboutApp";
 import "./Subscription.css";
 
 const plans = [
@@ -8,10 +11,12 @@ const plans = [
   { name: "Enterprise", price: "$50/month", features: ["All Features + AI Insights"] },
 ];
 
-function Subscription({ onSubscribe }) {
+export default function Subscription({ onSubscribe }) {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [goToPayment, setGoToPayment] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
@@ -28,24 +33,30 @@ function Subscription({ onSubscribe }) {
     return <PaymentPage plan={selectedPlan} onSuccess={() => setPaymentComplete(true)} onBack={() => setGoToPayment(false)} />;
   }
 
+  if (showContact) {
+    return <ContactUs onBack={() => setShowContact(false)} />;
+  }
+
+  if (showAbout) {
+    return <AboutApp onBack={() => setShowAbout(false)} />;
+  }
+
   return (
     <div className="subscription-container">
-
-      {/* Animated Particle Background */}
       <div className="particle-background" />
 
-      {/* Hero Section */}
       <section className={`hero ${scrollY > 50 ? "fade-in" : ""}`}>
         <div className="hero-content">
           <h1>InsightIQ</h1>
           <p>Smarter business decisions with AI insights for Finance, HR & Marketing.</p>
-          <button onClick={() => window.scrollTo({ top: 700, behavior: "smooth" })}>
-            Explore Plans
-          </button>
+         
+          <button className="contact-btn" onClick={() => setShowAbout(true)}>Learn More</button>
+          <button onClick={() => window.scrollTo({ top: 700, behavior: "smooth" })}>Explore Plans</button>
+          <button className="contact-btn" onClick={() => setShowContact(true)}>Contact Us</button>
+          
         </div>
       </section>
 
-      {/* Story Section */}
       <section className={`story ${scrollY > 300 ? "slide-up" : ""}`}>
         <h2>Our Story</h2>
         <p>
@@ -53,7 +64,6 @@ function Subscription({ onSubscribe }) {
         </p>
       </section>
 
-      {/* Benefits Section */}
       <section className={`benefits ${scrollY > 600 ? "slide-up" : ""}`}>
         <h2>What You’ll Get</h2>
         <div className="benefits-grid">
@@ -63,7 +73,6 @@ function Subscription({ onSubscribe }) {
         </div>
       </section>
 
-      {/* Subscription Plans */}
       <section className={`plans ${scrollY > 900 ? "slide-up" : ""}`}>
         {plans.map(plan => (
           <div key={plan.name} className="plan-card" onClick={() => { setSelectedPlan(plan); setGoToPayment(true); }}>
@@ -79,5 +88,3 @@ function Subscription({ onSubscribe }) {
     </div>
   );
 }
-
-export default Subscription;
