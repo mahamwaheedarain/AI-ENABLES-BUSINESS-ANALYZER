@@ -1,9 +1,10 @@
 // src/App.js
 import React, { useState } from "react";
 import FinanceDashboard from "./components/FinanceDashboard";
+import EnterpriseDashboard from "./components/EnterpriseDashboard";
 import Subscription from "./SubscriptionPlans";
 import { Login, Signup } from "./components/Auth";
-import ChatbotPage from "./components/ChatbotPage"; // Full-page Chatbot component
+import ChatbotPage from "./components/ChatbotPage";
 
 // ----------------- Styles -----------------
 const styles = {
@@ -16,73 +17,141 @@ const styles = {
   search: { padding: 6, borderRadius: 8, border: "1px solid #444", background: "#0d0d14", color: "#fff", flex: 1, marginRight: 10 },
   profile: { fontSize: 20 },
   notifications: { fontSize: 20 },
+  authContainer: { maxWidth: 400, margin: "100px auto", padding: 30, background: "rgba(255,255,255,0.05)", borderRadius: 20, textAlign: "center" },
+  authInput: { padding: 12, borderRadius: 10, border: "1px solid #444", background: "rgba(0,0,0,0.2)", color: "#fff", width: "100%", marginBottom: 10 },
+  primaryBtn: { padding: "12px", borderRadius: 25, border: "none", background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)", color: "#fff", cursor: "pointer", width: "100%" },
 };
 
-// ----------------- App Component -----------------
 function App() {
-  const [page, setPage] = useState("login"); // login / signup / subscription / dashboard
-  const [module, setModule] = useState(null); // finance / hr / marketing / chatbot
+  const [page, setPage] = useState("login"); // login / signup / subscription / authCheck / dashboard / enterpriseDashboard
+  const [module, setModule] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
+  const [tempEmail, setTempEmail] = useState("");
+  const [tempPassword, setTempPassword] = useState("");
+  const [isEnterprise, setIsEnterprise] = useState(false); // tracks if user chose Enterprise subscription
 
-  // Dummy login/signup
-  const handleLogin = (e) => { e.preventDefault(); setUser({ name: "Maham" }); setPage("subscription"); };
-  const handleSignup = (e) => { e.preventDefault(); setUser({ name: "Maham" }); setPage("subscription"); };
-  const handleSubscriptionComplete = (plan) => { console.log("Subscribed to:", plan); setPage("dashboard"); };
+  // ----------------- Login -----------------
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const email = e.target[0].value;
+    const password = e.target[1].value;
+    const name = "Maham"; // can ask for name if needed
+    setUser({ name, email, password });
+    setPage("subscription");
+  };
 
-  // ----------------- Dashboard -----------------
+  const handleSignup = (e) => {
+    e.preventDefault();
+    const name = e.target[0].value;
+    const email = e.target[1].value;
+    const password = e.target[2].value;
+    setUser({ name, email, password });
+    setPage("subscription");
+  };
+
+  // ----------------- Auth Check -----------------
+  const verifyUser = () => {
+    if (tempEmail === user?.email && tempPassword === user?.password) {
+      setPage("dashboard"); // normal users go to normal dashboard
+    } else {
+      alert("Wrong email or password");
+    }
+  };
+
+  // ----------------- Subscription Selection -----------------
+  const handleSubscription = (plan) => {
+    if (plan === "enterprise") {
+      setIsEnterprise(true);
+      setPage("enterpriseDashboard"); // go straight to Enterprise Dashboard
+    } else {
+      setIsEnterprise(false);
+      setPage("authCheck"); // normal users need auth check
+    }
+  };
+
+  // ----------------- Normal Dashboard -----------------
   if (page === "dashboard") {
     return (
       <div style={styles.app}>
-        {/* Sidebar */}
         {sidebarOpen && (
           <div style={styles.sidebar}>
             <h2 style={{ color: "#fff", textAlign: "center" }}>AI Analyzer</h2>
+
+            {/* Home button */}
+            <div
+              style={{ ...styles.menuItem, background: "#2a2f4a", textAlign: "center" }}
+              onClick={() => setPage("subscription")}
+            >
+              🏠 Home
+            </div>
+
             <div style={styles.menuItem} onClick={() => setModule("finance")}>Finance</div>
             <div style={styles.menuItem} onClick={() => setModule("hr")}>HR</div>
             <div style={styles.menuItem} onClick={() => setModule("marketing")}>Marketing</div>
             <div style={styles.menuItem} onClick={() => setModule("chatbot")}>Chatbot</div>
-            <div style={styles.menuItem} onClick={() => setPage("subscription")}>🏠 Home</div>
           </div>
         )}
 
-        {/* Main Area */}
         <div style={styles.main}>
           <div style={styles.topbar}>
             <button onClick={() => setSidebarOpen(!sidebarOpen)} style={styles.sidebarToggle}>☰</button>
-            <input type="text" placeholder="Search..." style={styles.search} />
-            <div style={styles.profile}>👤</div>
+            <input placeholder="Search..." style={styles.search} />
+            <div style={styles.profile}>👤 {user?.name}</div>
             <div style={styles.notifications}>🔔</div>
           </div>
 
           <div style={{ flex: 1, overflowY: "auto" }}>
             {module === "finance" && <FinanceDashboard />}
-            {module === "hr" && (
-              <div style={{ padding: 50, color: "#fff", textAlign: "center" }}>
-                <h2>HR Dashboard Coming Soon</h2>
-              </div>
-            )}
-            {module === "marketing" && (
-              <div style={{ padding: 50, color: "#fff", textAlign: "center" }}>
-                <h2>Marketing Dashboard Coming Soon</h2>
-              </div>
-            )}
-            {module === "chatbot" && <ChatbotPage />} {/* Full-page Chatbot */}
-            {!module && (
-              <div style={{ padding: 50, color: "#fff", textAlign: "center" }}>
-                <h2>Select a Module</h2>
-              </div>
-            )}
+            {module === "hr" && <div style={{ padding: 50, textAlign: "center" }}>HR Dashboard Coming Soon</div>}
+            {module === "marketing" && <div style={{ padding: 50, textAlign: "center" }}>Marketing Dashboard Coming Soon</div>}
+            {module === "chatbot" && <ChatbotPage />}
+            {!module && <div style={{ padding: 50, textAlign: "center" }}>Welcome {user?.name}! Select a module to begin.</div>}
           </div>
         </div>
       </div>
     );
   }
 
-  // Subscription Page
-  if (page === "subscription") return <Subscription onSubscribe={handleSubscriptionComplete} />;
+  // ----------------- Enterprise Dashboard -----------------
+  if (page === "enterpriseDashboard") {
+    return <EnterpriseDashboard user={user} onHome={() => setPage("subscription")} />;
+  }
 
-  // Login & Signup
+  // ----------------- Auth Check -----------------
+  if (page === "authCheck") {
+    return (
+      <div style={styles.authContainer}>
+        <h2>Verify Your Account</h2>
+        <input
+          placeholder="Enter Email"
+          style={styles.authInput}
+          onChange={(e) => setTempEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Enter Password"
+          style={styles.authInput}
+          onChange={(e) => setTempPassword(e.target.value)}
+        />
+        <button style={styles.primaryBtn} onClick={verifyUser}>
+          Go to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  // ----------------- Subscription Page -----------------
+  if (page === "subscription") {
+    return (
+      <Subscription
+        onSubscribe={handleSubscription} // passes plan type (enterprise / pro)
+        onGoToDashboard={() => setPage("authCheck")}
+      />
+    );
+  }
+
+  // ----------------- Login / Signup -----------------
   if (page === "login") return <Login onLogin={handleLogin} switchToSignup={() => setPage("signup")} styles={styles} />;
   return <Signup onSignup={handleSignup} switchToLogin={() => setPage("login")} styles={styles} />;
 }
