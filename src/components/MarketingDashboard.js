@@ -1,225 +1,160 @@
+// src/components/MarketingDashboard.js
 import React, { useState } from "react";
-import "../Subscription.css";
+import { Bar, Line, Pie } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
 
-function MarketingDashboard() {
-  const [campaigns, setCampaigns] = useState([
-    { id: 1, name: "Spring Sale", budget: 5000, status: "Active", conversions: 0 },
-    { id: 2, name: "Summer Launch", budget: 8000, status: "Planned", conversions: 0 },
-  ]);
+// ---------- Register ChartJS modules ----------
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
-  const [leads, setLeads] = useState([
-    { id: 1, name: "John Doe", email: "john@example.com", stage: "New" },
-    { id: 2, name: "Jane Smith", email: "jane@example.com", stage: "Contacted" },
-  ]);
+// ---------- Theme Colors ----------
+const themeColors = {
+  primary: "#4ac6ff",
+  secondary: "#2a2f4a",
+  cardBg: "#1a1a2e",
+  bg: "#0d0d14",
+  text: "#e0e0e0",
+  placeholder: "#555",
+};
 
-  const [roiData, setRoiData] = useState({ totalSpent: 13000, revenue: 30000 });
-  const [reports, setReports] = useState([]);
-  const [socialPosts, setSocialPosts] = useState([]);
-  const [seoScore, setSeoScore] = useState(75);
-  const [keywords, setKeywords] = useState(["AI", "Marketing", "Growth"]);
-  const [content, setContent] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [crmTasks, setCrmTasks] = useState([]);
-  const [customerJourney, setCustomerJourney] = useState([]);
-  const [chatbotLogs, setChatbotLogs] = useState([]);
-  const [events, setEvents] = useState([]);
+// ---------- Styles ----------
+const styles = {
+  appContainer: { display: "flex", height: "100vh", background: themeColors.bg, color: themeColors.text, fontFamily: "Inter, sans-serif" },
+  sidebar: { width: 250, background: themeColors.secondary, padding: 20, display: "flex", flexDirection: "column", gap: 15 },
+  menuItem: { padding: 12, cursor: "pointer", borderRadius: 10, transition: "0.2s", display: "flex", alignItems: "center" },
+  menuItemActive: { background: themeColors.primary, color: "#000" },
+  main: { flex: 1, display: "flex", flexDirection: "column" },
+  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: 12, background: themeColors.bg, borderBottom: "1px solid #222" },
+  sidebarToggle: { fontSize: 22, cursor: "pointer" },
+  search: { padding: 8, borderRadius: 8, border: `1px solid ${themeColors.placeholder}`, background: themeColors.bg, color: themeColors.text, width: 250 },
+  dashboard: { padding: 30, flex: 1, overflowY: "auto" },
+  cardGrid: { display: "flex", flexWrap: "wrap", gap: 20 },
+  card: { background: themeColors.cardBg, borderRadius: 15, padding: 20, color: "#fff", flex: "1 1 300px", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.5)", transition: "0.3s" },
+  backButton: { padding: "10px 25px", borderRadius: 20, background: themeColors.primary, border: "none", color: "#000", fontWeight: "bold", cursor: "pointer", marginBottom: 20 },
+};
 
-  // -------------------- Functionalities --------------------
-  const handleVoiceCommand = () => {
-    const suggestion = "AI suggests increasing ad budget for Spring Sale!";
-    console.log(suggestion);
-    alert(suggestion);
+// ---------- Marketing Categories ----------
+const categories = [
+  { name: "Campaigns", functionalities: ["Campaign Overview", "ROI Analysis", "Budget Updates", "Track Conversions"] },
+  { name: "Leads & CRM", functionalities: ["Leads Management", "Lead Segmentation", "Assign Leads", "CRM Integration"] },
+  { name: "AI & Automation", functionalities: ["Voice AI Suggestions", "Generate Reports", "Email Blasts", "Content Generation", "Push Notifications"] },
+  { name: "Analytics & Marketing Ops", functionalities: ["Social Posts", "SEO Score", "Keyword Analysis", "Customer Journey", "Competitor Insights", "Engagement Tracking", "Forecast Sales", "Manage Events"] },
+];
+
+// ---------- Marketing Data ----------
+const MarketingData = {
+  "Campaign Overview": { metrics: [{ name: "Total Campaigns", value: 5 }, { name: "Active Campaigns", value: 3 }, { name: "Conversions", value: 120 }], insight: "Overview of all marketing campaigns, budget utilization, and conversions." },
+  "ROI Analysis": { metrics: [{ name: "Total Spent", value: 13000 }, { name: "Revenue", value: 30000 }, { name: "ROI", value: 130 }], insight: "Analyze marketing ROI per campaign. AI can suggest which campaigns to scale." },
+  "Budget Updates": { metrics: [{ name: "Campaigns Adjusted", value: 2 }, { name: "Budget Increase Suggested", value: 3000 }], insight: "Track budget adjustments across campaigns to optimize spending." },
+  "Track Conversions": { metrics: [{ name: "Conversions Tracked", value: 120 }, { name: "Conversion Rate", value: 9.4 }], insight: "Monitor campaign effectiveness. AI predicts future conversion trends." },
+  "Leads Management": { metrics: [{ name: "Total Leads", value: 50 }, { name: "Contacted Leads", value: 20 }, { name: "New Leads", value: 10 }], insight: "Manage all leads in the pipeline. AI can prioritize high-potential leads." },
+  "Lead Segmentation": { metrics: [{ name: "Leads Segmented", value: 30 }, { name: "Segments Created", value: 3 }], insight: "Segment leads for targeted campaigns. AI can suggest the best segment for each campaign." },
+  "Assign Leads": { metrics: [{ name: "Assigned Leads", value: 20 }, { name: "Pending Assignment", value: 5 }], insight: "Automatically assign leads to sales reps based on workload and AI scoring." },
+  "CRM Integration": { metrics: [{ name: "Tasks Synced", value: 12 }, { name: "Pending Tasks", value: 3 }], insight: "Integrate CRM with campaigns and leads to streamline operations." },
+};
+
+// ---------- Dashboard ----------
+export default function MarketingDashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [category, setCategory] = useState(null);
+  const [activeFunc, setActiveFunc] = useState(null);
+
+  const handleBackCategory = () => { setCategory(null); setActiveFunc(null); };
+  const handleBackFunctionality = () => setActiveFunc(null);
+
+  // Render multiple charts
+  const renderCharts = (funcName) => {
+    const data = MarketingData[funcName]?.metrics || [];
+    if (data.length === 0) return null;
+
+    const barData = { labels: data.map(m => m.name), datasets: [{ label: "Values", data: data.map(m => Number(m.value)), backgroundColor: themeColors.primary }] };
+    const lineData = { labels: data.map(m => m.name), datasets: [{ label: "Trend", data: data.map(m => Number(m.value)), borderColor: "#ff9f40", backgroundColor: "rgba(255,159,64,0.3)" }] };
+    const pieData = { labels: data.map(m => m.name), datasets: [{ label: "Distribution", data: data.map(m => Number(m.value)), backgroundColor: ["#4ac6ff", "#ff6384", "#ff9f40", "#36a2eb"] }] };
+
+    return (
+      <div style={{ marginBottom: 30 }}>
+        <Bar data={barData} options={{ responsive: true, plugins: { legend: { display: false }, title: { display: true, text: funcName + " (Bar Chart)" } } }} />
+        <Line data={lineData} options={{ responsive: true, plugins: { legend: { display: false }, title: { display: true, text: funcName + " (Trend Line)" } } }} />
+        <Pie data={pieData} options={{ responsive: true, plugins: { legend: { position: "bottom" }, title: { display: true, text: funcName + " (Distribution Pie)" } } }} />
+      </div>
+    );
   };
 
-  const addCampaign = () => {
-    const newCampaign = { id: campaigns.length + 1, name: "New Campaign", budget: 2000, status: "Planned", conversions: 0 };
-    setCampaigns([...campaigns, newCampaign]);
-  };
+  const renderInsight = (funcName) => (
+    <div style={styles.cardGrid}>
+      <div style={styles.card}>
+        <h4>Insight</h4>
+        <p>{MarketingData[funcName]?.insight || "No insights available."}</p>
+      </div>
+    </div>
+  );
 
-  const analyzeROI = () => {
-    const roi = ((roiData.revenue - roiData.totalSpent) / roiData.totalSpent) * 100;
-    alert(`Current ROI: ${roi.toFixed(2)}%`);
-  };
+  const renderFunctionalityDetails = () => (
+    <div>
+      <button onClick={handleBackFunctionality} style={styles.backButton}>⬅ Back</button>
+      <h2 style={{ color: "#fff", marginBottom: 20 }}>{activeFunc}</h2>
+      {renderCharts(activeFunc)}
+      {renderInsight(activeFunc)}
+    </div>
+  );
 
-  const segmentLeads = () => {
-    const newLeads = leads.map(l => ({ ...l, stage: "Segmented" }));
-    setLeads(newLeads);
-    alert("Leads segmented successfully!");
-  };
-
-  const generateReport = () => {
-    const report = `Report ${reports.length + 1}: ${new Date().toLocaleDateString()}`;
-    setReports([...reports, report]);
-    alert("Report generated: " + report);
-  };
-
-  const sendEmailBlast = () => {
-    alert(`Email sent to ${leads.length} leads!`);
-  };
-
-  const scheduleSocialPost = () => {
-    const post = `Post ${socialPosts.length + 1} scheduled at ${new Date().toLocaleTimeString()}`;
-    setSocialPosts([...socialPosts, post]);
-    alert(post);
-  };
-
-  const viewTrends = () => {
-    alert("Market trends: AI, Automation, Sustainability rising!");
-  };
-
-  const updateBudget = (id, newBudget = 1000) => {
-    const updated = campaigns.map(c => c.id === id ? { ...c, budget: newBudget } : c);
-    setCampaigns(updated);
-  };
-
-  const trackConversions = (id) => {
-    const updated = campaigns.map(c => c.id === id ? { ...c, conversions: c.conversions + Math.floor(Math.random() * 50) } : c);
-    setCampaigns(updated);
-  };
-
-  const assignLeads = () => {
-    alert("Leads assigned to sales reps!");
-  };
-
-  const trackEngagement = () => {
-    alert("Engagement metrics tracked successfully!");
-  };
-
-  const forecastSales = () => {
-    const forecast = roiData.revenue * 1.1;
-    alert(`Forecasted Revenue: $${forecast.toFixed(0)}`);
-  };
-
-  const optimizeAds = () => {
-    alert("Ads optimized using AI suggestions!");
-  };
-
-  const viewCompetitors = () => {
-    alert("Competitor analysis completed!");
-  };
-
-  const manageSEO = () => {
-    const newScore = Math.min(100, seoScore + 5);
-    setSeoScore(newScore);
-    alert(`SEO score improved to ${newScore}`);
-  };
-
-  const generateContent = () => {
-    const newContent = `Content ${content.length + 1} generated by AI`;
-    setContent([...content, newContent]);
-    alert(newContent);
-  };
-
-  const automateReports = () => {
-    generateReport();
-    alert("Reports automated!");
-  };
-
-  const analyzeKeywords = () => {
-    alert(`Keywords analyzed: ${keywords.join(", ")}`);
-  };
-
-  const trackEmailMetrics = () => {
-    alert("Email open rate: 42%, CTR: 8%");
-  };
-
-  const pushNotifications = () => {
-    const notification = `Notification ${notifications.length + 1} sent!`;
-    setNotifications([...notifications, notification]);
-  };
-
-  const crmIntegration = () => {
-    setCrmTasks([...crmTasks, "New CRM Task"]);
-    alert("CRM integration completed!");
-  };
-
-  const trackCustomerJourney = () => {
-    setCustomerJourney([...customerJourney, `Customer visited page at ${new Date().toLocaleTimeString()}`]);
-    alert("Customer journey tracked!");
-  };
-
-  const chatbotInsights = () => {
-    setChatbotLogs([...chatbotLogs, `Chatbot interaction at ${new Date().toLocaleTimeString()}`]);
-    alert("Chatbot insights logged!");
-  };
-
-  const trackSocialMentions = () => {
-    alert("Tracked 15 social media mentions today!");
-  };
-
-  const manageEvents = () => {
-    const newEvent = { id: events.length + 1, name: "Webinar", date: new Date().toLocaleDateString() };
-    setEvents([...events, newEvent]);
-    alert("Event added: " + newEvent.name);
-  };
+  const renderCategory = () => (
+    <div>
+      <button onClick={handleBackCategory} style={styles.backButton}>⬅ Back</button>
+      <h2 style={{ color: "#fff", marginBottom: 20 }}>{category.name}</h2>
+      <div style={styles.cardGrid}>
+        {category.functionalities.map((func, idx) => (
+          <div key={idx} style={styles.card} onClick={() => setActiveFunc(func)}>{func}</div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="marketing-dashboard">
-      <h1>Marketing Dashboard</h1>
-
-      {/* Campaigns */}
-      <section className="section">
-        <h2>Campaign Overview</h2>
-        {campaigns.map((c) => (
-          <div key={c.id} className="card">
-            <h3>{c.name}</h3>
-            <p>Budget: ${c.budget}</p>
-            <p>Status: {c.status}</p>
-            <p>Conversions: {c.conversions}</p>
-            <button onClick={() => updateBudget(c.id)}>Update Budget</button>
-            <button onClick={() => trackConversions(c.id)}>Track Conversions</button>
-          </div>
-        ))}
-        <button onClick={addCampaign} className="primary-btn">➕ Add Campaign</button>
-      </section>
-
-      {/* Leads */}
-      <section className="section">
-        <h2>Leads & Segmentation</h2>
-        {leads.map((l) => (
-          <div key={l.id} className="card">
-            <p>{l.name} ({l.email}) - {l.stage}</p>
-            <button onClick={assignLeads}>Assign</button>
-            <button onClick={segmentLeads}>Segment</button>
-          </div>
-        ))}
-      </section>
-
-      {/* ROI */}
-      <section className="section">
-        <h2>ROI & Budget Insights</h2>
-        <p>Total Spent: ${roiData.totalSpent}</p>
-        <p>Revenue: ${roiData.revenue}</p>
-        <button onClick={analyzeROI}>Analyze ROI</button>
-      </section>
-
-      {/* AI Tools */}
-      <section className="section">
-        <h2>AI Tools & Automation</h2>
-        <div className="tools-grid">
-          <button onClick={handleVoiceCommand}>🎤 Ask AI</button>
-          <button onClick={generateReport}>Generate Report</button>
-          <button onClick={sendEmailBlast}>Email Blast</button>
-          <button onClick={scheduleSocialPost}>Schedule Social Post</button>
-          <button onClick={viewTrends}>View Trends</button>
-          <button onClick={forecastSales}>Forecast Sales</button>
-          <button onClick={optimizeAds}>Optimize Ads</button>
-          <button onClick={viewCompetitors}>Competitor Analysis</button>
-          <button onClick={manageSEO}>SEO Audit</button>
-          <button onClick={generateContent}>Content Generation</button>
-          <button onClick={automateReports}>Automate Reports</button>
-          <button onClick={analyzeKeywords}>Keyword Analysis</button>
-          <button onClick={trackEmailMetrics}>Email Metrics</button>
-          <button onClick={pushNotifications}>Push Notifications</button>
-          <button onClick={crmIntegration}>CRM Integration</button>
-          <button onClick={trackCustomerJourney}>Customer Journey</button>
-          <button onClick={chatbotInsights}>Chatbot Insights</button>
-          <button onClick={trackSocialMentions}>Social Mentions</button>
-          <button onClick={manageEvents}>Manage Events</button>
+    <div style={styles.appContainer}>
+      {sidebarOpen && (
+        <div style={styles.sidebar}>
+          <h2 style={{ textAlign: "center", marginBottom: 20 }}>Marketing Analyzer</h2>
+          {categories.map((cat, idx) => (
+            <div key={idx} style={{ ...styles.menuItem, ...(category?.name === cat.name ? styles.menuItemActive : {}) }} onClick={() => { setCategory(cat); setActiveFunc(null); }}>{cat.name}</div>
+          ))}
         </div>
-      </section>
+      )}
+
+      <div style={styles.main}>
+        <div style={styles.topbar}>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={styles.sidebarToggle}>☰</button>
+          <input type="text" placeholder="Search..." style={styles.search} />
+          <div>👤</div>
+          <div>🔔</div>
+        </div>
+
+        <div style={styles.dashboard}>
+          {!category && <h2 style={{ textAlign: "center", color: "#fff" }}>Select a Category to Begin</h2>}
+          {category && !activeFunc && renderCategory()}
+          {activeFunc && renderFunctionalityDetails()}
+        </div>
+      </div>
     </div>
   );
 }
-
-export default MarketingDashboard;

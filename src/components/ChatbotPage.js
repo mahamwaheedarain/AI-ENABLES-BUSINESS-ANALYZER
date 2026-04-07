@@ -10,24 +10,6 @@ const containerStyle = {
   fontFamily: "'Roboto', sans-serif",
 };
 
-const sidebarStyle = {
-  width: 250,
-  background: "#1a1a2e",
-  padding: 25,
-  display: "flex",
-  flexDirection: "column",
-  gap: 20,
-  boxShadow: "2px 0 5px rgba(0,0,0,0.5)",
-};
-
-const sidebarItemStyle = {
-  padding: 12,
-  cursor: "pointer",
-  color: "#fff",
-  borderRadius: 10,
-  transition: "all 0.3s",
-};
-
 const mainStyle = {
   flex: 1,
   display: "flex",
@@ -38,19 +20,20 @@ const topbarStyle = {
   display: "flex",
   justifyContent: "flex-end",
   alignItems: "center",
-  padding: "15px 20px",
+  padding: "15px 25px",
   background: "#0d0d14",
   borderBottom: "1px solid #333",
+  gap: 15,
 };
 
 const chatWindowStyle = {
   flex: 1,
-  padding: 20,
+  padding: 25,
   overflowY: "auto",
   display: "flex",
   flexDirection: "column",
-  gap: 12,
-  background: "#1a1a2e",
+  gap: 14,
+  background: "linear-gradient(135deg, #1a1a2e, #0d0d14)",
   borderRadius: "0 0 15px 15px",
 };
 
@@ -58,36 +41,39 @@ const messageStyle = (isUser) => ({
   alignSelf: isUser ? "flex-end" : "flex-start",
   background: isUser ? "#4ac6ff" : "#2a2f4a",
   color: "#fff",
-  padding: "12px 18px",
-  borderRadius: 20,
+  padding: "14px 20px",
+  borderRadius: 25,
   maxWidth: "70%",
   wordWrap: "break-word",
-  boxShadow: isUser ? "0 2px 10px rgba(0,0,0,0.3)" : "0 2px 10px rgba(0,0,0,0.6)",
+  boxShadow: isUser ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.6)",
   fontSize: 15,
-  lineHeight: 1.4,
+  lineHeight: 1.5,
+  transition: "all 0.3s",
+  opacity: 0,
+  animation: "fadeIn 0.3s forwards",
 });
 
 const inputContainerStyle = {
   display: "flex",
-  gap: 10,
-  padding: 15,
+  gap: 12,
+  padding: 20,
   background: "#0d0d14",
   borderTop: "1px solid #333",
 };
 
 const inputStyle = {
   flex: 1,
-  padding: 14,
+  padding: 16,
   borderRadius: 25,
   border: "1px solid #444",
-  background: "#0d0d14",
+  background: "#1a1a2e",
   color: "#fff",
   fontSize: 16,
   outline: "none",
 };
 
 const buttonStyle = {
-  padding: "12px 25px",
+  padding: "12px 20px",
   borderRadius: 25,
   border: "none",
   background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)",
@@ -98,23 +84,19 @@ const buttonStyle = {
   transition: "all 0.3s",
 };
 
-const fileUploadStyle = {
-  padding: "10px 15px",
-  borderRadius: 15,
-  border: "2px dashed #4ac6ff",
-  color: "#4ac6ff",
-  cursor: "pointer",
-  textAlign: "center",
-  fontSize: 14,
-};
+// ---------- Keyframes for fadeIn ----------
+const globalStyles = `
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+`;
 
 // ---------- ChatbotPage Component ----------
-export default function ChatbotPage({ goBack }) {
+export default function ChatbotPage() {
   const [messages, setMessages] = useState([
-    { text: "Hello! I'm your AI assistant. Upload a file or ask a question.", isUser: false, time: new Date() },
+    { text: "Hello! I'm your AI assistant. Ask me anything.", isUser: false, time: new Date() },
   ]);
   const [input, setInput] = useState("");
-  const [uploadedFiles, setUploadedFiles] = useState([]);
   const chatEndRef = useRef(null);
 
   useEffect(() => {
@@ -132,7 +114,7 @@ export default function ChatbotPage({ goBack }) {
       setMessages((prev) => [
         ...prev,
         {
-          text: `AI Response for your query: "${input}" (can process uploaded files later).`,
+          text: `AI Response: "${input}" (ready for AI/ML processing).`,
           isUser: false,
           time: new Date(),
         },
@@ -146,37 +128,14 @@ export default function ChatbotPage({ goBack }) {
     if (e.key === "Enter") sendMessage();
   };
 
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    setUploadedFiles((prev) => [...prev, ...files]);
-    files.forEach((file) => {
-      setMessages((prev) => [
-        ...prev,
-        { text: `File "${file.name}" uploaded successfully.`, isUser: false, time: new Date() },
-      ]);
-    });
-  };
-
   const formatTime = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div style={containerStyle}>
-      {/* Sidebar */}
-      <div style={sidebarStyle}>
-        <h2 style={{ textAlign: "center", marginBottom: 20 }}>AI Analyzer</h2>
-        <div
-          style={sidebarItemStyle}
-          onClick={goBack}
-          onMouseOver={(e) => e.currentTarget.style.background = "linear-gradient(90deg, #4ac6ff, #2a2f4a)"}
-          onMouseOut={(e) => e.currentTarget.style.background = "transparent"}
-        >
-          ⬅ Back
-        </div>
-      </div>
+      <style>{globalStyles}</style>
 
-      {/* Main Area */}
       <div style={mainStyle}>
-        {/* Topbar without search */}
+        {/* Topbar */}
         <div style={topbarStyle}>
           <div>👤</div>
           <div>🔔</div>
@@ -184,18 +143,10 @@ export default function ChatbotPage({ goBack }) {
 
         {/* Chat Window */}
         <div style={chatWindowStyle}>
-          {/* Uploaded Files Info */}
-          {uploadedFiles.length > 0 && (
-            <div style={{ color: "#4ac6ff", fontSize: 14, marginBottom: 10 }}>
-              Uploaded Files: {uploadedFiles.map((f) => f.name).join(", ")}
-            </div>
-          )}
-
-          {/* Messages */}
           {messages.map((msg, idx) => (
             <div key={idx} style={messageStyle(msg.isUser)}>
               <div>{msg.text}</div>
-              <div style={{ fontSize: 10, textAlign: "right", marginTop: 3, opacity: 0.6 }}>
+              <div style={{ fontSize: 10, textAlign: "right", marginTop: 4, opacity: 0.6 }}>
                 {formatTime(msg.time)}
               </div>
             </div>
@@ -205,19 +156,17 @@ export default function ChatbotPage({ goBack }) {
 
         {/* Input Area */}
         <div style={inputContainerStyle}>
-          <label style={fileUploadStyle}>
-            Upload files
-            <input type="file" multiple style={{ display: "none" }} onChange={handleFileUpload} />
-          </label>
           <input
             type="text"
-            placeholder="Type your message or question..."
+            placeholder="Type your question..."
             style={inputStyle}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
           />
-          <button onClick={sendMessage} style={buttonStyle}>Send</button>
+          <button onClick={sendMessage} style={buttonStyle}>
+            Send
+          </button>
         </div>
       </div>
     </div>

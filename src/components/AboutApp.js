@@ -36,20 +36,6 @@ export default function AboutApp({ onBack }) {
           <div className="tutorial-card">5️⃣ Apply insights to improve business decisions</div>
         </div>
 
-        {/* Video Tutorial (optional) */}
-        <h3>Video Tutorial</h3>
-        <div className="video-wrapper">
-          <iframe 
-            width="100%" 
-            height="450" 
-            src="https://www.youtube.com/embed/dQw4w9WgXcQ" 
-            title="InsightIQ Tutorial" 
-            frameBorder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowFullScreen>
-          </iframe>
-        </div>
-
         {/* Who Can Benefit */}
         <h3>Who Can Benefit</h3>
         <p>

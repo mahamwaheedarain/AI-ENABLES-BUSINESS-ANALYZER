@@ -1,3 +1,4 @@
+
 // src/components/Auth.js
 import React from "react";
 import "../Subscription.css";
@@ -103,3 +104,4 @@ export const Signup = ({ onSignup, switchToLogin, styles }) => {
     </div>
   );
 };
+
