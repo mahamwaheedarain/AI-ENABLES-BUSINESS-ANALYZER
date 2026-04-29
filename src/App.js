@@ -1,12 +1,14 @@
-// src/App.js
 import React, { useState } from "react";
 import FinanceDashboard from "./components/FinanceDashboard";
 import HRDashboard from "./components/HRDashboard";
 import MarketingDashboard from "./components/MarketingDashboard";
 import EnterpriseDashboard from "./components/EnterpriseDashboard";
 import Subscription from "./SubscriptionPlans";
-import { Login, Signup } from "./components/Auth";
 import ChatbotPage from "./components/ChatbotPage";
+import { Login, Signup } from "./components/Auth";
+import { auth, db } from "./firebase";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 // ----------------- Styles -----------------
 const styles = {
@@ -27,11 +29,8 @@ function App() {
   const [module, setModule] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
-  const [tempEmail, setTempEmail] = useState("");
-  const [tempPassword, setTempPassword] = useState("");
-  const [isEnterprise, setIsEnterprise] = useState(false);
 
-  // ✅ PRO FILE FLOW STATES (FIXED)
+  // ✅ PRO FILE FLOW STATES
   const [files, setFiles] = useState([]);
 
   const handleFileUpload = (e) => {
@@ -46,45 +45,54 @@ function App() {
     setPage("dashboard");
   };
 
-  // ----------------- LOGIN -----------------
-  const handleLogin = (e) => {
-    e.preventDefault();
-    const email = e.target[0].value;
-    const password = e.target[1].value;
-    setUser({ name: "Maham", email, password });
-    setPage("subscription");
+  // ----------------- FIREBASE LOGIN -----------------
+  const handleLogin = async (email, password) => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      setUser({
+        email: userCredential.user.email,
+        uid: userCredential.user.uid,
+      });
+      setPage("subscription");
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
-  const handleSignup = (e) => {
-    e.preventDefault();
-    const name = e.target[0].value;
-    const email = e.target[1].value;
-    const password = e.target[2].value;
-    setUser({ name, email, password });
-    setPage("subscription");
-  };
+  // ----------------- FIREBASE SIGNUP -----------------
+  const handleSignup = async (name, email, password) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
-  // ----------------- AUTH CHECK -----------------
-  const verifyUser = () => {
-    if (tempEmail === user?.email && tempPassword === user?.password) {
-      setPage("proUpload"); // go to upload
-    } else {
-      alert("Wrong email or password");
+      setUser({
+        name,
+        email: userCredential.user.email,
+        uid: userCredential.user.uid,
+      });
+
+      // Save to Firestore
+      await setDoc(doc(db, "users", userCredential.user.uid), {
+        name,
+        email,
+        uid: userCredential.user.uid,
+      });
+
+      setPage("subscription");
+    } catch (error) {
+      alert(error.message);
     }
   };
 
   // ----------------- SUBSCRIPTION -----------------
   const handleSubscription = (plan) => {
     if (plan === "enterprise") {
-      setIsEnterprise(true);
       setPage("enterpriseDashboard");
     } else {
-      setIsEnterprise(false);
-      setPage("authCheck");
+      setPage("proUpload"); // ✅ ALWAYS go to upload first
     }
   };
 
-  // ----------------- PRO FILE UPLOAD PAGE -----------------
+  // ----------------- PRO FILE UPLOAD -----------------
   if (page === "proUpload") {
     return (
       <div style={{ padding: 50, textAlign: "center", color: "#fff" }}>
@@ -103,7 +111,7 @@ function App() {
             background: "#1a1a2e",
             color: "#fff",
             borderRadius: 10,
-            border: "1px solid #444"
+            border: "1px solid #444",
           }}
         />
 
@@ -119,7 +127,7 @@ function App() {
             border: "none",
             background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)",
             color: "#fff",
-            cursor: "pointer"
+            cursor: "pointer",
           }}
         >
           Continue to Dashboard
@@ -128,7 +136,7 @@ function App() {
     );
   }
 
-  // ----------------- PRO DASHBOARD -----------------
+  // ----------------- DASHBOARD -----------------
   if (page === "dashboard") {
     return (
       <div style={styles.app}>
@@ -154,7 +162,7 @@ function App() {
           <div style={styles.topbar}>
             <button onClick={() => setSidebarOpen(!sidebarOpen)} style={styles.sidebarToggle}>☰</button>
             <input placeholder="Search..." style={styles.search} />
-            <div>👤 {user?.name}</div>
+            <div>👤 {user?.name || ""}</div>
           </div>
 
           <div style={{ flex: 1, padding: 20 }}>
@@ -162,7 +170,7 @@ function App() {
             {module === "hr" && <HRDashboard />}
             {module === "marketing" && <MarketingDashboard />}
             {module === "chatbot" && <ChatbotPage />}
-            {!module && <h2 style={{ textAlign: "center" }}>Welcome {user?.name}</h2>}
+            {!module && <h2 style={{ textAlign: "center" }}>Welcome</h2>}
           </div>
         </div>
       </div>
@@ -174,30 +182,21 @@ function App() {
     return <EnterpriseDashboard user={user} onHome={() => setPage("subscription")} />;
   }
 
-  // ----------------- AUTH CHECK -----------------
-  if (page === "authCheck") {
-    return (
-      <div style={styles.authContainer}>
-        <h2>Verify Your Account</h2>
-        <input placeholder="Email" style={styles.authInput} onChange={(e) => setTempEmail(e.target.value)} />
-        <input type="password" placeholder="Password" style={styles.authInput} onChange={(e) => setTempPassword(e.target.value)} />
-        <button style={styles.primaryBtn} onClick={verifyUser}>Go to Dashboard</button>
-      </div>
-    );
-  }
-
   // ----------------- SUBSCRIPTION -----------------
   if (page === "subscription") {
     return (
       <Subscription
         onSubscribe={handleSubscription}
-        onGoToDashboard={() => setPage("authCheck")}
+        onGoToDashboard={() => setPage("proUpload")} // ✅ FIXED
       />
     );
   }
 
   // ----------------- LOGIN / SIGNUP -----------------
-  if (page === "login") return <Login onLogin={handleLogin} switchToSignup={() => setPage("signup")} styles={styles} />;
+  if (page === "login") {
+    return <Login onLogin={handleLogin} switchToSignup={() => setPage("signup")} styles={styles} />;
+  }
+
   return <Signup onSignup={handleSignup} switchToLogin={() => setPage("login")} styles={styles} />;
 }
 

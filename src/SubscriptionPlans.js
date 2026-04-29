@@ -23,7 +23,12 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   const [authPassword, setAuthPassword] = useState("");
   const [verifyEnterprise, setVerifyEnterprise] = useState(false);
 
-  // Track scroll for animations
+  // Pro auth states
+  const [proEmail, setProEmail] = useState("");
+  const [proPassword, setProPassword] = useState("");
+  const [verifyPro, setVerifyPro] = useState(false);
+
+  // Scroll listener for animations
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll);
@@ -33,17 +38,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   // ----------------- Payment Success -----------------
   if (paymentComplete && selectedPlan) {
     if (selectedPlan.name === "Enterprise") {
-      // Show Enterprise Auth Check before going to Enterprise Dashboard
-      setVerifyEnterprise(true);
+      setVerifyEnterprise(true); // Enterprise auth
       return null;
-    } else {
-      // Pro plan goes to normal dashboard after payment success
-      return (
-        <PaymentSuccess
-          plan={selectedPlan}
-          onContinue={onGoToDashboard}
-        />
-      );
+    } else if (selectedPlan.name === "Pro") {
+      setVerifyPro(true); // Pro auth
+      return null;
     }
   }
 
@@ -92,7 +91,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           value={authPassword}
           onChange={(e) => setAuthPassword(e.target.value)}
         />
-
         <button
           style={{
             padding: "12px",
@@ -105,7 +103,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           }}
           onClick={() => {
             if (authEmail && authPassword) {
-              // send to Enterprise Dashboard
               onSubscribe("enterprise");
             } else {
               alert("Please enter Email and Password to continue!");
@@ -113,6 +110,75 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           }}
         >
           Go to Enterprise Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  // ----------------- Pro Auth Check -----------------
+  if (verifyPro) {
+    return (
+      <div
+        className="auth-container"
+        style={{
+          maxWidth: 400,
+          margin: "100px auto",
+          padding: 30,
+          background: "rgba(255,255,255,0.05)",
+          borderRadius: 20,
+          textAlign: "center",
+        }}
+      >
+        <h2>Pro Dashboard Verification</h2>
+        <input
+          type="email"
+          placeholder="Enter Email"
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #444",
+            background: "rgba(0,0,0,0.2)",
+            color: "#fff",
+            width: "100%",
+            marginBottom: 10,
+          }}
+          value={proEmail}
+          onChange={(e) => setProEmail(e.target.value)}
+        />
+        <input
+          type="password"
+          placeholder="Enter Password"
+          style={{
+            padding: 12,
+            borderRadius: 10,
+            border: "1px solid #444",
+            background: "rgba(0,0,0,0.2)",
+            color: "#fff",
+            width: "100%",
+            marginBottom: 10,
+          }}
+          value={proPassword}
+          onChange={(e) => setProPassword(e.target.value)}
+        />
+        <button
+          style={{
+            padding: "12px",
+            borderRadius: 25,
+            border: "none",
+            background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)",
+            color: "#fff",
+            cursor: "pointer",
+            width: "100%",
+          }}
+          onClick={() => {
+            if (proEmail && proPassword) {
+              onGoToDashboard(); // proceed to Pro dashboard
+            } else {
+              alert("Please enter Email and Password to continue!");
+            }
+          }}
+        >
+          Go to Pro Dashboard
         </button>
       </div>
     );
@@ -129,10 +195,8 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     );
   }
 
-  // ----------------- Contact Us page -----------------
+  // ----------------- Contact / About -----------------
   if (showContact) return <ContactUs onBack={() => setShowContact(false)} />;
-
-  // ----------------- About App page -----------------
   if (showAbout) return <AboutApp onBack={() => setShowAbout(false)} />;
 
   // ----------------- Main Subscription Page -----------------
@@ -148,13 +212,8 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           <button className="contact-btn" onClick={() => setShowAbout(true)}>Learn More</button>
           <button onClick={() => window.scrollTo({ top: 700, behavior: "smooth" })}>Explore Plans</button>
           <button className="contact-btn" onClick={() => setShowContact(true)}>Contact Us</button>
-          <button onClick={onGoToDashboard}>Go to Pro Dashboard</button>
-          <button
-            onClick={() => setVerifyEnterprise(true)}
-            style={{ marginTop: 10 }}
-          >
-            Go to Enterprise Dashboard
-          </button>
+          <button onClick={() => setVerifyPro(true)}>Go to Pro Dashboard</button>
+          <button onClick={() => setVerifyEnterprise(true)} style={{ marginTop: 10 }}>Go to Enterprise Dashboard</button>
         </div>
       </section>
 
