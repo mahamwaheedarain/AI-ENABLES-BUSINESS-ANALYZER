@@ -37,12 +37,43 @@ function App() {
     setFiles(Array.from(e.target.files));
   };
 
-  const handleContinue = () => {
+  // ✅ UPDATED: Now sends files to PostgreSQL via Backend
+  const handleContinue = async () => {
     if (files.length === 0) {
       alert("Please upload at least one file");
       return;
     }
-    setPage("dashboard");
+
+    try {
+      // Convert files to the format expected by your PostgreSQL route
+      const filePromises = files.map((file) => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ filename: file.name, content: reader.result });
+          reader.onerror = reject;
+          reader.readAsText(file); // Reads content as text for SQL storage
+        });
+      });
+
+      const preparedFiles = await Promise.all(filePromises);
+
+      // Send to your backend
+      const response = await fetch("http://localhost:5000/api/upload/upload-multiple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: preparedFiles }),
+      });
+
+      if (response.ok) {
+        console.log("Files saved to SQL successfully");
+        setPage("dashboard");
+      } else {
+        alert("Failed to save files to database.");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Error processing business data.");
+    }
   };
 
   // ----------------- FIREBASE LOGIN -----------------

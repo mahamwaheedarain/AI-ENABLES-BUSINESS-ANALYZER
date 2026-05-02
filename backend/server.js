@@ -1,33 +1,25 @@
 const express = require("express");
 const cors = require("cors");
-const path = require("path");
-const fs = require("fs");
 require("dotenv").config();
 
 const app = express();
 
-// Ensure the uploads directory exists for your business files
-const uploadsDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
-
+// Essential: Increased limits for business data processing
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cors());
-app.use(express.json());
 
 // Import Routes
 const uploadRoutes = require("./routes/upload");
 const chatbotRoutes = require("./routes/chatbot");
+const analyzerRoutes = require("./routes/analyzer");
 
-// Define API Endpoints
+// Endpoints
 app.use("/api/upload", uploadRoutes);
 app.use("/api/chatbot", chatbotRoutes);
+app.use("/api/analyzer", analyzerRoutes);
 
-app.get("/", (req, res) => {
-  res.send("Business Analyzer API is running...");
-});
+app.get("/", (req, res) => res.send("Business Analyzer API is running..."));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

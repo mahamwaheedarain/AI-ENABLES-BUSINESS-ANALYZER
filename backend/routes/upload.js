@@ -1,24 +1,28 @@
 const express = require("express");
 const router = express.Router();
-const multer = require("multer");
-const path = require("path");
+const pool = require("../db");
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) => {
-    // Keeps filenames unique but recognizable
-    cb(null, Date.now() + "-" + file.originalname);
+router.post("/upload-multiple", async (req, res) => {
+  const { files } = req.body; 
+
+  if (!files || !Array.isArray(files)) {
+    return res.status(400).json({ error: "No files provided." });
   }
-});
 
-const upload = multer({ storage: storage });
+  try {
+    const insertPromises = files.map((file) => {
+      return pool.query(
+        "INSERT INTO business_files (filename, content) VALUES ($1, $2)",
+        [file.filename, file.content]
+      );
+    });
 
-router.post("/", upload.single("file"), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-  res.json({ 
-    message: "File uploaded successfully", 
-    file: req.file.filename 
-  });
+    await Promise.all(insertPromises);
+    res.json({ message: "Files successfully stored in PostgreSQL." });
+  } catch (err) {
+    console.error("❌ DB Upload Error:", err.message);
+    res.status(500).json({ error: "Database save failed." });
+  }
 });
 
 module.exports = router;
