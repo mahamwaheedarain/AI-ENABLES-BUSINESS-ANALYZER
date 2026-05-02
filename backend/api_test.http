@@ -1,0 +1,20 @@
+### Step 1: Upload the Business File
+POST http://localhost:5000/api/upload
+Content-Type: multipart/form-data; boundary=MyBoundary
+
+--MyBoundary
+Content-Disposition: form-data; name="file"; filename="caalLab2.txt"
+Content-Type: text/plain
+
+< ./caalLab2.txt
+--MyBoundary--
+
+###
+
+### Step 2: Ask the Chatbot about the file
+POST http://localhost:5000/api/chatbot/chat
+Content-Type: application/json
+
+{
+    "message": "Give me a summary of the uploaded file."
+}

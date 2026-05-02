@@ -45,7 +45,9 @@ const messageStyle = (isUser) => ({
   borderRadius: 25,
   maxWidth: "70%",
   wordWrap: "break-word",
-  boxShadow: isUser ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.6)",
+  boxShadow: isUser
+    ? "0 4px 12px rgba(0,0,0,0.3)"
+    : "0 4px 12px rgba(0,0,0,0.6)",
   fontSize: 15,
   lineHeight: 1.5,
   transition: "all 0.3s",
@@ -81,21 +83,25 @@ const buttonStyle = {
   cursor: "pointer",
   fontWeight: "bold",
   fontSize: 16,
-  transition: "all 0.3s",
 };
 
-// ---------- Keyframes for fadeIn ----------
+// ---------- Keyframes ----------
 const globalStyles = `
 @keyframes fadeIn {
   to { opacity: 1; }
 }
 `;
 
-// ---------- ChatbotPage Component ----------
+// ---------- COMPONENT ----------
 export default function ChatbotPage() {
   const [messages, setMessages] = useState([
-    { text: "Hello! I'm your AI assistant. Ask me anything.", isUser: false, time: new Date() },
+    {
+      text: "Hello! I'm your AI assistant. Ask me anything.",
+      isUser: false,
+      time: new Date(),
+    },
   ]);
+
   const [input, setInput] = useState("");
   const chatEndRef = useRef(null);
 
@@ -103,32 +109,57 @@ export default function ChatbotPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = () => {
+  // ✅ UPDATED: REAL BACKEND CONNECTION
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const newMsg = { text: input, isUser: true, time: new Date() };
-    setMessages((prev) => [...prev, newMsg]);
+    const userMsg = {
+      text: input,
+      isUser: true,
+      time: new Date(),
+    };
 
-    // Dummy AI response
-    setTimeout(() => {
+    setMessages((prev) => [...prev, userMsg]);
+
+    const currentInput = input;
+    setInput("");
+
+    try {
+      const response = await fetch("http://localhost:5000/api/chatbot/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: currentInput }),
+      });
+
+      const data = await response.json();
+
+      const botMsg = {
+        text: data.reply || "No response from server",
+        isUser: false,
+        time: new Date(),
+      };
+
+      setMessages((prev) => [...prev, botMsg]);
+    } catch (error) {
       setMessages((prev) => [
         ...prev,
         {
-          text: `AI Response: "${input}" (ready for AI/ML processing).`,
+          text: "Server error. Please check backend.",
           isUser: false,
           time: new Date(),
         },
       ]);
-    }, 700);
-
-    setInput("");
+    }
   };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter") sendMessage();
   };
 
-  const formatTime = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const formatTime = (date) =>
+    date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div style={containerStyle}>
@@ -146,7 +177,14 @@ export default function ChatbotPage() {
           {messages.map((msg, idx) => (
             <div key={idx} style={messageStyle(msg.isUser)}>
               <div>{msg.text}</div>
-              <div style={{ fontSize: 10, textAlign: "right", marginTop: 4, opacity: 0.6 }}>
+              <div
+                style={{
+                  fontSize: 10,
+                  textAlign: "right",
+                  marginTop: 4,
+                  opacity: 0.6,
+                }}
+              >
                 {formatTime(msg.time)}
               </div>
             </div>
@@ -154,7 +192,7 @@ export default function ChatbotPage() {
           <div ref={chatEndRef} />
         </div>
 
-        {/* Input Area */}
+        {/* Input */}
         <div style={inputContainerStyle}>
           <input
             type="text"
@@ -162,7 +200,7 @@ export default function ChatbotPage() {
             style={inputStyle}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
           />
           <button onClick={sendMessage} style={buttonStyle}>
             Send

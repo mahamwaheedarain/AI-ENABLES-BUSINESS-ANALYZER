@@ -1,18 +1,28 @@
-import React, { useState } from "react";
-import { db } from "../firebase"; 
+import React, { useState, useEffect } from "react";
+import { db, auth } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import Confetti from "react-confetti";
 
-function PaymentPage({ plan, onSuccess, onBack, user }) {
+function PaymentPage({ plan, onSuccess, onBack }) {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [paymentComplete, setPaymentComplete] = useState(false);
   const [method, setMethod] = useState(null);
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   const [form, setForm] = useState({
-    name: user?.displayName || user?.name || "",
+    name: "",
     business: "",
     contact: "",
-    email: user?.email || "",
+    email: "",
+    password: ""
   });
+
+  useEffect(() => {
+    const handleResize = () => setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -20,177 +30,131 @@ function PaymentPage({ plan, onSuccess, onBack, user }) {
 
   const handlePayment = async (e) => {
     e.preventDefault();
-
-    // 1. Basic Validation
-    if (!form.business || !form.email) {
-      alert("Please enter your Business Name and Email.");
+    if (!form.business || !form.email || !form.password) {
+      alert("Please fill all required fields.");
       return;
     }
 
     setLoading(true);
-    setMessage("Processing secure transaction...");
-
-    // 2. THE SAFETY TIMEOUT (Prevents the infinite "Processing" hang)
-    const safetyTimeout = setTimeout(() => {
-      setLoading(false);
-      console.warn("Firebase Response Timeout: Proceeding in Test Mode.");
-      alert("Note: Database is slow. Proceeding in Test Mode.");
-      onSuccess(plan); // Force navigation to Dashboard
-    }, 4000);
+    let uid = null;
 
     try {
-      // 3. FIREBASE STORAGE ATTEMPT
-      const docId = user?.uid || form.email.replace(".", "_") || "guest_user";
-      const docRef = doc(db, "subscriptions", docId);
-      
-      await setDoc(docRef, {
-        customerName: form.name,
-        businessName: form.business,
+      const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
+      uid = userCredential.user.uid;
+    } catch (err) {
+      if (err.code === "auth/email-already-in-use") {
+        const loginRes = await signInWithEmailAndPassword(auth, form.email, form.password);
+        uid = loginRes.user.uid;
+      } else {
+        alert("Auth error: " + err.message);
+        setLoading(false);
+        return;
+      }
+    }
+
+    try {
+      await setDoc(doc(db, "subscriptions", uid), {
+        name: form.name,
+        business: form.business,
         contact: form.contact,
         email: form.email,
-        planName: plan.name,
-        price: plan.price,
+        plan: plan.name,
         status: "active",
-        purchaseDate: new Date().toISOString(),
-        userId: user?.uid || "guest"
-      }, { merge: true });
-
-      // If we reach here, Firebase succeeded!
-      clearTimeout(safetyTimeout); 
-      setMessage("Success! Activating your account...");
-      
-      setTimeout(() => {
-        onSuccess(plan);
-      }, 1000);
-
+        createdAt: new Date().toISOString(),
+      });
+      setPaymentComplete(true);
     } catch (error) {
-      // If we hit a direct error (like bad permissions)
-      clearTimeout(safetyTimeout);
-      console.error("Firestore Error:", error);
-      alert("Database error, but moving to dashboard for demo purposes.");
-      onSuccess(plan);
-    } finally {
-      setLoading(false);
+      console.error(error);
+      setPaymentComplete(true); // Continue to success even if DB log fails
     }
+    setLoading(false);
   };
 
-  // --- VIEW 1: SELECT METHOD ---
-  if (!method) {
+  // ---------------- SUCCESS VIEW ----------------
+  if (paymentComplete) {
     return (
       <div style={containerStyle}>
-        <div style={cardStyle}>
-          <h2 style={{ color: "#4ac6ff", marginBottom: "10px" }}>Secure Checkout</h2>
-          <p style={{ color: "#aaa" }}>Confirming subscription for: <strong>{plan.name}</strong></p>
+        <Confetti width={windowSize.width} height={windowSize.height} recycle={false} numberOfPieces={400} gravity={0.1} colors={['#4ac6ff', '#2a2f4a', '#ffffff', '#1a1a2e']} />
+        <div style={{ ...cardStyle, maxWidth: "500px", textAlign: "center", animation: "fadeIn 0.8s ease-out" }}>
+          <div style={{ fontSize: "4rem", marginBottom: "20px" }}>✨</div>
+          <h1 style={{ fontSize: "2.2rem", fontWeight: "300", marginBottom: "10px", letterSpacing: "1px" }}>Access Granted</h1>
+          <p style={{ color: "#aaa", marginBottom: "30px" }}>
+            Your <strong>{plan.name}</strong> subscription is now active.
+          </p>
           
-          <div style={{ marginTop: "30px", display: "flex", flexDirection: "column", gap: "15px" }}>
-            <button onClick={() => setMethod("Credit Card")} style={primaryBtnStyle}>
-              💳 Pay with Credit Card
-            </button>
-            <button onClick={onBack} style={linkBtnStyle}>
-              ← Back to Plans
-            </button>
+          <div style={{ background: "rgba(0,0,0,0.2)", padding: "20px", borderRadius: "15px", border: "1px solid rgba(74, 198, 255, 0.2)", marginBottom: "30px", textAlign: "left" }}>
+            <h4 style={{ margin: "0 0 10px 0", color: "#4ac6ff", textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "2px" }}>Plan Details</h4>
+            <div style={{ fontSize: "1.2rem", fontWeight: "600" }}>{plan.name} Analyzer</div>
+            <div style={{ color: "#888", fontSize: "0.9rem" }}>{plan.price} / monthly</div>
           </div>
+
+          <button onClick={() => onSuccess({ email: form.email, password: form.password, plan: plan.name })} style={primaryBtnStyle}>
+            Go to Executive Dashboard
+          </button>
         </div>
       </div>
     );
   }
 
-  // --- VIEW 2: CARD & BUSINESS FORM ---
+  // ---------------- METHOD SELECTION ----------------
+  if (!method) {
+    return (
+      <div style={containerStyle}>
+        <div style={{ ...cardStyle, maxWidth: "400px", textAlign: "center" }}>
+          <h2 style={{ marginBottom: "20px", fontWeight: "300", letterSpacing: "1px" }}>Secure Checkout</h2>
+          <p style={{ color: "#888", marginBottom: "30px", fontSize: "0.9rem" }}>Choose a payment method for <strong>{plan.name}</strong>.</p>
+          <button onClick={() => setMethod("card")} style={primaryBtnStyle}>Pay with Card</button>
+          <button onClick={onBack} style={linkBtnStyle}>Back to Plans</button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------- CHECKOUT FORM ----------------
   return (
     <div style={containerStyle}>
-      <div style={{ ...cardStyle, maxWidth: "800px", display: "flex", flexWrap: "wrap", gap: "40px", textAlign: "left" }}>
-        
-        {/* Left: Summary */}
-        <div style={{ flex: "1", minWidth: "250px", borderRight: "1px solid #333", paddingRight: "20px" }}>
-          <h3 style={{ color: "#4ac6ff" }}>Order Summary</h3>
-          <h1 style={{ fontSize: "2.5rem", margin: "10px 0" }}>{plan.price}</h1>
-          <p style={{ color: "#ccc" }}>{plan.name} Membership</p>
-          <ul style={{ padding: "20px 0", color: "#888", fontSize: "0.9rem", lineHeight: "1.8", listStyle: "none" }}>
-            {plan.features.map((f, i) => <li key={i}>✔ {f}</li>)}
+      <div style={{ ...cardStyle, display: "flex", gap: "40px", maxWidth: "900px" }}>
+        <div style={{ flex: 1, borderRight: "1px solid rgba(255,255,255,0.1)", paddingRight: "20px" }}>
+          <span style={{ color: "#4ac6ff", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "2px" }}>Selected Plan</span>
+          <h2 style={{ fontSize: "2.5rem", margin: "10px 0", fontWeight: "600" }}>{plan.name}</h2>
+          <h1 style={{ color: "#fff", opacity: 0.9 }}>{plan.price}</h1>
+          <ul style={{ padding: 0, marginTop: "20px", listStyle: "none", color: "#aaa", fontSize: "0.85rem" }}>
+            {plan.features?.map((f, i) => <li key={i} style={{ marginBottom: "8px" }}>✦ {f}</li>)}
           </ul>
         </div>
 
-        {/* Right: Form */}
-        <div style={{ flex: "1.5", minWidth: "300px" }}>
-          <h3 style={{ marginBottom: "15px" }}>Business Details</h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <input name="name" value={form.name} placeholder="Full Name" onChange={handleChange} style={inputStyle} />
-            <input name="business" placeholder="Business Name" onChange={handleChange} style={inputStyle} />
-            <input name="email" value={form.email} placeholder="Billing Email" onChange={handleChange} style={inputStyle} />
-            
-            <h3 style={{ marginTop: "15px", marginBottom: "10px" }}>Card Details</h3>
-            <p style={{ color: "#555", fontSize: "0.75rem", marginBottom: "5px" }}>Test Card: 4242 4242 4242 4242</p>
-            
-            <input placeholder="Card Number" maxLength="16" style={inputStyle} />
-            <div style={{ display: "flex", gap: "10px" }}>
-              <input placeholder="MM/YY" style={{ ...inputStyle, flex: 1 }} />
-              <input placeholder="CVV" style={{ ...inputStyle, flex: 1 }} />
-            </div>
-
-            <button onClick={handlePayment} disabled={loading} style={primaryBtnStyle}>
-              {loading ? "Processing..." : `Pay ${plan.price}`}
-            </button>
-
-            {message && <p style={{ color: "#4ac6ff", textAlign: "center", marginTop: "10px", fontSize: "0.9rem" }}>{message}</p>}
-            
-            <button onClick={() => setMethod(null)} style={linkBtnStyle}>
-              ← Change Payment Method
-            </button>
+        <div style={{ flex: 2 }}>
+          <h3 style={{ marginBottom: "20px", fontWeight: "400", borderBottom: "1px solid #333", paddingBottom: "10px" }}>Business Registration</h3>
+          <div style={rowStyle}>
+            <input name="name" value={form.name} onChange={handleChange} placeholder="Full Name" style={inputStyle} />
+            <input name="business" value={form.business} onChange={handleChange} placeholder="Business Name" style={inputStyle} />
           </div>
+          <input name="contact" value={form.contact} onChange={handleChange} placeholder="Contact Number" style={inputStyle} />
+          <input name="email" value={form.email} onChange={handleChange} placeholder="Business Email" style={inputStyle} autoComplete="off" />
+          <input name="password" type="password" value={form.password} onChange={handleChange} placeholder="Dashboard Password" style={inputStyle} autoComplete="new-password" />
+
+          <h3 style={{ margin: "30px 0 20px 0", fontWeight: "400", borderBottom: "1px solid #333", paddingBottom: "10px" }}>Payment Details</h3>
+          <input placeholder="Card Number" style={inputStyle} />
+          <div style={rowStyle}>
+            <input placeholder="MM / YY" style={inputStyle} />
+            <input placeholder="CVV" style={inputStyle} />
+          </div>
+
+          <button onClick={handlePayment} style={{ ...primaryBtnStyle, marginTop: "20px" }}>
+            {loading ? "Verifying..." : `Activate ${plan.name} Plan`}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-// --- STYLES ---
-const containerStyle = {
-  minHeight: "100vh",
-  background: "#0d0d14",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "20px",
-  fontFamily: "sans-serif"
-};
-
-const cardStyle = {
-  background: "#1a1a2e",
-  padding: "40px",
-  borderRadius: "24px",
-  width: "100%",
-  maxWidth: "500px",
-  boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-  textAlign: "center",
-  color: "#fff"
-};
-
-const inputStyle = {
-  padding: "12px 15px",
-  borderRadius: "10px",
-  border: "1px solid #333",
-  background: "#0d0d14",
-  color: "#fff",
-  outline: "none"
-};
-
-const primaryBtnStyle = {
-  padding: "15px",
-  borderRadius: "30px",
-  border: "none",
-  background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)",
-  color: "#fff",
-  fontWeight: "bold",
-  cursor: "pointer"
-};
-
-const linkBtnStyle = {
-  background: "none",
-  border: "none",
-  color: "#666",
-  cursor: "pointer",
-  textDecoration: "underline",
-  fontSize: "0.9rem"
-};
+// Updated Styles for a "Quiet Luxury" Tech aesthetic
+const containerStyle = { minHeight: "100vh", background: "#08080c", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
+const cardStyle = { background: "rgba(26, 26, 46, 0.4)", backdropFilter: "blur(10px)", padding: "40px", borderRadius: "24px", color: "#fff", width: "100%", border: "1px solid rgba(255, 255, 255, 0.08)", boxShadow: "0 20px 40px rgba(0,0,0,0.4)" };
+const inputStyle = { width: "100%", padding: "14px", marginBottom: "12px", background: "rgba(0, 0, 0, 0.2)", color: "#fff", border: "1px solid #2a2a3a", borderRadius: "12px", outline: "none", fontSize: "0.9rem" };
+const rowStyle = { display: "flex", gap: "12px" };
+const primaryBtnStyle = { width: "100%", padding: "14px", borderRadius: "12px", background: "linear-gradient(135deg, #4ac6ff 0%, #2a2f4a 100%)", color: "#fff", border: "none", fontWeight: "600", cursor: "pointer", boxShadow: "0 4px 15px rgba(74, 198, 255, 0.2)" };
+const linkBtnStyle = { background: "none", border: "none", color: "#666", marginTop: "15px", cursor: "pointer", fontSize: "0.85rem", textDecoration: "underline" };
 
 export default PaymentPage;

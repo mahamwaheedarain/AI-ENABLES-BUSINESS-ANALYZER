@@ -3,6 +3,9 @@ import PaymentPage from "./components/PaymentPage";
 import PaymentSuccess from "./components/PaymentSuccess";
 import ContactUs from "./components/ContactUs";
 import AboutApp from "./components/AboutApp";
+import { auth, db } from "./firebase"; // ✅ Ensure db is imported from your firebase config
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore"; // ✅ Needed for plan verification
 import "./Subscription.css";
 
 const plans = [
@@ -28,163 +31,124 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   const [proPassword, setProPassword] = useState("");
   const [verifyPro, setVerifyPro] = useState(false);
 
-  // Scroll listener for animations
+  // ✅ FIXED & SECURED: Verification Logic
+  const handleBusinessAuth = async (email, password, type) => {
+    if (!email || !password) {
+      alert("Please enter Email and Password to continue!");
+      return;
+    }
+
+    try {
+      // 1. Authenticate the user
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // 2. Fetch the plan details from the 'subscriptions' collection (as saved in PaymentPage)
+      const subDoc = await getDoc(doc(db, "subscriptions", uid));
+
+      if (subDoc.exists()) {
+        const subData = subDoc.data();
+        const paidPlan = subData.plan.toLowerCase(); // Matches 'Pro' or 'Enterprise'
+        const targetDashboard = type.toLowerCase();
+
+        // 3. Security Check: Compare the paid plan to the button clicked
+        if (paidPlan === targetDashboard) {
+          if (paidPlan === "enterprise") {
+            onSubscribe("enterprise");
+          } else {
+            onGoToDashboard();
+          }
+        } else {
+          // Access Denied: Wrong Dashboard for this Plan
+          alert(`Access Denied!`);
+          await signOut(auth); // Log out for security
+        }
+      } else {
+        alert("No business subscription found for this account.");
+        await signOut(auth);
+      }
+    } catch (error) {
+      alert("Verification Failed: " + error.message);
+    }
+  };
+
+  // Scroll listener
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // ----------------- Payment Success -----------------
-  if (paymentComplete && selectedPlan) {
-    if (selectedPlan.name === "Enterprise") {
-      setVerifyEnterprise(true); // Enterprise auth
-      return null;
-    } else if (selectedPlan.name === "Pro") {
-      setVerifyPro(true); // Pro auth
-      return null;
+  // Handle payment success safely
+  useEffect(() => {
+    if (paymentComplete && selectedPlan) {
+      if (selectedPlan.name === "Enterprise") {
+        setVerifyEnterprise(true);
+      } else if (selectedPlan.name === "Pro") {
+        setVerifyPro(true);
+      }
     }
-  }
+  }, [paymentComplete, selectedPlan]);
 
-  // ----------------- Enterprise Auth Check -----------------
+  // ----------------- Enterprise Auth -----------------
   if (verifyEnterprise) {
     return (
-      <div
-        className="auth-container"
-        style={{
-          maxWidth: 400,
-          margin: "100px auto",
-          padding: 30,
-          background: "rgba(255,255,255,0.05)",
-          borderRadius: 20,
-          textAlign: "center",
-        }}
-      >
+      <div className="auth-container" style={{
+        maxWidth: 400, margin: "100px auto", padding: 30,
+        background: "rgba(255,255,255,0.05)", borderRadius: 20, textAlign: "center",
+      }}>
         <h2>Enterprise Dashboard Login</h2>
         <input
-          type="email"
-          placeholder="Enter Email"
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #444",
-            background: "rgba(0,0,0,0.2)",
-            color: "#fff",
-            width: "100%",
-            marginBottom: 10,
-          }}
-          value={authEmail}
-          onChange={(e) => setAuthEmail(e.target.value)}
+          type="email" placeholder="Business Email"
+          value={authEmail} onChange={(e) => setAuthEmail(e.target.value)}
+          style={{ padding: 12, borderRadius: 10, border: "1px solid #444", background: "rgba(0,0,0,0.2)", color: "#fff", width: "100%", marginBottom: 10 }}
         />
         <input
-          type="password"
-          placeholder="Enter Password"
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #444",
-            background: "rgba(0,0,0,0.2)",
-            color: "#fff",
-            width: "100%",
-            marginBottom: 10,
-          }}
-          value={authPassword}
-          onChange={(e) => setAuthPassword(e.target.value)}
+          type="password" placeholder="Password"
+          value={authPassword} onChange={(e) => setAuthPassword(e.target.value)}
+          style={{ padding: 12, borderRadius: 10, border: "1px solid #444", background: "rgba(0,0,0,0.2)", color: "#fff", width: "100%", marginBottom: 10 }}
         />
         <button
-          style={{
-            padding: "12px",
-            borderRadius: 25,
-            border: "none",
-            background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)",
-            color: "#fff",
-            cursor: "pointer",
-            width: "100%",
-          }}
-          onClick={() => {
-            if (authEmail && authPassword) {
-              onSubscribe("enterprise");
-            } else {
-              alert("Please enter Email and Password to continue!");
-            }
-          }}
+          onClick={() => handleBusinessAuth(authEmail, authPassword, "enterprise")}
+          style={{ padding: "12px", borderRadius: 25, border: "none", background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)", color: "#fff", cursor: "pointer", width: "100%" }}
         >
           Go to Enterprise Dashboard
         </button>
+        <button onClick={() => setVerifyEnterprise(false)} style={{ background: "none", border: "none", color: "#888", marginTop: 10, cursor: "pointer" }}>Back</button>
       </div>
     );
   }
 
-  // ----------------- Pro Auth Check -----------------
+  // ----------------- Pro Auth -----------------
   if (verifyPro) {
     return (
-      <div
-        className="auth-container"
-        style={{
-          maxWidth: 400,
-          margin: "100px auto",
-          padding: 30,
-          background: "rgba(255,255,255,0.05)",
-          borderRadius: 20,
-          textAlign: "center",
-        }}
-      >
+      <div className="auth-container" style={{
+        maxWidth: 400, margin: "100px auto", padding: 30,
+        background: "rgba(255,255,255,0.05)", borderRadius: 20, textAlign: "center",
+      }}>
         <h2>Pro Dashboard Verification</h2>
         <input
-          type="email"
-          placeholder="Enter Email"
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #444",
-            background: "rgba(0,0,0,0.2)",
-            color: "#fff",
-            width: "100%",
-            marginBottom: 10,
-          }}
-          value={proEmail}
-          onChange={(e) => setProEmail(e.target.value)}
+          type="email" placeholder="Business Email"
+          value={proEmail} onChange={(e) => setProEmail(e.target.value)}
+          style={{ padding: 12, borderRadius: 10, border: "1px solid #444", background: "rgba(0,0,0,0.2)", color: "#fff", width: "100%", marginBottom: 10 }}
         />
         <input
-          type="password"
-          placeholder="Enter Password"
-          style={{
-            padding: 12,
-            borderRadius: 10,
-            border: "1px solid #444",
-            background: "rgba(0,0,0,0.2)",
-            color: "#fff",
-            width: "100%",
-            marginBottom: 10,
-          }}
-          value={proPassword}
-          onChange={(e) => setProPassword(e.target.value)}
+          type="password" placeholder="Password"
+          value={proPassword} onChange={(e) => setProPassword(e.target.value)}
+          style={{ padding: 12, borderRadius: 10, border: "1px solid #444", background: "rgba(0,0,0,0.2)", color: "#fff", width: "100%", marginBottom: 10 }}
         />
         <button
-          style={{
-            padding: "12px",
-            borderRadius: 25,
-            border: "none",
-            background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)",
-            color: "#fff",
-            cursor: "pointer",
-            width: "100%",
-          }}
-          onClick={() => {
-            if (proEmail && proPassword) {
-              onGoToDashboard(); // proceed to Pro dashboard
-            } else {
-              alert("Please enter Email and Password to continue!");
-            }
-          }}
+          onClick={() => handleBusinessAuth(proEmail, proPassword, "pro")}
+          style={{ padding: "12px", borderRadius: 25, border: "none", background: "linear-gradient(90deg, #4ac6ff, #2a2f4a)", color: "#fff", cursor: "pointer", width: "100%" }}
         >
           Go to Pro Dashboard
         </button>
+        <button onClick={() => setVerifyPro(false)} style={{ background: "none", border: "none", color: "#888", marginTop: 10, cursor: "pointer" }}>Back</button>
       </div>
     );
   }
 
-  // ----------------- Payment Page -----------------
+  // ----------------- Payment -----------------
   if (goToPayment && selectedPlan) {
     return (
       <PaymentPage
@@ -195,11 +159,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     );
   }
 
-  // ----------------- Contact / About -----------------
+  // ----------------- Contact/About -----------------
   if (showContact) return <ContactUs onBack={() => setShowContact(false)} />;
   if (showAbout) return <AboutApp onBack={() => setShowAbout(false)} />;
 
-  // ----------------- Main Subscription Page -----------------
+  // ----------------- Main UI -----------------
   return (
     <div className="subscription-container">
       <div className="particle-background" />
@@ -219,10 +183,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
 
       <section className={`story ${scrollY > 300 ? "slide-up" : ""}`}>
         <h2>Our Story</h2>
-        <p>
-          AI Business Analyzer empowers businesses with AI-driven insights. From startups to
-          enterprises, actionable intelligence to optimize growth and make data-driven decisions.
-        </p>
+        <p>AI Business Analyzer empowers businesses with AI-driven insights.</p>
       </section>
 
       <section className={`benefits ${scrollY > 600 ? "slide-up" : ""}`}>
