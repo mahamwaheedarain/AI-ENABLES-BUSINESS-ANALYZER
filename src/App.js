@@ -33,11 +33,12 @@ function App() {
   // ✅ PRO FILE FLOW STATES
   const [files, setFiles] = useState([]);
 
+  // ✅ UI CHANGE: Appends new files to the list instead of replacing them
   const handleFileUpload = (e) => {
-    setFiles(Array.from(e.target.files));
+    const selectedFiles = Array.from(e.target.files);
+    setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
   };
 
-  // ✅ UPDATED: Now sends files to PostgreSQL via Backend
   const handleContinue = async () => {
     if (files.length === 0) {
       alert("Please upload at least one file");
@@ -45,19 +46,17 @@ function App() {
     }
 
     try {
-      // Convert files to the format expected by your PostgreSQL route
       const filePromises = files.map((file) => {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve({ filename: file.name, content: reader.result });
           reader.onerror = reject;
-          reader.readAsText(file); // Reads content as text for SQL storage
+          reader.readAsText(file); 
         });
       });
 
       const preparedFiles = await Promise.all(filePromises);
 
-      // Send to your backend
       const response = await fetch("http://localhost:5000/api/upload/upload-multiple", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,13 +64,13 @@ function App() {
       });
 
       if (response.ok) {
-        console.log("Files saved to SQL successfully");
+        console.log("Batch upload to PostgreSQL successful");
         setPage("dashboard");
       } else {
-        alert("Failed to save files to database.");
+        alert("Failed to save files to the database.");
       }
     } catch (error) {
-      console.error("Upload error:", error);
+      console.error("Multi-file upload error:", error);
       alert("Error processing business data.");
     }
   };
@@ -101,7 +100,6 @@ function App() {
         uid: userCredential.user.uid,
       });
 
-      // Save to Firestore
       await setDoc(doc(db, "users", userCredential.user.uid), {
         name,
         email,
@@ -114,12 +112,11 @@ function App() {
     }
   };
 
-  // ----------------- SUBSCRIPTION -----------------
   const handleSubscription = (plan) => {
     if (plan === "enterprise") {
       setPage("enterpriseDashboard");
     } else {
-      setPage("proUpload"); // ✅ ALWAYS go to upload first
+      setPage("proUpload"); 
     }
   };
 
@@ -132,6 +129,7 @@ function App() {
           Upload files (CSV, Excel, PDFs) to unlock AI dashboards
         </p>
 
+        {/* ✅ UI CHANGE: Ensure 'multiple' is enabled and displays current list */}
         <input
           type="file"
           multiple
@@ -147,7 +145,14 @@ function App() {
         />
 
         {files.length > 0 && (
-          <p style={{ marginBottom: 20 }}>{files.length} file(s) selected</p>
+          <div style={{ marginBottom: 20, textAlign: "left", maxWidth: "400px", margin: "0 auto" }}>
+            <strong>Selected Files:</strong>
+            <ul style={{ listStyleType: "none", padding: 0, color: "#4ac6ff" }}>
+              {files.map((file, index) => (
+                <li key={index}>📄 {file.name}</li>
+              ))}
+            </ul>
+          </div>
         )}
 
         <button
@@ -161,7 +166,7 @@ function App() {
             cursor: "pointer",
           }}
         >
-          Continue to Dashboard
+          Continue to Dashboard ({files.length} Files)
         </button>
       </div>
     );
@@ -174,14 +179,12 @@ function App() {
         {sidebarOpen && (
           <div style={styles.sidebar}>
             <h2 style={{ textAlign: "center" }}>AI Analyzer</h2>
-
             <div
               style={{ ...styles.menuItem, background: "#2a2f4a", textAlign: "center" }}
               onClick={() => setPage("subscription")}
             >
               🏠 Home
             </div>
-
             <div style={styles.menuItem} onClick={() => setModule("finance")}>Finance</div>
             <div style={styles.menuItem} onClick={() => setModule("hr")}>HR</div>
             <div style={styles.menuItem} onClick={() => setModule("marketing")}>Marketing</div>
@@ -208,22 +211,19 @@ function App() {
     );
   }
 
-  // ----------------- ENTERPRISE -----------------
   if (page === "enterpriseDashboard") {
     return <EnterpriseDashboard user={user} onHome={() => setPage("subscription")} />;
   }
 
-  // ----------------- SUBSCRIPTION -----------------
   if (page === "subscription") {
     return (
       <Subscription
         onSubscribe={handleSubscription}
-        onGoToDashboard={() => setPage("proUpload")} // ✅ FIXED
+        onGoToDashboard={() => setPage("proUpload")} 
       />
     );
   }
 
-  // ----------------- LOGIN / SIGNUP -----------------
   if (page === "login") {
     return <Login onLogin={handleLogin} switchToSignup={() => setPage("signup")} styles={styles} />;
   }
