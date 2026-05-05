@@ -4,7 +4,11 @@ require("dotenv").config();
 
 const app = express();
 
-// Essential: Increased limits for business data processing
+/**
+ * ARCHITECTURAL NOTE: 
+ * The limit is set to 50mb to ensure large financial CSVs can be stored 
+ * in your PostgreSQL 'business_files' table without payload errors.
+ */
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cors());
@@ -15,6 +19,11 @@ const chatbotRoutes = require("./routes/chatbot");
 const analyzerRoutes = require("./routes/analyzer");
 
 // Endpoints
+/**
+ * /api/upload: Handles storing file names and content into 'business_files'.
+ * /api/analyzer: Pulls from DB to generate AI-driven fiscal insights.
+ * /api/chatbot: Manages the conversational history in 'chat_history'.
+ */
 app.use("/api/upload", uploadRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/analyzer", analyzerRoutes);
