@@ -1,226 +1,242 @@
-// src/components/FinanceDashboard.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area, 
+  BarChart, Bar, LineChart, Line, ComposedChart, ScatterChart, Scatter,
+  CartesianGrid, Legend
 } from "recharts";
 
-// ---------- Theme Colors ----------
-const themeColors = {
-  primary: "#4ac6ff",
-  secondary: "#2a2f4a",
-  cardBg: "#1a1a2e",
-  bg: "#0d0d14",
-  text: "#e0e0e0",
-  placeholder: "#444",
+// ---------- Elite Financial Terminal Theme ----------
+const theme = {
+  bg: "#050507", 
+  glass: "rgba(15, 15, 25, 0.6)",
+  border: "rgba(255, 255, 255, 0.08)",
+  primary: "#4ac6ff", 
+  secondary: "#b388ff", 
+  accent: "#00e676",
+  warning: "#ffab40",
+  danger: "#ff5252",
+  text: "#ffffff",
+  subtext: "rgba(255, 255, 255, 0.4)",
+  headingFont: "'Playfair Display', serif", 
+  bodyFont: "'Inter', sans-serif", 
 };
 
-// ---------- Styles ----------
 const styles = {
-  appContainer: { display: "flex", height: "100vh", background: themeColors.bg, color: themeColors.text, fontFamily: "Inter, sans-serif" },
-  sidebar: { width: 250, background: themeColors.secondary, padding: 20, display: "flex", flexDirection: "column", gap: 15, transition: "all 0.3s" },
-  menuItem: { padding: 12, cursor: "pointer", borderRadius: 10, transition: "0.2s", display: "flex", alignItems: "center", justifyContent: "space-between" },
-  menuItemActive: { background: themeColors.primary, color: "#000" },
-  main: { flex: 1, display: "flex", flexDirection: "column" },
-  topbar: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: 12, background: themeColors.bg, borderBottom: "1px solid #222" },
-  sidebarToggle: { fontSize: 22, cursor: "pointer" },
-  search: { padding: 8, borderRadius: 8, border: `1px solid ${themeColors.placeholder}`, background: themeColors.bg, color: themeColors.text, width: 250 },
-  dashboard: { padding: 30, flex: 1, overflowY: "auto" },
-  categoryButtons: { display: "flex", flexWrap: "wrap", gap: 20 },
-  categoryButton: { padding: "15px 25px", borderRadius: 15, background: `linear-gradient(90deg, ${themeColors.primary}, ${themeColors.secondary})`, color: "#fff", fontWeight: "bold", fontSize: 16, cursor: "pointer", border: "none", flex: "1 1 200px", transition: "0.3s" },
-  cardGrid: { display: "flex", flexWrap: "wrap", gap: 20, marginTop: 20 },
-  card: { background: themeColors.cardBg, borderRadius: 15, padding: 20, color: "#fff", flex: "1 1 300px", boxShadow: "0 4px 12px rgba(0,0,0,0.5)", transition: "0.3s", cursor: "pointer" },
-  table: { width: "100%", borderCollapse: "collapse", marginTop: 20 },
-  th: { borderBottom: "1px solid #444", padding: 10, textAlign: "left" },
-  td: { borderBottom: "1px solid #333", padding: 8 },
+  app: { display: "flex", height: "100vh", background: theme.bg, color: theme.text, fontFamily: theme.bodyFont, overflow: "hidden" },
+  sidebar: { width: 340, background: "rgba(8, 8, 12, 0.98)", backdropFilter: "blur(40px)", padding: "40px 25px", display: "flex", flexDirection: "column", borderRight: `1px solid ${theme.border}`, overflowY: "auto" },
+  menuItem: { padding: "16px 20px", cursor: "pointer", borderRadius: "4px", transition: "0.3s ease", fontSize: "11px", fontWeight: "500", marginBottom: "6px", letterSpacing: "0.5px", borderLeft: "0px solid transparent" },
+  activeItem: { background: "rgba(74, 198, 255, 0.05)", color: theme.primary, borderLeft: `3px solid ${theme.primary}`, fontWeight: "700" },
+  main: { flex: 1, overflowY: "auto", background: "radial-gradient(circle at top right, rgba(74, 198, 255, 0.03), transparent)" },
+  grid: { display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: "20px", padding: "40px" },
+  card: { background: theme.glass, border: `1px solid ${theme.border}`, padding: "25px", borderRadius: "4px", backdropFilter: "blur(10px)" },
+  uploadArea: { border: `1px dashed ${theme.border}`, padding: "60px", borderRadius: "8px", textAlign: "center", cursor: "pointer", transition: "0.3s" }
 };
 
-// ---------- Sample Data ----------
-const sampleLineData = [
-  { name: "Jan", Revenue: 4000, Expenses: 2400, NetProfit: 1600 },
-  { name: "Feb", Revenue: 3000, Expenses: 1398, NetProfit: 1602 },
-  { name: "Mar", Revenue: 5000, Expenses: 3800, NetProfit: 1200 },
-  { name: "Apr", Revenue: 4000, Expenses: 2500, NetProfit: 1500 },
-  { name: "May", Revenue: 6000, Expenses: 3200, NetProfit: 2800 },
+// Defined 10 Functions mapped to your specific CSV headers
+const modules = [
+  { id: 1, name: "Profitability Velocity", key: "NetProfit", type: "composed", color: theme.primary, insight: "Analyzes the spread between Revenue and Expenses to determine net margin growth." },
+  { id: 2, name: "Liquidity Strength", key: "QuickRatio", type: "line", color: theme.accent, insight: "Monitors the ability to meet short-term obligations using the most liquid assets." },
+  { id: 3, name: "Market Dominance", key: "MarketShare", type: "bar", color: theme.secondary, insight: "Visualizes company presence relative to sector volume over time." },
+  { id: 4, name: "Efficiency Matrix", key: "EmployeeProductivity", type: "area", color: theme.warning, insight: "Tracks output optimization against operational scale." },
+  { id: 5, name: "Solvency Risk", key: "DebtToEquity", type: "line", color: theme.danger, insight: "Measures financial leverage and long-term fiscal sustainability." },
+  { id: 6, name: "Burn Rate Variance", key: "BurnRate", type: "bar", color: theme.danger, insight: "Critical monitoring of monthly negative cash flow vs revenue growth." },
+  { id: 7, name: "Predictive LTV", key: "CustomerLTV", type: "composed", color: theme.primary, insight: "Customer Lifetime Value forecasting based on retention and spending trends." },
+  { id: 8, name: "Capital Health", key: "WorkingCapital", type: "area", color: theme.accent, insight: "Difference between current assets and liabilities, indicating operational liquidity." },
+  { id: 9, name: "Customer Acquisition", key: "CAC", type: "bar", color: theme.secondary, insight: "Analyzes the cost efficiency of acquiring new users relative to budget." },
+  { id: 10, name: "Risk vs Volatility", key: "RiskScore", type: "scatter", color: theme.warning, insight: "Correlates internal risk scoring against external market volatility indices." }
 ];
 
-const samplePieData = [
-  { name: "Category A", value: 400 },
-  { name: "Category B", value: 300 },
-  { name: "Category C", value: 300 },
-  { name: "Category D", value: 200 },
-];
+export default function FinanceProjectTerminal() {
+  const [isUploaded, setIsUploaded] = useState(false);
+  const [activeMod, setActiveMod] = useState(modules[0]);
+  const [chartData, setChartData] = useState([]);
+  const [stats, setStats] = useState({ totalRev: 0, avgRisk: 0, growth: 0 });
 
-const pieColors = [themeColors.primary, "#ff6b6b", "#feca57", "#1dd1a1"];
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
 
-// ---------- Categories & Functionalities ----------
-const categories = [
-  { name: "Revenue & Expenses", functionalities: ["Revenue", "Expenses", "Net Profit", "Cash Flow", "Forecast"] },
-  { name: "Budget & Investment", functionalities: ["Budget Planning", "Investment Analysis", "Alerts", "Break-even", "Cost Optimization"] },
-  { name: "Accounts & Tax", functionalities: ["Accounts Receivable", "Accounts Payable", "Loan/Debt", "Tax Reporting", "Expense Categorization"] },
-  { name: "Analysis & KPIs", functionalities: ["Profit Margin", "Trend Analysis", "Scenario Analysis", "KPI Dashboard", "Revenue by Dept/Region"] },
-  { name: "Risk & AI Insights", functionalities: ["Vendor/Supplier Analysis", "Risk/Fraud Analysis", "Historical Comparison", "AI Insights", "Forecast vs Actual"] },
-  { name: "Market & Competitors", functionalities: ["Market Share", "Competitor Analysis", "SWOT Analysis", "Pricing Trends", "Customer Insights"] },
-  { name: "Cash & Liquidity", functionalities: ["Cash Position", "Liquidity Ratio", "Short-term Investments", "Receivables Aging", "Payables Aging"] },
-  { name: "Performance & Efficiency", functionalities: ["ROE", "ROA", "Operational KPIs", "Productivity Analysis", "Cost Efficiency"] },
-  { name: "Customer & Sales", functionalities: ["Customer Segmentation", "Sales Trends", "Churn Rate", "Customer LTV", "Lead Conversion"] },
-  { name: "Forecasting & Planning", functionalities: ["Financial Forecast", "Scenario Planning", "Budget vs Actual", "Revenue Projections", "Expense Forecast"] },
-];
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const rows = text.split("\n");
+      const headers = rows[0].split(",").map(h => h.trim());
+      
+      const parsedData = rows.slice(1).filter(row => row.trim() !== "").map(row => {
+        const values = row.split(",");
+        return headers.reduce((obj, header, index) => {
+          const val = values[index]?.trim();
+          obj[header] = isNaN(val) ? val : parseFloat(val);
+          return obj;
+        }, {});
+      });
 
-// ---------- Finance Dashboard ----------
-export default function FinanceDashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [category, setCategory] = useState(null);
-  const [activeFunc, setActiveFunc] = useState(null);
-
-  const handleBackCategory = () => { setCategory(null); setActiveFunc(null); };
-  const handleBackFunctionality = () => setActiveFunc(null);
-
-  // ---------- Render KPI Cards ----------
-  const renderKPICards = (funcName) => {
-    const metrics = ["Metric 1", "Metric 2", "Metric 3"];
-    return (
-      <div style={styles.cardGrid}>
-        {metrics.map((m, idx) => (
-          <div key={idx} style={styles.card}>
-            <h4>{funcName} - {m}</h4>
-            <p style={{ fontSize: 24, fontWeight: "bold" }}>{Math.floor(Math.random() * 10000)}</p>
-          </div>
-        ))}
-      </div>
-    );
+      // Calculate simple summary stats for the UI
+      const totalRev = parsedData.reduce((sum, item) => sum + (item.Revenue || 0), 0);
+      const avgRisk = (parsedData.reduce((sum, item) => sum + (item.RiskScore || 0), 0) / parsedData.length).toFixed(2);
+      
+      setStats({ totalRev, avgRisk, growth: "+12.4%" });
+      setChartData(parsedData);
+      setIsUploaded(true);
+    };
+    reader.readAsText(file);
   };
 
-  // ---------- Render Charts ----------
-  const renderCharts = (funcName) => (
-    <div style={styles.cardGrid}>
-      <div style={styles.card}>
-        <h4>{funcName} - Line Chart</h4>
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={sampleLineData}>
-            <CartesianGrid stroke="#444" />
-            <XAxis dataKey="name" stroke="#888" />
-            <YAxis stroke="#888" />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="Revenue" stroke={themeColors.primary} />
-            <Line type="monotone" dataKey="Expenses" stroke="#ff6b6b" />
-            <Line type="monotone" dataKey="NetProfit" stroke="#1dd1a1" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-      <div style={styles.card}>
-        <h4>{funcName} - Bar Chart</h4>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={sampleLineData}>
-            <CartesianGrid stroke="#444" />
-            <XAxis dataKey="name" stroke="#888" />
-            <YAxis stroke="#888" />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="Revenue" fill={themeColors.primary} />
-            <Bar dataKey="Expenses" fill="#ff6b6b" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div style={styles.card}>
-        <h4>{funcName} - Pie Chart</h4>
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart>
-            <Pie data={samplePieData} dataKey="value" nameKey="name" outerRadius={70}>
-              {samplePieData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-              ))}
-            </Pie>
-            <Tooltip />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
+  const renderChart = () => {
+    const axisStyle = { stroke: "rgba(255,255,255,0.1)", fontSize: 10, tickLine: false, axisLine: false, tick: { fill: theme.subtext } };
+    const toolStyle = { background: "#0a0a0f", border: `1px solid ${theme.border}`, borderRadius: "4px", fontSize: "12px" };
 
-  // ---------- Render Data Table ----------
-  const renderTable = () => (
-    <table style={styles.table}>
-      <thead>
-        <tr>
-          <th style={styles.th}>Month</th>
-          <th style={styles.th}>Revenue</th>
-          <th style={styles.th}>Expenses</th>
-          <th style={styles.th}>Net Profit</th>
-        </tr>
-      </thead>
-      <tbody>
-        {sampleLineData.map((row, idx) => (
-          <tr key={idx}>
-            <td style={styles.td}>{row.name}</td>
-            <td style={styles.td}>{row.Revenue}</td>
-            <td style={styles.td}>{row.Expenses}</td>
-            <td style={styles.td}>{row.NetProfit}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-
-  // ---------- Render Category Functionalities ----------
-  const renderCategory = () => (
-    <div>
-      <button onClick={handleBackCategory} style={styles.categoryButton}>⬅ Back</button>
-      <h2 style={{ color: "#fff", marginTop: 20 }}>{category.name}</h2>
-      <div style={styles.categoryButtons}>
-        {category.functionalities.map((func, idx) => (
-          <button key={idx} style={styles.categoryButton} onClick={() => setActiveFunc(func)}>
-            {func}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-
-  // ---------- Render Functionality Details ----------
-  const renderFunctionalityDetails = () => (
-    <div>
-      <button onClick={handleBackFunctionality} style={styles.categoryButton}>⬅ Back</button>
-      <h2 style={{ color: "#fff", marginTop: 20 }}>{activeFunc}</h2>
-      {renderKPICards(activeFunc)}
-      {renderCharts(activeFunc)}
-      {renderTable()}
-    </div>
-  );
+    switch (activeMod.type) {
+      case "composed":
+        return (
+          <ResponsiveContainer width="100%" height="85%">
+            <ComposedChart data={chartData}>
+              <XAxis dataKey="Month" {...axisStyle} />
+              <YAxis {...axisStyle} hide />
+              <Tooltip contentStyle={toolStyle} />
+              <Area type="monotone" dataKey={activeMod.key} fill={activeMod.color} fillOpacity={0.1} stroke="none" />
+              <Line type="monotone" dataKey={activeMod.key} stroke={activeMod.color} strokeWidth={3} dot={{ r: 4, fill: theme.bg, strokeWidth: 2 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        );
+      case "bar":
+        return (
+          <ResponsiveContainer width="100%" height="85%">
+            <BarChart data={chartData}>
+              <XAxis dataKey="Month" {...axisStyle} />
+              <Tooltip contentStyle={toolStyle} />
+              <Bar dataKey={activeMod.key} fill={activeMod.color} radius={[4, 4, 0, 0]} barSize={35} />
+            </BarChart>
+          </ResponsiveContainer>
+        );
+      case "scatter":
+        return (
+          <ResponsiveContainer width="100%" height="85%">
+            <ScatterChart>
+              <XAxis type="number" dataKey="MarketVolatility" name="Volatility" {...axisStyle} hide={false} />
+              <YAxis type="number" dataKey="RiskScore" name="Risk" {...axisStyle} hide={false} />
+              <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={toolStyle} />
+              <Scatter name="Risk Correlation" data={chartData} fill={activeMod.color} />
+            </ScatterChart>
+          </ResponsiveContainer>
+        );
+      case "area":
+        return (
+          <ResponsiveContainer width="100%" height="85%">
+            <AreaChart data={chartData}>
+              <XAxis dataKey="Month" {...axisStyle} />
+              <Tooltip contentStyle={toolStyle} />
+              <Area type="step" dataKey={activeMod.key} stroke={activeMod.color} fill={activeMod.color} fillOpacity={0.2} strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        );
+      default:
+        return (
+          <ResponsiveContainer width="100%" height="85%">
+            <LineChart data={chartData}>
+              <XAxis dataKey="Month" {...axisStyle} />
+              <Tooltip contentStyle={toolStyle} />
+              <Line type="monotone" dataKey={activeMod.key} stroke={activeMod.color} strokeWidth={3} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        );
+    }
+  };
 
   return (
-    <div style={styles.appContainer}>
-      {/* Sidebar */}
-      {sidebarOpen && (
-        <div style={styles.sidebar}>
-          <h2 style={{ color: "#fff", textAlign: "center", marginBottom: 20 }}>AI Analyzer</h2>
-          {categories.map((cat, idx) => (
-            <div
-              key={idx}
-              style={{ ...styles.menuItem, ...(category?.name === cat.name ? styles.menuItemActive : {}) }}
-              onClick={() => { setCategory(cat); setActiveFunc(null); }}
-            >
-              {cat.name}
+    <div style={styles.app}>
+      <style>
+        {`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@300;400;600&display=swap');
+          ::-webkit-scrollbar { width: 3px; }
+          ::-webkit-scrollbar-thumb { background: ${theme.primary}; }
+        `}
+      </style>
+
+      {isUploaded && (
+        <aside style={styles.sidebar}>
+          <div style={{ marginBottom: "50px" }}>
+            <h1 style={{ fontFamily: theme.headingFont, fontSize: "26px", fontWeight: "700", fontStyle: "italic" }}>
+              Insight<span style={{ color: theme.primary }}>IQ</span>
+            </h1>
+            <div style={{ height: "1px", width: "40px", background: theme.primary, marginTop: "10px" }}></div>
+          </div>
+          {modules.map((m) => (
+            <div key={m.id} onClick={() => setActiveMod(m)}
+              style={{ ...styles.menuItem, ...(activeMod.id === m.id ? styles.activeItem : {}) }}>
+              {m.name}
             </div>
           ))}
-        </div>
+        </aside>
       )}
 
-      {/* Main */}
-      <div style={styles.main}>
-        <div style={styles.topbar}>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={styles.sidebarToggle}>☰</button>
-          <input type="text" placeholder="Search..." style={styles.search} />
-          <div>👤</div>
-          <div>🔔</div>
-        </div>
-        <div style={styles.dashboard}>
-          {!category && <h2 style={{ textAlign: "center", color: "#fff" }}>Select a Category to Begin</h2>}
-          {category && !activeFunc && renderCategory()}
-          {activeFunc && renderFunctionalityDetails()}
-        </div>
-      </div>
+      <main style={styles.main}>
+        {!isUploaded ? (
+          <section style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ textAlign: "center", border: `1px solid ${theme.border}`, padding: "80px", background: theme.glass }}>
+              <h1 style={{ fontFamily: theme.headingFont, fontSize: "42px", marginBottom: "20px" }}>Financial Insights</h1>
+              <p style={{ color: theme.subtext, marginBottom: "40px", fontSize: "14px", letterSpacing: "1px" }}>Upload your csv files</p>
+              <label style={styles.uploadArea}>
+                <input type="file" accept=".csv" onChange={handleFileUpload} style={{ display: "none" }} />
+                <span style={{ color: theme.primary, fontWeight: "600", fontSize: "12px", letterSpacing: "2px" }}>UPLOAD CSV ENGINE</span>
+              </label>
+            </div>
+          </section>
+        ) : (
+          <div style={{ padding: "40px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "40px" }}>
+              <h2 style={{ fontFamily: theme.headingFont, fontSize: "32px" }}>{activeMod.name}</h2>
+              <div style={{ display: "flex", gap: "30px" }}>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "10px", color: theme.subtext, letterSpacing: "1px" }}>ANNUAL REVENUE</div>
+                  <div style={{ fontSize: "18px", fontWeight: "600" }}>${stats.totalRev.toLocaleString()}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "10px", color: theme.subtext, letterSpacing: "1px" }}>AVG RISK SCORE</div>
+                  <div style={{ fontSize: "18px", fontWeight: "600", color: theme.warning }}>{stats.avgRisk}</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.grid}>
+              <div style={{ ...styles.card, gridColumn: "span 8", height: "480px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
+                  <span style={{ fontSize: "10px", color: theme.subtext, fontWeight: "700" }}>TEMPORAL DATA VECTOR</span>
+                  <span style={{ fontSize: "10px", color: theme.primary }}>TYPE: {activeMod.type.toUpperCase()}</span>
+                </div>
+                {renderChart()}
+              </div>
+
+              <div style={{ ...styles.card, gridColumn: "span 4", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div>
+                  <h4 style={{ color: theme.primary, fontSize: "11px", letterSpacing: "2px", marginBottom: "20px", fontWeight: "700" }}>ANALYTICAL INSIGHT</h4>
+                  <p style={{ fontSize: "15px", lineHeight: "1.8", color: theme.text, fontWeight: "300" }}>{activeMod.insight}</p>
+                </div>
+                <div style={{ background: "rgba(255,255,255,0.03)", padding: "20px", borderRadius: "4px" }}>
+                  <div style={{ fontSize: "10px", color: theme.subtext, marginBottom: "5px" }}>LATEST VALUE</div>
+                  <div style={{ fontSize: "24px", fontFamily: theme.headingFont }}>{chartData[chartData.length - 1][activeMod.key]}</div>
+                </div>
+              </div>
+
+              {/* Functional Matrix Row */}
+              <div style={{ ...styles.card, gridColumn: "span 12" }}>
+                <div style={{ display: "flex", justifyContent: "space-around" }}>
+                  {[ 
+                    { l: 'BURN RATE', v: chartData[chartData.length-1].BurnRate, c: theme.danger },
+                    { l: 'CASH FLOW', v: chartData[chartData.length-1].CashFlow, c: theme.accent },
+                    { l: 'NET PROFIT', v: chartData[chartData.length-1].NetProfit, c: theme.primary },
+                    { l: 'NPS SCORE', v: chartData[chartData.length-1].NPS, c: theme.secondary }
+                  ].map((item, i) => (
+                    <div key={i} style={{ textAlign: "center" }}>
+                      <div style={{ fontSize: "9px", color: theme.subtext, marginBottom: "8px", fontWeight: "700" }}>{item.l}</div>
+                      <div style={{ fontSize: "22px", color: item.c, fontWeight: "400", fontFamily: theme.headingFont }}>{item.v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
