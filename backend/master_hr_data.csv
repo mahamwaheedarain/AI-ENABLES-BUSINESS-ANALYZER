@@ -1,0 +1,11 @@
+Employee_ID,Satisfaction_Level,Last_Evaluation,Work_Accident,Promotion_Last_5Years,Salary_Level,Department,Last_Performance_Score,Training_Hours,Projects_Handled,Years_at_Company,Monthly_Salary,Overtime_Hours
+101,0.12,0.88,0,0,low,Sales,4,45,6,4,6500,18
+102,0.85,0.72,0,1,high,Technical,5,25,9,8,9500,2
+103,0.35,0.45,1,0,medium,Support,2,55,3,1,4200,22
+104,0.92,0.98,0,0,medium,Management,5,10,12,12,14000,0
+105,0.45,0.51,0,0,low,Technical,3,30,5,5,5800,8
+106,0.78,0.82,0,1,high,IT,1,70,2,1,3500,28
+107,0.20,0.30,0,0,low,Sales,2,10,7,3,3200,25
+108,0.95,0.90,0,1,high,Finance,5,40,10,10,12500,4
+109,0.55,0.60,0,0,medium,IT,4,20,4,2,7200,10
+110,0.15,0.75,1,0,low,Support,3,15,8,5,4800,30
