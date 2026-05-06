@@ -75,7 +75,7 @@ export default function HRDashboard() {
     const data = dataStore[activeFunc];
     if (!data) return (
       <div style={emptyStateStyle}>
-        <p style={{ color: theme.primary, fontFamily: theme.fontMono }}>[ AWAITING_DOMAIN_DATA ]</p>
+        <p style={{ color: theme.primary, fontFamily: theme.fontMono }}>[ AWAITING ANALYTICS ]</p>
       </div>
     );
 

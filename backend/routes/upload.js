@@ -4,15 +4,15 @@ const pool = require("../db");
 
 /**
  * ROUTE: POST /api/upload/upload-multiple
- * DESC: Persists multiple financial files into the PostgreSQL 'business_files' table.
- *       This allows the dashboard to retrieve data without re-uploading CSVs.
+ * DESC: Persists multi-domain data (Finance, HR, Marketing) into PostgreSQL.
+ * Enables the Gemini AI Analyst to retrieve cross-functional context.
  */
 router.post("/upload-multiple", async (req, res) => {
   const { files } = req.body; 
 
   // Validation: Ensure a valid array of files is provided
   if (!files || !Array.isArray(files)) {
-    return res.status(400).json({ error: "No files provided." });
+    return res.status(400).json({ error: "No files provided for synchronization." });
   }
 
   try {
@@ -31,7 +31,7 @@ router.post("/upload-multiple", async (req, res) => {
     // Execute all insertions in parallel for maximum efficiency
     await Promise.all(insertPromises);
     
-    res.json({ message: "Financial archives successfully synchronized with PostgreSQL." });
+    res.json({ message: "Marketing and business archives successfully synchronized with PostgreSQL." });
   } catch (err) {
     console.error("❌ DB Upload Error:", err.message);
     res.status(500).json({ error: "Database save failed. Ensure connection to 'business-analyzer' is active." });

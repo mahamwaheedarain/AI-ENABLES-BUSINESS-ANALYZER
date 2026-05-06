@@ -6,8 +6,8 @@ const app = express();
 
 /**
  * ARCHITECTURAL NOTE: 
- * The limit is set to 50mb to ensure large financial CSVs can be stored 
- * in your PostgreSQL 'business_files' table without payload errors.
+ * Payload limits are set to 50mb to accommodate large CSV data for 
+ * Finance, HR, and Marketing trend analysis stored in PostgreSQL.
  */
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
@@ -20,15 +20,15 @@ const analyzerRoutes = require("./routes/analyzer");
 
 // Endpoints
 /**
- * /api/upload: Handles storing file names and content into 'business_files'.
- * /api/analyzer: Pulls from DB to generate AI-driven fiscal insights.
- * /api/chatbot: Manages the conversational history in 'chat_history'.
+ * /api/upload: Handles storing cross-domain file content into 'business_files'.
+ * /api/analyzer: Pulls from DB for AI-driven insights (Finance, HR, Marketing).
+ * /api/chatbot: Manages the analytical conversation history in 'chat_history'.
  */
 app.use("/api/upload", uploadRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/analyzer", analyzerRoutes);
 
-app.get("/", (req, res) => res.send("Business Analyzer API is running..."));
+app.get("/", (req, res) => res.send("Academic Attire Co. Business Analyzer API is running..."));
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

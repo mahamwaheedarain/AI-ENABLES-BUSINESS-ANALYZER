@@ -5,11 +5,11 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 /**
  * GEMINI AI CONFIGURATION
- * Uses the Gemini 1.5 Flash model to process fiscal data retrieved 
- * from the PostgreSQL 'business_files' table.
+ * Uses the Gemini 1.5 Flash model to process fiscal, HR, and marketing data 
+ * retrieved from the PostgreSQL 'business_files' table.
  */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 router.post("/analyze", async (req, res) => {
   const { message } = req.body;
@@ -34,12 +34,15 @@ router.post("/analyze", async (req, res) => {
     const prompt = `
       You are the Professional Lead Analyst for Academic Attire Co.
       
-      CORE KNOWLEDGE BASE (From Uploaded Files):
+      CORE KNOWLEDGE BASE (From Uploaded Financial, HR, and Marketing Files):
       ${context}
 
       TASK:
       Analyze the provided SOURCE MATERIAL above to answer the user's question. 
-      If the answer is found in the files, be specific. 
+      You have access to detailed fiscal records, employee performance/attrition data, 
+      and marketing trends (including lead scoring and customer churn insights).
+
+      If the answer is found in the files, be specific and provide data-driven insights. 
       If the data is missing, inform the user you don't have that specific information in the current documents.
       
       CRITICAL: Never say "I cannot see files." You have the full text content above.
@@ -52,7 +55,7 @@ router.post("/analyze", async (req, res) => {
     const aiResponse = result.response.text();
 
     // 4. Save the generated response to 'chat_history' table
-    // Ensures persistence of insights for your financial dashboard
+    // Ensures persistence of insights for your unified business dashboard
     await pool.query(
       "INSERT INTO chat_history (user_message, ai_response) VALUES ($1, $2)",
       [message, aiResponse]
