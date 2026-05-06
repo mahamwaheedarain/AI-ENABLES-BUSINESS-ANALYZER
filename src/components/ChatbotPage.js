@@ -134,7 +134,7 @@ const globalStyles = `
 export default function ChatbotPage() {
   const [messages, setMessages] = useState([
     {
-      text: "SYSTEM INITIALIZED: How can I assist with your business data today?",
+      text: "How can I assist with your business data today?",
       isUser: false,
       time: new Date(),
     },
@@ -189,7 +189,7 @@ export default function ChatbotPage() {
 
   const clearChat = () => {
     setMessages([{
-      text: "SYSTEM_REBOOT: Chat history cleared.",
+      text: "Chat history cleared.",
       isUser: false,
       time: new Date(),
     }]);
