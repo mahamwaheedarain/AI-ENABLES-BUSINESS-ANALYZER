@@ -1,19 +1,21 @@
 // src/components/ChatbotPage.js
 import React, { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
-// ---------- Unified Theme Constants ----------
+// ---------- High-Clarity Unified Theme ----------
 const theme = {
-  primary: "#4ac6ff", 
-  bg: "#050608", 
-  card: "#0d0f14", 
-  surface: "#161b22",
-  text: "#e6edf3", 
-  textMuted: "#7d8590", 
+  primary: "#58a6ff", 
+  bg: "#0d1117", 
+  card: "#161b22", 
+  surface: "#21262d",
+  text: "#ffffff", // Pure White
+  textMuted: "#e6edf3", // High-Clarity Off-White
+  subtext: "#8b949e",
   border: "#30363d",
-  accent: "#8957e5", 
+  accent: "#1f6feb", 
   success: "#3fb950",
   danger: "#f85149",
-  fontMono: "'JetBrains Mono', monospace"
+  fontMain: "'Inter', -apple-system, system-ui, sans-serif", // Uniform font for everything
 };
 
 // ---------- Styles ----------
@@ -22,47 +24,48 @@ const containerStyle = {
   height: "100vh",
   background: theme.bg,
   color: theme.text,
-  fontFamily: theme.fontMono,
+  fontFamily: theme.fontMain,
 };
 
 const sidebarStyle = {
-  width: "260px",
+  width: "280px",
   background: theme.card,
   borderRight: `1px solid ${theme.border}`,
   display: "flex",
   flexDirection: "column",
-  padding: "20px",
+  padding: "40px 25px",
 };
 
 const mainStyle = {
   flex: 1,
   display: "flex",
   flexDirection: "column",
-  position: "relative"
+  position: "relative",
+  background: theme.bg
 };
 
 const topbarStyle = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  padding: "15px 30px",
-  background: theme.bg,
+  padding: "20px 40px",
+  background: theme.card,
   borderBottom: `1px solid ${theme.border}`,
 };
 
 const chatWindowStyle = {
   flex: 1,
-  padding: "30px",
+  padding: "40px",
   overflowY: "auto",
   display: "flex",
   flexDirection: "column",
-  gap: "20px",
+  gap: "25px",
   background: `radial-gradient(circle at top right, #161b22, ${theme.bg})`,
 };
 
 const messageWrapper = (isUser) => ({
   alignSelf: isUser ? "flex-end" : "flex-start",
-  maxWidth: "75%",
+  maxWidth: "70%",
   display: "flex",
   flexDirection: "column",
   alignItems: isUser ? "flex-end" : "flex-start",
@@ -70,71 +73,71 @@ const messageWrapper = (isUser) => ({
 
 const messageStyle = (isUser) => ({
   background: isUser ? theme.accent : theme.surface,
-  color: "#fff",
-  padding: "14px 18px",
-  borderRadius: isUser ? "15px 15px 2px 15px" : "15px 15px 15px 2px",
-  fontSize: "14px",
+  color: theme.text,
+  padding: "16px 22px",
+  borderRadius: isUser ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+  fontSize: "15px",
   lineHeight: "1.6",
+  fontWeight: "400",
   border: `1px solid ${isUser ? theme.accent : theme.border}`,
-  boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-  transition: "transform 0.2s ease",
-  opacity: 0,
-  animation: "fadeIn 0.4s forwards",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
 });
 
 const inputContainerStyle = {
   display: "flex",
-  gap: "15px",
-  padding: "25px 30px",
-  background: theme.bg,
+  gap: "20px",
+  padding: "30px 40px",
+  background: theme.card,
   borderTop: `1px solid ${theme.border}`,
 };
 
 const inputStyle = {
   flex: 1,
-  padding: "14px 20px",
-  borderRadius: "4px",
+  padding: "16px 24px",
+  borderRadius: "8px",
   border: `1px solid ${theme.border}`,
-  background: theme.card,
+  background: theme.bg,
   color: theme.text,
-  fontSize: "14px",
+  fontSize: "15px",
   outline: "none",
-  fontFamily: theme.fontMono,
+  fontFamily: theme.fontMain,
+  transition: "border-color 0.2s ease",
 };
 
 const buttonStyle = {
-  padding: "0 25px",
-  borderRadius: "4px",
+  padding: "0 30px",
+  borderRadius: "8px",
   border: "none",
   background: theme.primary,
-  color: theme.bg,
+  color: "#fff",
   cursor: "pointer",
-  fontWeight: "800",
-  fontSize: "12px",
-  textTransform: "uppercase",
-  letterSpacing: "1px",
+  fontWeight: "700",
+  fontSize: "14px",
+  transition: "opacity 0.2s ease",
 };
 
-// ---------- Keyframes ----------
+// ---------- Global Styles ----------
 const globalStyles = `
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
-::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
 .settings-menu {
-  backdrop-filter: blur(12px);
-  background: rgba(22, 27, 34, 0.9);
+  backdrop-filter: blur(16px);
+  background: rgba(22, 27, 34, 0.95);
   animation: fadeIn 0.2s ease-out;
+}
+.message-entry {
+  animation: fadeIn 0.4s ease-out forwards;
 }
 `;
 
-// ---------- COMPONENT ----------
 export default function ChatbotPage() {
   const [messages, setMessages] = useState([
     {
-      text: "How can I assist with your business data today?",
+      text: "System initialized. How can I assist with your business data analysis today?",
       isUser: false,
       time: new Date(),
     },
@@ -169,27 +172,23 @@ export default function ChatbotPage() {
       });
 
       const data = await response.json();
-      const botMsg = {
-        text: data.reply || "ERROR: NO RESPONSE",
+      setMessages((prev) => [...prev, {
+        text: data.reply || "Data Error: No response received.",
         isUser: false,
         time: new Date(),
-      };
-      setMessages((prev) => [...prev, botMsg]);
+      }]);
     } catch (error) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          text: "CRITICAL FAILURE: UNABLE TO REACH BACKEND",
-          isUser: false,
-          time: new Date(),
-        },
-      ]);
+      setMessages((prev) => [...prev, {
+        text: "Critical System Failure: Unable to reach the server.",
+        isUser: false,
+        time: new Date(),
+      }]);
     }
   };
 
   const clearChat = () => {
     setMessages([{
-      text: "Chat history cleared.",
+      text: "Terminal session cleared. System standing by.",
       isUser: false,
       time: new Date(),
     }]);
@@ -207,100 +206,109 @@ export default function ChatbotPage() {
     <div style={containerStyle}>
       <style>{globalStyles}</style>
 
-      {/* Advanced Sidebar */}
-      <div style={sidebarStyle}>
-        <div style={{ fontSize: '12px', fontWeight: '800', marginBottom: '30px', color: theme.primary }}>
-          BUSINESS_ANALYZER | CHATBOT
+      {/* High-Clarity Sidebar */}
+      <aside style={sidebarStyle}>
+        <div style={{ fontSize: '18px', fontWeight: '800', marginBottom: '40px', color: theme.primary }}>
+          Business Analyzer | Chatbot
         </div>
-        <div style={{ color: theme.textMuted, fontSize: '10px', marginBottom: '15px' }}>HISTORY_LOGS</div>
-        <div style={{ background: theme.surface, padding: '10px', borderRadius: '4px', fontSize: '11px', borderLeft: `2px solid ${theme.accent}` }}>
-          Current_Session.log
+        <div style={{ color: theme.subtext, fontSize: '12px', fontWeight: '700', marginBottom: '20px' }}>Chat History</div>
+        <div style={{ 
+          background: "rgba(88,166,255,0.08)", 
+          padding: '14px', 
+          borderRadius: '8px', 
+          fontSize: '13px', 
+          color: theme.primary,
+          borderLeft: `3px solid ${theme.primary}`,
+          fontWeight: '600'
+        }}>
+          Current Analysis
         </div>
-      </div>
+      </aside>
 
       <div style={mainStyle}>
-        {/* Advanced Topbar */}
-        <div style={topbarStyle}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: theme.success }}></div>
-            <span style={{ fontSize: '11px', fontWeight: 'bold' }}>AI ANALYZER</span>
+        {/* Topbar */}
+        <header style={topbarStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: theme.success, boxShadow: `0 0 10px ${theme.success}` }}></div>
+            <span style={{ fontSize: '13px', fontWeight: '700' }}>AI Chatbot </span>
           </div>
           <div 
-            style={{ color: theme.textMuted, fontSize: '18px', cursor: 'pointer', position: 'relative' }}
+            style={{ color: theme.textMuted, fontSize: '20px', cursor: 'pointer', position: 'relative' }}
             onClick={() => setShowSettings(!showSettings)}
           >
             ⚙️
             {showSettings && (
               <div className="settings-menu" style={{
                 position: 'absolute',
-                top: '35px',
+                top: '40px',
                 right: '0',
-                width: '180px',
-                padding: '10px',
+                width: '200px',
+                padding: '12px',
                 borderRadius: '8px',
                 border: `1px solid ${theme.border}`,
-                boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.6)',
                 zIndex: 100
               }}>
-                <div style={{ fontSize: '10px', color: theme.textMuted, marginBottom: '8px', padding: '0 5px' }}>CONFIGURATION</div>
+                <div style={{ fontSize: '11px', color: theme.subtext, marginBottom: '10px', padding: '0 8px', fontWeight: 'bold' }}>Settings</div>
                 <button 
                   onClick={clearChat}
                   style={{
                     width: '100%',
-                    padding: '8px',
+                    padding: '10px',
                     textAlign: 'left',
                     background: 'none',
                     border: 'none',
                     color: theme.danger,
-                    fontSize: '11px',
+                    fontSize: '13px',
                     cursor: 'pointer',
-                    fontFamily: theme.fontMono,
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    fontWeight: '600',
+                    fontFamily: theme.fontMain
                   }}
                   onMouseOver={(e) => e.target.style.background = 'rgba(248, 81, 73, 0.1)'}
                   onMouseOut={(e) => e.target.style.background = 'none'}
                 >
-                  [!] CLEAR_SESSION
+                  Clear Session
                 </button>
               </div>
             )}
           </div>
-        </div>
+        </header>
 
         {/* Chat Window */}
         <div style={chatWindowStyle}>
           {messages.map((msg, idx) => (
-            <div key={idx} style={messageWrapper(msg.isUser)}>
+            <div key={idx} style={messageWrapper(msg.isUser)} className="message-entry">
               <div style={messageStyle(msg.isUser)}>
                 {msg.text}
               </div>
               <div style={{
-                  fontSize: 9,
-                  marginTop: 6,
-                  color: theme.textMuted,
-                  fontFamily: theme.fontMono
+                  fontSize: 11,
+                  marginTop: 8,
+                  color: theme.subtext,
+                  fontWeight: '500'
                 }}>
-                [{formatTime(msg.time)}]
+                {formatTime(msg.time)}
               </div>
             </div>
           ))}
           <div ref={chatEndRef} />
         </div>
 
-        {/* Terminal Input */}
-        <div style={inputContainerStyle}>
+        {/* Input */}
+        <footer style={inputContainerStyle}>
           <input
             type="text"
-            placeholder="ASK CHATBOT"
+            placeholder="Ask a question..."
             style={inputStyle}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyPress}
           />
           <button onClick={sendMessage} style={buttonStyle}>
-            EXECUTE
+            Send
           </button>
-        </div>
+        </footer>
       </div>
     </div>
   );

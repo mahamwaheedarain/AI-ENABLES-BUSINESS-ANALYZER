@@ -1,29 +1,30 @@
-// src/components/ContactUs.js
 import React, { useState, useEffect } from "react";
-import { db } from "../firebase"; // Updated to match your exact file name
+import { db } from "../firebase"; 
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { motion, AnimatePresence } from "framer-motion"; // Essential for hardware-accelerated animations
 import "../Subscription.css";
 
+// ---------- Refined Quiet Luxury Theme ----------
+const theme = {
+  primary: "#58a6ff",
+  bg: "#0d1117",
+  card: "#161b22",
+  border: "#30363d",
+  text: "#ffffff",
+  textMuted: "#e6edf3",
+  subtext: "#8b949e",
+  success: "#3fb950",
+  fontMain: "'Inter', sans-serif", // Clean, high-clarity Inter font
+};
+
 export default function ContactUs({ onBack }) {
-  const [scrollY, setScrollY] = useState(0);
-  
-  // Form State
   const [formData, setFormData] = useState({ name: "", email: "", message: "" });
   const [status, setStatus] = useState(""); 
 
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  // Firebase Submission Logic
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus("sending");
-
     try {
-      // Connects to your "insightiqweb" Firestore instance
       await addDoc(collection(db, "contactMessages"), {
         name: formData.name,
         email: formData.email,
@@ -39,154 +40,179 @@ export default function ContactUs({ onBack }) {
   };
 
   const inputStyle = {
-    background: "rgba(255, 255, 255, 0.03)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backdropFilter: "blur(10px)",
-    borderRadius: "12px",
-    padding: "15px 20px",
-    color: "#fff",
-    fontSize: "1rem",
+    background: theme.bg,
+    border: `1px solid ${theme.border}`,
+    borderRadius: "10px",
+    padding: "16px",
+    color: theme.text,
+    fontSize: "14px",
     outline: "none",
-    transition: "all 0.3s ease",
     width: "100%",
-    marginBottom: "15px"
+    marginBottom: "24px",
+    fontFamily: theme.fontMain,
+    transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)" // Quiet Luxury transition
+  };
+
+  // --- Framer Motion Animation Variants ---
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1, 
+      transition: { 
+        staggerChildren: 0.15, // Orchestrates staggered reveal
+        delayChildren: 0.2 
+      } 
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
   };
 
   return (
-    <div className="subscription-container">
-      <button className="back-btn" onClick={onBack}>← Back to Plans</button>
-
-      {/* Hero Section */}
-      <section className={`hero ${scrollY > 50 ? "fade-in" : ""}`}>
-        <div className="hero-content">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "10px" }}>
-            <span style={{ height: "1px", width: "30px", background: "#4ac6ff" }}></span>
-            <span style={{ color: "#4ac6ff", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "4px", fontWeight: "600" }}>Inquiry Portal</span>
-            <span style={{ height: "1px", width: "30px", background: "#4ac6ff" }}></span>
-          </div>
-          
-          <h1 style={{ position: "relative", display: "inline-block" }}>
-            Contact InsightIQ
-            <span className="live-indicator"></span>
+    <motion.div 
+      initial="hidden" 
+      animate="visible" 
+      variants={containerVariants}
+      style={{ background: theme.bg, color: theme.text, minHeight: '100vh', padding: '60px', fontFamily: theme.fontMain }}
+    >
+      
+      {/* Header - Aligned with Business Analyzer Dashboards */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '60px' }}>
+        <motion.div variants={itemVariants}>
+          <h1 style={{ fontSize: '32px', fontWeight: '900', margin: 0, letterSpacing: '-1.2px' }}>
+            Inquiry <span style={{ color: theme.primary }}>Portal</span>
           </h1>
-          <p style={{ marginTop: "20px", opacity: 0.8, fontWeight: "300" }}>Our analysts are ready to scale your vision.</p>
-        </div>
-      </section>
+          <div style={{ fontSize: '12px', color: theme.subtext, fontWeight: '700', marginTop: '8px', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+           
+          </div>
+        </motion.div>
+        <motion.button 
+          variants={itemVariants} 
+          whileHover={{ x: -3, borderColor: theme.text }}
+          onClick={onBack} 
+          style={actionButtonStyle}
+        >
+          Return to Dashboard
+        </motion.button>
+      </header>
 
-      {/* Contact Form Section */}
-      <section className={`contact-form-section ${scrollY > 300 ? "slide-up" : ""}`}>
-        <div style={{ textAlign: "center", marginBottom: "40px" }}>
-            <h2 style={{ fontWeight: '300', letterSpacing: "1px" }}>Send Us a Message</h2>
-            <div style={{ width: "40px", height: "2px", background: "linear-gradient(90deg, #4ac6ff, transparent)", margin: "10px auto" }}></div>
-        </div>
+      {/* Main Content Layout */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr', gap: '30px' }}>
         
-        <form className="contact-form" onSubmit={handleSubmit} style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <input 
-            type="text" 
-            placeholder="Your Name" 
-            required 
-            style={inputStyle}
-            value={formData.name}
-            onChange={(e) => setFormData({...formData, name: e.target.value})}
-            onFocus={(e) => e.target.style.borderColor = "#4ac6ff"}
-            onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
-          />
-          <input 
-            type="email" 
-            placeholder="Your Email" 
-            required 
-            style={inputStyle}
-            value={formData.email}
-            onChange={(e) => setFormData({...formData, email: e.target.value})}
-            onFocus={(e) => e.target.style.borderColor = "#4ac6ff"}
-            onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
-          />
-          <textarea 
-            placeholder="Your Message" 
-            rows="5" 
-            required 
-            style={{...inputStyle, resize: 'none'}}
-            value={formData.message}
-            onChange={(e) => setFormData({...formData, message: e.target.value})}
-            onFocus={(e) => e.target.style.borderColor = "#4ac6ff"}
-            onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
-          ></textarea>
+        {/* Message Input Section */}
+        <motion.section variants={itemVariants} style={cardStyle}>
+          <div style={cardHeader}>Send a Message</div>
+          <form onSubmit={handleSubmit}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <motion.input 
+                whileFocus={{ borderColor: theme.primary }}
+                type="text" 
+                placeholder="Full Name" 
+                required 
+                style={inputStyle}
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+              />
+              <motion.input 
+                whileFocus={{ borderColor: theme.primary }}
+                type="email" 
+                placeholder="Email Address" 
+                required 
+                style={inputStyle}
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+            <motion.textarea 
+              whileFocus={{ borderColor: theme.primary }}
+              placeholder="Your Message" 
+              rows="8" 
+              required 
+              style={{...inputStyle, resize: 'none'}}
+              value={formData.message}
+              onChange={(e) => setFormData({...formData, message: e.target.value})}
+            ></motion.textarea>
+            
+            <motion.button 
+              whileHover={{ scale: 1.01, boxShadow: "0 4px 20px rgba(88, 166, 255, 0.2)" }}
+              whileTap={{ scale: 0.99 }}
+              type="submit" 
+              style={submitButtonStyle}
+            >
+              {status === "sending" ? "Sending..." : "Initialize Transmission"}
+            </motion.button>
+
+            <AnimatePresence>
+              {status === "success" && (
+                <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ color: theme.success, marginTop: "20px", fontSize: "13px", fontWeight: "600" }}>
+                  ✓ Transmission successful. Your message has been securely logged.
+                </motion.p>
+              )}
+            </AnimatePresence>
+          </form>
+        </motion.section>
+
+        {/* Support Information Section */}
+        <motion.section variants={itemVariants} style={{ ...cardStyle, borderLeft: `4px solid ${theme.primary}` }}>
+          <div style={{ ...cardHeader, color: theme.primary }}>Access Points</div>
           
-          <button type="submit" className="auth-btn" style={{ width: '100%', letterSpacing: "2px" }}>
-            {status === "sending" ? "TRANSMITTING..." : "INITIALIZE MESSAGE"}
-          </button>
+          <div style={infoBox}>
+            <div style={label}>Support Email</div>
+            <div style={val}>wmaham06@gmail.com</div>
+          </div>
+          
+          <div style={infoBox}>
+            <div style={label}>Direct Line</div>
+            <div style={val}>+92 300 3799 170</div>
+          </div>
+          
+          <div style={infoBox}>
+            <div style={label}>Base Location</div>
+            <div style={val}>Mirpurkhas, Pakistan</div>
+          </div>
 
-          {status === "success" && <p style={{ color: "#4ac6ff", marginTop: "15px", fontSize: "0.9rem" }}>Data securely stored in InsightIQ systems.</p>}
-          {status === "error" && <p style={{ color: "#ff4a4a", marginTop: "15px", fontSize: "0.9rem" }}>Transmission error. Verify your connection.</p>}
-        </form>
-      </section>
+          <div style={auditNote}>
+            <p style={{ fontSize: '11px', color: theme.subtext, lineHeight: '1.6', margin: 0 }}>
+              All inquiries are processed through our encrypted data stream to ensure total privacy.
+            </p>
+          </div>
+        </motion.section>
+      </div>
 
-      {/* Team Section */}
-      <section className={`team ${scrollY > 600 ? "fade-in" : ""}`}>
-        <h2>Our Experts</h2>
-        <div className="team-grid">
-          <div className="team-card hover-animate">
-            <div className="avatar">👩‍💼</div>
-            <h3>Maham Waheed</h3>
-            <p>Project Lead & AI Analyst</p>
-          </div>
-          <div className="team-card hover-animate">
-            <div className="avatar">👩‍💻</div>
-            <h3>Adeena Sheikh</h3>
-            <p>Team Member</p>
-          </div>
-          <div className="team-card hover-animate">
-            <div className="avatar">🤖</div>
-            <h3>InsightIQ AI</h3>
-            <p>AI & Analytics Engine</p>
-          </div>
+      {/* Analysts Ticker Style */}
+      <section style={{ marginTop: '60px' }}>
+        <motion.div variants={itemVariants} style={cardHeader}>Core Analytics Team</motion.div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+          {[
+            { name: "Maham Waheed", role: "Project Lead", icon: "👩‍💼" },
+            { name: "Adeena Sheikh", role: "Team Member", icon: "👩‍💻" },
+            { name: "InsightIQ AI", role: "Neural Engine", icon: "🤖" }
+          ].map((analyst, index) => (
+            <motion.div 
+              key={analyst.name}
+              variants={itemVariants}
+              whileHover={{ y: -5, backgroundColor: "rgba(255,255,255,0.02)", borderColor: theme.primary }}
+              style={cardStyle}
+            >
+              <div style={{ fontSize: '24px', marginBottom: '15px' }}>{analyst.icon}</div>
+              <div style={{ fontSize: '11px', color: theme.subtext, fontWeight: '800', letterSpacing: '1px', textTransform: 'uppercase' }}>{analyst.role}</div>
+              <div style={{ fontSize: '20px', fontWeight: '900', marginTop: '6px', letterSpacing: '-0.5px' }}>{analyst.name}</div>
+            </motion.div>
+          ))}
         </div>
       </section>
-
-      {/* Info Section */}
-      <section className={`contact-info ${scrollY > 900 ? "slide-up" : ""}`}>
-        <h2 style={{ color: "#4ac6ff", fontWeight: "300" }}>Contact Details</h2>
-        <ul className="info-list">
-          <li>📧 Email: wmaham06@gmail.com</li>
-          <li>📞 Phone: +92 300 3799 170</li>
-          <li>🌐 Website: www.insightiq.com</li>
-          <li>📍 Location: Mirpurkhas, Pakistan</li>
-        </ul>
-      </section>
-
-      <style>{`
-        .live-indicator {
-          position: absolute; 
-          top: 10px; 
-          right: -20px; 
-          height: 8px; 
-          width: 8px; 
-          background: #4ac6ff; 
-          border-radius: 50%; 
-          box-shadow: 0 0 10px #4ac6ff;
-          animation: pulse 2s infinite;
-        }
-
-        .info-list {
-          background: rgba(255,255,255,0.02); 
-          padding: 30px; 
-          border-radius: 20px; 
-          border: 1px solid rgba(255,255,255,0.05);
-          list-style: none;
-        }
-
-        .info-list li {
-          border-bottom: 1px solid rgba(255,255,255,0.05); 
-          padding: 12px 0;
-          color: rgba(255,255,255,0.7);
-        }
-
-        @keyframes pulse {
-          0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 198, 255, 0.7); }
-          70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(74, 198, 255, 0); }
-          100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(74, 198, 255, 0); }
-        }
-      `}</style>
-    </div>
+    </motion.div>
   );
 }
+
+// ---------- Dashboard Styles ----------
+const cardStyle = { background: theme.card, padding: '35px', borderRadius: '14px', border: `1px solid ${theme.border}`, transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)" };
+const cardHeader = { fontSize: '12px', color: theme.subtext, marginBottom: '25px', fontWeight: '800', letterSpacing: '1.2px', textTransform: 'uppercase' };
+const actionButtonStyle = { padding: '12px 28px', background: 'transparent', color: theme.subtext, fontSize: '12px', fontWeight: '700', cursor: 'pointer', borderRadius: '8px', border: `1px solid ${theme.border}`, transition: '0.2s' };
+const submitButtonStyle = { padding: '16px', background: theme.primary, color: '#fff', fontSize: '13px', fontWeight: '800', cursor: 'pointer', borderRadius: '10px', border: 'none', width: '100%', transition: 'all 0.3s' };
+const infoBox = { marginBottom: '24px', borderBottom: `1px solid ${theme.border}`, paddingBottom: '16px' };
+const label = { fontSize: '11px', color: theme.subtext, fontWeight: '700', marginBottom: '6px' };
+const val = { fontSize: '15px', fontWeight: '600' };
+const auditNote = { marginTop: '32px', padding: '18px', background: 'rgba(88,166,255,0.04)', borderRadius: '10px', border: `1px solid ${theme.border}` };

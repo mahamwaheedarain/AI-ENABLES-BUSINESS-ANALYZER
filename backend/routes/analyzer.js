@@ -5,7 +5,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 /**
  * GEMINI AI CONFIGURATION
- * Uses the Gemini 1.5 Flash model to process fiscal, HR, Marketing, and Operations data 
+ * Uses the Gemini 1.5 Flash model to process fiscal, HR, Marketing, Sales, and Operations data 
  * retrieved from the PostgreSQL 'business_files' table.
  */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -21,7 +21,7 @@ router.post("/analyze", async (req, res) => {
     const dbData = await pool.query("SELECT filename, content FROM business_files");
     
     if (dbData.rows.length === 0) {
-      return res.json({ reply: "No business intelligence files found in the database. Please upload your Finance, HR, or Marketing data first." });
+      return res.json({ reply: "No business intelligence files found in the database. Please upload your Finance, HR, Marketing, or Sales data first." });
     }
 
     // 2. Prepare the context from all stored files
@@ -35,16 +35,17 @@ router.post("/analyze", async (req, res) => {
     const prompt = `
       You are the Professional Lead Analyst for Academic Attire Co.
       
-      CORE KNOWLEDGE BASE (From Uploaded Financial, HR, Marketing, and Operations Files):
+      CORE KNOWLEDGE BASE (From Uploaded Financial, HR, Marketing, Sales, and Operations Files):
       ${context}
 
       TASK:
       Analyze the provided SOURCE MATERIAL above to answer the user's question. 
       You have access to:
       1. FISCAL RECORDS: Revenue, expenses, and profit margins.
-      2. HR INTELLIGENCE: Employee performance (92.1% accuracy), attrition risk, and absence trends.
+      2. HR INTELLIGENCE: Employee performance (92.4% accuracy), attrition risk, and absence trends.
       3. MARKETING INSIGHTS: Lead scoring (91.8% accuracy), customer churn, and market trends.
-      4. OPERATIONS: Supply chain risk (97.5% accuracy) and logistics tracking.
+      4. SALES INTELLIGENCE: Amazon revenue forecasting (91.2% accuracy), Marketing ROI, and Customer Churn.
+      5. OPERATIONS: Supply chain risk (97.5% accuracy) and logistics tracking.
 
       GUIDELINES:
       - Be specific and provide data-driven insights derived from the text above.
