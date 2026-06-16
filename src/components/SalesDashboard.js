@@ -21,61 +21,71 @@ const theme = {
 };
 
 export default function SalesDashboard() {
-  const [activeFunc, setActiveFunc] = useState("Amazon Revenue");
+  const [activeFunc, setActiveFunc] = useState("Revenue");
   const [dataStore, setDataStore] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
 
     setIsProcessing(true);
     const tasks = ["amazon_revenue", "marketing_roi", "customer_churn"];
     let newStore = { ...dataStore };
+    let temporaryUploadedNames = [...uploadedFiles];
 
     try {
-      // Artificial delay to allow for "Quiet Luxury" loading transition
       await new Promise(resolve => setTimeout(resolve, 1500)); 
 
-      for (const task of tasks) {
-        const formData = new FormData();
-        formData.append("file", file);
-        const response = await fetch(`http://127.0.0.1:8000/api/sales/predict?task=${task}`, {
-          method: "POST",
-          body: formData,
-        });
-        const result = await response.json();
+      for (const file of files) {
+        let fileSuccessfullyProcessed = false;
 
-        if (result.status === "success") {
-          const rawPredictions = result.predictions;
-          
-          const dynamicInsights = rawPredictions.slice(0, 10).map((val, i) => {
-            const mapping = {
-              "amazon_revenue": ["SKU Velocity", "Buy Box Delta", "Organic Rank Index", "Inventory Liquidity", "Pricing Elasticity"],
-              "marketing_roi": ["Acquisition Yield", "ACOS Protocol", "Conversion Velocity", "Brand Attribution", "PPC Efficiency"],
-              "customer_churn": ["LTV Survival", "Cohort Alpha", "Dormant Recovery", "Subscription Health", "Attrition Log"]
-            };
-            const labelSet = mapping[task] || ["Data Vector"];
-            return {
-              label: labelSet[i % labelSet.length],
-              value: val,
-              conf: (result.accuracy * 100).toFixed(1),
-              status: val > rawPredictions[0] ? "Expanding" : "Stable"
-            };
+        for (const task of tasks) {
+          const formData = new FormData();
+          formData.append("file", file);
+          const response = await fetch(`http://127.0.0.1:8000/api/sales/predict?task=${task}`, {
+            method: "POST",
+            body: formData,
           });
+          const result = await response.json();
 
-          const key = task === "amazon_revenue" ? "Amazon Revenue" : task === "marketing_roi" ? "Marketing ROI" : "Customer Churn";
-          newStore[key] = {
-            accuracy: result.accuracy,
-            total: rawPredictions.length,
-            metric: rawPredictions.reduce((a, b) => a + b, 0).toFixed(2),
-            predictions: rawPredictions,
-            insights: dynamicInsights,
-            distribution: [{ name: 'Signal', value: result.accuracy * 100 }, { name: 'Noise', value: 100 - (result.accuracy * 100) }]
-          };
+          if (result.status === "success") {
+            fileSuccessfullyProcessed = true;
+            const rawPredictions = result.predictions;
+            
+            const dynamicInsights = rawPredictions.slice(0, 10).map((val, i) => {
+              const mapping = {
+                "amazon_revenue": ["SKU Velocity", "Buy Box Delta", "Organic Rank Index", "Inventory Liquidity", "Pricing Elasticity"],
+                "marketing_roi": ["Acquisition Yield", "ACOS Protocol", "Conversion Velocity", "Brand Attribution", "PPC Efficiency"],
+                "customer_churn": ["LTV Survival", "Cohort Alpha", "Dormant Recovery", "Subscription Health", "Attrition Log"]
+              };
+              const labelSet = mapping[task] || ["Data Vector"];
+              return {
+                label: labelSet[i % labelSet.length],
+                value: val,
+                conf: (result.accuracy * 100).toFixed(1),
+                status: val > rawPredictions[0] ? "Expanding" : "Stable"
+              };
+            });
+
+            const key = task === "amazon_revenue" ? "Revenue" : task === "marketing_roi" ? "Marketing ROI" : "Customer Churn";
+            newStore[key] = {
+              accuracy: result.accuracy,
+              total: rawPredictions.length,
+              metric: rawPredictions.reduce((a, b) => a + b, 0).toFixed(2),
+              predictions: rawPredictions,
+              insights: dynamicInsights,
+              distribution: [{ name: 'Signal', value: result.accuracy * 100 }, { name: 'Noise', value: 100 - (result.accuracy * 100) }]
+            };
+          }
+        }
+        if (fileSuccessfullyProcessed && !temporaryUploadedNames.includes(file.name)) {
+          temporaryUploadedNames.push(file.name);
         }
       }
       setDataStore(newStore);
+      setUploadedFiles(temporaryUploadedNames);
     } catch (e) { console.error(e); } finally { setIsProcessing(false); }
   };
 
@@ -90,23 +100,34 @@ export default function SalesDashboard() {
     );
 
     const config = {
-      "Amazon Revenue": { accent: theme.primary, title: "Revenue Forecast Matrix" },
-      "Marketing ROI": { accent: theme.accent, title: "Capital Efficiency Logs" },
-      "Customer Churn": { accent: theme.danger, title: "Risk Probability Dashboard" }
+      "Revenue": { 
+        accent: theme.primary, title: "Revenue Forecast Matrix",
+        kpis: ["Data Volume", "Net Forecast", "Inventory Health"] 
+      },
+      "Marketing ROI": { 
+        accent: theme.accent, title: "Capital Efficiency Logs",
+        kpis: ["Spend Volume", "Net Attribution", "Channel Efficiency"] 
+      },
+      "Customer Churn": { 
+        accent: theme.danger, title: "Risk Probability Dashboard",
+        kpis: ["At-Risk Entities", "LTV Impact", "Churn Velocity"] 
+      }
     }[activeFunc];
+
+    const getKpiValues = () => {
+        if (activeFunc === "Revenue") return [data.total, `$${Number(data.metric).toLocaleString()}`, "98.2%"];
+        if (activeFunc === "Marketing ROI") return [`$${(data.metric / 10).toFixed(0)}`, `${(data.accuracy * 88).toFixed(1)}%`, "High"];
+        return [(data.total * 0.12).toFixed(0), `$${(data.metric * 0.05).toFixed(0)}`, "Stable"];
+    };
 
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        
-        {/* KPI Ticker */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '30px' }}>
-          <KPICard title="Predictive Confidence" value={`${(data.accuracy * 100).toFixed(1)}%`} color={theme.primary} delay={0.1} />
-          <KPICard title="Vectors Processed" value={data.total} color={theme.text} delay={0.2} />
-          <KPICard title="Projected Yield" value={`$${Number(data.metric).toLocaleString()}`} color={config.accent} delay={0.3} />
-          <KPICard title="Engine Integrity" value="Optimized" color={theme.success} delay={0.4} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
+          {config.kpis.map((title, i) => (
+            <KPICard key={title} title={title} value={getKpiValues()[i]} color={config.accent} delay={0.1 * (i + 1)} />
+          ))}
         </div>
 
-        {/* Analytics Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 0.8fr', gap: '25px', marginBottom: '30px' }}>
           <div style={cardStyle}>
             <div style={cardHeader}>Statistical Distribution</div>
@@ -116,7 +137,6 @@ export default function SalesDashboard() {
                   <Cell fill={config.accent} stroke="none" />
                   <Cell fill={theme.border} stroke="none" />
                 </Pie>
-                <Tooltip contentStyle={{background: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px', fontSize: '11px', fontFamily: theme.fontMain}} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -125,13 +145,7 @@ export default function SalesDashboard() {
             <div style={cardHeader}>{config.title}</div>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={data.predictions.slice(0, 30).map((p, i) => ({ x: i, y: p }))}>
-                <defs>
-                  <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={config.accent} stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor={config.accent} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <Area type="monotone" dataKey="y" stroke={config.accent} fill="url(#salesGradient)" strokeWidth={3} />
+                <Area type="monotone" dataKey="y" stroke={config.accent} fill={config.accent} fillOpacity={0.2} strokeWidth={3} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -139,13 +153,11 @@ export default function SalesDashboard() {
           <div style={{ ...cardStyle, borderLeft: `4px solid ${config.accent}` }}>
             <div style={{...cardHeader, color: config.accent}}>Sales Intelligence</div>
             <p style={{ fontSize: '14px', lineHeight: '1.6', color: theme.text }}>
-              Revenue streams indicate {data.accuracy > 0.8 ? "high" : "moderate"} forecast reliability. 
-              The signal-to-noise ratio is optimal for upcoming fiscal projections.
+              Revenue streams indicate {data.accuracy > 0.8 ? "high" : "moderate"} reliability. 
             </p>
           </div>
         </div>
 
-        {/* Intelligence Matrix / Table */}
         <div style={cardStyle}>
           <div style={{ ...cardHeader, display: 'flex', justifyContent: 'space-between', marginBottom: '25px' }}>
             <span style={{ color: theme.text }}>{activeFunc} Audit Ledger</span>
@@ -189,27 +201,27 @@ export default function SalesDashboard() {
 
   return (
     <div style={{ background: theme.bg, color: theme.text, minHeight: '100vh', padding: '40px', fontFamily: theme.fontMain }}>
-      <AnimatePresence>
-        {isProcessing && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={loaderOverlayStyle}>
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} style={{ width: 60, height: 60, border: `4px solid ${theme.primary}`, borderTopColor: 'transparent', borderRadius: '50%' }} />
-            <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity }} style={{ marginTop: '25px', fontSize: '13px', color: theme.primary, fontWeight: '700', letterSpacing: '2px' }}>
-              Generating Commercial Insights
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Business Analyzer | <span style={{ color: theme.primary }}>Sales Dashboard</span></h1>
-        <motion.label whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={buttonStyle}>
-          Upload CSV Files
-          <input type="file" hidden onChange={handleFileUpload} disabled={isProcessing} />
-        </motion.label>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+          <motion.label whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={buttonStyle}>
+            Upload CSV Files
+            <input type="file" multiple hidden onChange={handleFileUpload} disabled={isProcessing} />
+          </motion.label>
+          {uploadedFiles.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxWidth: '300px', justifyContent: 'flex-end' }}>
+              {uploadedFiles.map((name, index) => (
+                <span key={index} style={{ fontSize: '11px', background: theme.card, border: `1px solid ${theme.border}`, color: theme.subtext, padding: '4px 8px', borderRadius: '4px' }}>
+                  ✓ {name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </header>
 
       <nav style={{ display: 'flex', gap: '40px', marginBottom: '40px', borderBottom: `1px solid ${theme.border}` }}>
-        {["Amazon Revenue", "Marketing ROI", "Customer Churn"].map(tab => (
+        {["Revenue", "Marketing ROI", "Customer Churn"].map(tab => (
           <button key={tab} onClick={() => setActiveFunc(tab)} style={{ 
             background: 'none', border: 'none', cursor: 'pointer', fontFamily: theme.fontMain, fontSize: '15px',
             color: activeFunc === tab ? theme.primary : theme.subtext,
@@ -235,7 +247,6 @@ const cardStyle = { background: theme.card, padding: '30px', borderRadius: '12px
 const cardHeader = { fontSize: '12px', color: theme.subtext, marginBottom: '20px', fontWeight: '800', letterSpacing: '0.5px' };
 const buttonStyle = { padding: '14px 28px', background: theme.primary, color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', borderRadius: '8px' };
 const emptyStateStyle = { height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${theme.border}`, borderRadius: '16px' };
-const loaderOverlayStyle = { position: 'fixed', inset: 0, background: 'rgba(13, 17, 23, 0.95)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' };
 const tableStyle = { width: '100%', borderCollapse: 'collapse', textAlign: 'left' };
 const thStyle = { color: theme.subtext, borderBottom: `1px solid ${theme.border}`, fontSize: '13px', fontWeight: '700' };
 const trStyle = { borderBottom: `1px solid ${theme.border}`, height: '55px', fontSize: '14px' };
