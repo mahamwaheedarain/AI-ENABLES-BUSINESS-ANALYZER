@@ -10,7 +10,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
  */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Using 1.5-flash for high-speed multi-modal business analysis
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 router.post("/analyze", async (req, res) => {
   const { message } = req.body;

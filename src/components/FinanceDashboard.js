@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  BarChart, Bar, Cell, AreaChart, Area, ComposedChart, Line
+  AreaChart, Area
 } from 'recharts';
 
 // ---------- Unified High-End Theme ----------
@@ -22,62 +22,186 @@ const theme = {
   fontMono: "'JetBrains Mono', monospace",
 };
 
+// Custom metric definitions for every single one of the 10 categories
 const modules = [
-  { id: "Profitability Velocity", kpi1: "Net Profit", kpi2: "Gross Margin", kpi3: "EBITDA", color: "#58a6ff", chartKey: "NetProfit" },
-  { id: "Liquidity Strength", kpi1: "Quick Ratio", kpi2: "Current Ratio", kpi3: "Cash Reserves", color: "#3fb950", chartKey: "QuickRatio" },
-  { id: "Market Dominance", kpi1: "Market Share", kpi2: "Capture Rate", kpi3: "HHI Index", color: "#b388ff", chartKey: "MarketShare" },
-  { id: "Efficiency Matrix", kpi1: "Productivity", kpi2: "OpEx Ratio", kpi3: "Labor Yield", color: "#ffab40", chartKey: "EmployeeProductivity" },
-  { id: "Solvency Risk", kpi1: "D/E Ratio", kpi2: "Interest Cov", kpi3: "WACC", color: "#f85149", chartKey: "DebtToEquity" },
-  { id: "Burn Rate Variance", kpi1: "Net Burn", kpi2: "Runway", kpi3: "Venture Ratio", color: "#f85149", chartKey: "BurnRate" },
-  { id: "Predictive LTV", kpi1: "LTV/CAC", kpi2: "ARPU", kpi3: "Retention", color: "#58a6ff", chartKey: "CustomerLTV" },
-  { id: "Capital Health", kpi1: "Working Cap", kpi2: "Inventory Turn", kpi3: "Asset Liq", color: "#3fb950", chartKey: "WorkingCapital" },
-  { id: "Customer Acquisition", kpi1: "CAC", kpi2: "Organic Lift", kpi3: "Marketing ROI", color: "#b388ff", chartKey: "CAC" },
-  { id: "Risk vs Volatility", kpi1: "Risk Score", kpi2: "Beta Factor", kpi3: "Sharpe Ratio", color: "#ffab40", chartKey: "RiskScore" }
+  { 
+    id: "Profitability Velocity", 
+    kpi1: "Net Profit", kpi1Key: "NetProfit", 
+    kpi2: "Gross Margin", kpi2Key: "GrossMargin", 
+    kpi3: "EBITDA", kpi3Key: "EBITDA", 
+    color: "#58a6ff", chartKey: "NetProfit", 
+    metricTelemetryName: "Net Income Variance", 
+    outputTelemetryName: "Liquid Retained Earnings ($)" 
+  },
+  { 
+    id: "Liquidity Strength", 
+    kpi1: "Quick Ratio", kpi1Key: "QuickRatio", 
+    kpi2: "Current Ratio", kpi2Key: "CurrentRatio", 
+    kpi3: "Cash Reserves", kpi3Key: "CashReserves", 
+    color: "#3fb950", chartKey: "QuickRatio", 
+    metricTelemetryName: "Immediate Asset Liquid Index", 
+    outputTelemetryName: "Solvency Coverage Factor (:1)" 
+  },
+  { 
+    id: "Market Dominance", 
+    kpi1: "Market Share", kpi1Key: "MarketShare", 
+    kpi2: "Capture Rate", kpi2Key: "CaptureRate", 
+    kpi3: "HHI Index", kpi3Key: "HHIIndex", 
+    color: "#b388ff", chartKey: "MarketShare", 
+    metricTelemetryName: "HHI Concentration Score", 
+    outputTelemetryName: "Sector Penetration Share (%)" 
+  },
+  { 
+    id: "Efficiency Matrix", 
+    kpi1: "Productivity", kpi1Key: "Productivity", 
+    kpi2: "OpEx Ratio", kpi2Key: "OpExRatio", 
+    kpi3: "Labor Yield", kpi3Key: "LaborYield", 
+    color: "#ffab40", chartKey: "EmployeeProductivity", 
+    metricTelemetryName: "Labor Productivity Coefficient", 
+    outputTelemetryName: "Operational Resource Yield" 
+  },
+  { 
+    id: "Solvency Risk", 
+    kpi1: "Interest Cov", kpi1Key: "InterestCov", 
+    kpi2: "WACC", kpi2Key: "WACC", 
+    kpi3: "Solvency Coverage", kpi3Key: "InterestCov", 
+    color: "#f85149", chartKey: "InterestCov", 
+    metricTelemetryName: "Interest Coverage Ratio (TIE)", 
+    outputTelemetryName: "Debt-to-Earnings Multiplier" 
+  },
+  { 
+    id: "Burn Rate Variance", 
+    kpi1: "Net Burn", kpi1Key: "NetBurn", 
+    kpi2: "Runway", kpi2Key: "Runway", 
+    kpi3: "Venture Ratio", kpi3Key: "VentureRatio", 
+    color: "#f85149", chartKey: "NetBurn", 
+    metricTelemetryName: "Net Capital Outflow Rate", 
+    outputTelemetryName: "Monthly Run-Rate Exhaustion ($)" 
+  },
+  { 
+    id: "Predictive LTV", 
+    kpi1: "ARPU", kpi1Key: "ARPU", 
+    kpi2: "Retention", kpi2Key: "Retention", 
+    kpi3: "Churn Rate", kpi3Key: "ChurnRate", 
+    color: "#58a6ff", chartKey: "ARPU", 
+    metricTelemetryName: "Unit Economic Yield (ARPU)", 
+    outputTelemetryName: "Net Lifetime Value Capital ($)" 
+  },
+  { 
+    id: "Capital Health", 
+    kpi1: "Working Cap", kpi1Key: "WorkingCap", 
+    kpi2: "Inventory Turn", kpi2Key: "InventoryTurn", 
+    kpi3: "Asset Liq", kpi3Key: "AssetLiq", 
+    color: "#3fb950", chartKey: "WorkingCap", 
+    metricTelemetryName: "Net Operating Capital Velocity", 
+    outputTelemetryName: "Liquid Capital Run-Rate ($)" 
+  },
+  { 
+    id: "Customer Acquisition", 
+    kpi1: "CAC", kpi1Key: "CAC", 
+    kpi2: "Organic Lift", kpi2Key: "OrganicLift", 
+    kpi3: "Marketing ROI", kpi3Key: "MarketingROI", 
+    color: "#b388ff", chartKey: "CAC", 
+    metricTelemetryName: "Blended Acquisition Threshold", 
+    outputTelemetryName: "Per-Capita Capital Overhead ($)" 
+  },
+  { 
+    id: "Risk vs Volatility", 
+    kpi1: "Risk Score", kpi1Key: "RiskScore", 
+    kpi2: "Beta Factor", kpi2Key: "BetaFactor", 
+    kpi3: "Sharpe Ratio", kpi3Key: "SharpeRatio", 
+    color: "#ffab40", chartKey: "RiskScore", 
+    metricTelemetryName: "Sharpe Risk-Adjusted Return", 
+    outputTelemetryName: "Beta Systematic Variance Index" 
+  }
 ];
 
 export default function ProfessionalFinanceTerminal() {
   const [activeFunc, setActiveFunc] = useState("Profitability Velocity");
   const [dataStore, setDataStore] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
 
   const handleFileUpload = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
     setIsProcessing(true);
-    
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      await new Promise(r => setTimeout(r, 1200));
-      const text = e.target.result;
-      const rows = text.split("\n").filter(r => r.trim() !== "");
-      const headers = rows[0].split(",").map(h => h.trim());
-      const parsed = rows.slice(1).map(row => {
-        const values = row.split(",");
-        return headers.reduce((obj, header, index) => {
-          const val = values[index]?.trim();
-          obj[header] = isNaN(val) ? val : parseFloat(val);
-          return obj;
-        }, {});
+
+    let cumulativeRows = [];
+    let temporaryUploadedNames = [...uploadedFiles];
+
+    try {
+      // Async resolution loop processing individual target files concurrently 
+      const parsedFilesPromises = files.map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const text = e.target.result;
+            const rows = text.split("\n").filter(r => r.trim() !== "");
+            if (rows.length <= 1) {
+              resolve({ name: file.name, data: [] });
+              return;
+            }
+
+            const headers = rows[0].split(",").map(h => h.trim());
+            const parsed = rows.slice(1).map(row => {
+              const values = row.split(",");
+              return headers.reduce((obj, header, index) => {
+                const val = values[index]?.trim();
+                const cleanHeader = header.replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '');
+                obj[cleanHeader] = isNaN(val) ? val : parseFloat(val);
+                obj[header] = isNaN(val) ? val : parseFloat(val);
+                return obj;
+              }, {});
+            });
+            resolve({ name: file.name, data: parsed });
+          };
+          reader.readAsText(file);
+        });
       });
 
-      let newStore = {};
-      modules.forEach(mod => {
-        newStore[mod.id] = { ledger: parsed, total: parsed.length };
+      const processedResults = await Promise.all(parsedFilesPromises);
+      await new Promise(r => setTimeout(r, 1200)); // Standard simulation UI alignment buffer
+
+      processedResults.forEach(res => {
+        if (res.data.length > 0) {
+          cumulativeRows = [...cumulativeRows, ...res.data];
+          if (!temporaryUploadedNames.includes(res.name)) {
+            temporaryUploadedNames.push(res.name);
+          }
+        }
       });
-      
-      setDataStore(newStore);
+
+      if (cumulativeRows.length > 0) {
+        setDataStore(prevStore => {
+          let updatedStore = { ...prevStore };
+          modules.forEach(mod => {
+            const currentLedger = prevStore[mod.id]?.ledger || [];
+            const structuralMerge = [...currentLedger, ...cumulativeRows];
+            updatedStore[mod.id] = {
+              ledger: structuralMerge,
+              total: structuralMerge.length
+            };
+          });
+          return updatedStore;
+        });
+        setUploadedFiles(temporaryUploadedNames);
+      }
+    } catch (error) {
+      console.error("Aggregation Processing Failure:", error);
+    } finally {
       setIsProcessing(false);
-    };
-    reader.readAsText(file);
+      event.target.value = ""; 
+    }
   };
 
   const renderDashboard = () => {
     const data = dataStore[activeFunc];
-    if (!data) return (
+    if (!data || !data.ledger || data.ledger.length === 0) return (
       <div style={emptyStateStyle}>
         <div style={{ textAlign: 'center' }}>
           <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }} style={{ fontSize: '15px', fontWeight: '900', color: theme.subtext, letterSpacing: '2px' }}>
-            Awaiting Insights
+            Awaiting Financial Insights
           </motion.div>
         </div>
       </div>
@@ -86,13 +210,20 @@ export default function ProfessionalFinanceTerminal() {
     const config = modules.find(m => m.id === activeFunc);
     const lastEntry = data.ledger[data.ledger.length - 1] || {};
 
+    const extractValue = (cleanKey, absoluteTitle) => {
+      if (lastEntry[cleanKey] !== undefined) return lastEntry[cleanKey];
+      const directSpaceStrip = absoluteTitle.replace(/\s/g, '');
+      if (lastEntry[directSpaceStrip] !== undefined) return lastEntry[directSpaceStrip];
+      if (lastEntry[absoluteTitle] !== undefined) return lastEntry[absoluteTitle];
+      return "0.00";
+    };
+
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '30px' }}>
-          <KPICard title={config.kpi1} value={lastEntry[config.kpi1.replace(/\s/g, '')] || "0.00"} color={config.color} />
-          <KPICard title={config.kpi2} value={lastEntry[config.kpi2.replace(/\s/g, '')] || "0.00"} color={theme.text} />
-          <KPICard title={config.kpi3} value={lastEntry[config.kpi3.replace(/\s/g, '')] || "0.00"} color={theme.success} />
-          <KPICard title="System Integrity" value="VERIFIED" color={theme.primary} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
+          <KPICard title={config.kpi1} value={extractValue(config.kpi1Key, config.kpi1)} color={config.color} />
+          <KPICard title={config.kpi2} value={extractValue(config.kpi2Key, config.kpi2)} color={theme.text} />
+          <KPICard title={config.kpi3} value={extractValue(config.kpi3Key, config.kpi3)} color={theme.success} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '25px', marginBottom: '30px' }}>
@@ -122,19 +253,19 @@ export default function ProfessionalFinanceTerminal() {
             <table style={tableStyle}>
               <thead>
                 <tr style={thStyle}>
-                  <th style={{ padding: '15px' }}>Timeline</th>
-                  <th>Core Metric</th>
-                  <th>Stability</th>
-                  <th>Value</th>
+                  <th style={{ padding: '15px' }}>Reporting Period</th>
+                  <th>Key Performance Metric</th>
+                  <th>Audit Status</th>
+                  <th>{config.outputTelemetryName}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.ledger.slice(-10).map((row, i) => (
                   <tr key={i} style={trStyle}>
-                    <td style={{ padding: '15px', fontFamily: theme.fontMono, color: theme.primary }}>{row.Month || `FY26-Q${i}`}</td>
-                    <td>{config.chartKey}</td>
+                    <td style={{ padding: '15px', fontFamily: theme.fontMono, color: theme.primary }}>{row.Month || `FY26-Q${i+1}`}</td>
+                    <td style={{ fontWeight: '500' }}>{config.metricTelemetryName}</td>
                     <td><span style={statusBadge}>NORMAL</span></td>
-                    <td style={{ fontFamily: theme.fontMono }}>{row[config.chartKey]}</td>
+                    <td style={{ fontFamily: theme.fontMono }}>{row[config.chartKey] !== undefined ? row[config.chartKey] : "0"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -152,30 +283,44 @@ export default function ProfessionalFinanceTerminal() {
         .custom-nav::-webkit-scrollbar-track { background: ${theme.bg}; }
         .custom-nav::-webkit-scrollbar-thumb { background: ${theme.border}; border-radius: 10px; }
         .custom-nav::-webkit-scrollbar-thumb:hover { background: ${theme.primary}; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
       `}</style>
 
       <AnimatePresence>
         {isProcessing && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={loaderOverlayStyle}>
-            <div style={spinnerStyle} />
+            <div style={{ ...spinnerStyle, animation: 'spin 0.8s linear infinite' }} />
           </motion.div>
         )}
       </AnimatePresence>
 
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
         <div>
           <h1 style={{ fontSize: '22px', fontWeight: '900', margin: 0, letterSpacing: '-0.5px' }}>
             Business Analyzer |<span style={{ color: theme.primary }}> Financial Dashboard</span>
           </h1>
-          <div style={{ fontSize: '13px', color: theme.subtext, fontWeight: '800', marginTop: '4px', letterSpacing: '1px' }}></div>
         </div>
-        <label style={uploadButtonStyle}>
-          Upload CSV Files
-          <input type="file" hidden onChange={handleFileUpload} />
-        </label>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
+          <label style={uploadButtonStyle}>
+            Upload CSV Files
+            {/* Added 'multiple' property here to align with multi-file drop schemas */}
+            <input type="file" multiple hidden onChange={handleFileUpload} accept=".csv" disabled={isProcessing} />
+          </label>
+          
+          {/* File Name Chip Registry Layout Render */}
+          {uploadedFiles.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxWidth: '300px', justifyContent: 'flex-end' }}>
+              {uploadedFiles.map((name, index) => (
+                <span key={index} style={{ fontSize: '11px', background: theme.card, border: `1px solid ${theme.border}`, color: theme.subtext, padding: '4px 8px', borderRadius: '4px', fontFamily: theme.fontMono }}>
+                  ✓ {name}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </header>
 
-      {/* Professional Horizontal Scrollbar Navigation */}
       <nav className="custom-nav" style={{ display: 'flex', gap: '10px', marginBottom: '40px', overflowX: 'auto', paddingBottom: '12px', borderBottom: `1px solid ${theme.border}` }}>
         {modules.map(mod => (
           <button
@@ -221,7 +366,4 @@ const thStyle = { color: theme.subtext, borderBottom: `1px solid ${theme.border}
 const trStyle = { borderBottom: `1px solid ${theme.border}`, height: '50px', fontSize: '13px' };
 const statusBadge = { background: 'rgba(63, 185, 80, 0.1)', color: theme.success, padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '900', border: '1px solid rgba(63, 185, 80, 0.2)' };
 const loaderOverlayStyle = { position: 'fixed', inset: 0, background: 'rgba(13, 17, 23, 0.9)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)' };
-const spinnerStyle = { width: '40px', height: '40px', border: `3px solid ${theme.primary}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' };
-
-// Add this to your global CSS or within a <style> tag in your component
-// @keyframes spin { 100% { transform: rotate(360deg); } }
+const spinnerStyle = { width: '40px', height: '40px', border: `3px solid ${theme.primary}`, borderTopColor: 'transparent', borderRadius: '50%' };

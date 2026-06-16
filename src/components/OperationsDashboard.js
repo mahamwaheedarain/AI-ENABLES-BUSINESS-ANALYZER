@@ -46,6 +46,11 @@ export default function OperationsDashboard() {
 
         if (result.status === "success") {
           const rawData = result.operations_data;
+          
+          // 🔍 DEBUG LOG: Check your browser's inspect console (F12) to see exactly what keys your backend sends
+          console.log(`--- RAW DATA FOR TASK: ${task} ---`);
+          console.log(rawData[0]);
+
           const total = rawData.length;
           const flagged = rawData.filter(p => p.risk_status === "LATE RISK");
           const totalProfit = rawData.reduce((a, c) => a + (c.profit || 0), 0);
@@ -56,7 +61,6 @@ export default function OperationsDashboard() {
           
           if (task === "risk") {
             insights = [
-              { label: "Forecast Accuracy", text: `Model reliability for this batch is holding at ${(result.accuracy * 100).toFixed(1)}%.` },
               { label: "Margin Erosion", text: `Breached SLAs represent a potential $${(flagged.length * 42).toFixed(0)} hit to net earnings.` },
               { label: "Working Capital Trap", text: `Total $${riskSales.toFixed(0)} in capital is currently locked in high-risk transit.` },
               { label: "Primary Risk Drivers", text: "Correlation analysis identifies Order Quantity as the top predictor of failure." },
@@ -80,7 +84,6 @@ export default function OperationsDashboard() {
           }
 
           newStore[task === "risk" ? "Risk Management" : "Logistics Tracking"] = {
-            accuracy: result.accuracy,
             total: total,
             flagged: flagged.length,
             benefit: totalProfit,
@@ -104,7 +107,7 @@ export default function OperationsDashboard() {
     if (!data) return (
       <div style={emptyStateStyle}>
         <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 2, repeat: Infinity }} style={{ color: theme.primary, fontSize: '14px', fontWeight: '600' }}>
-          Awaiting Insights
+          Awaiting Operations Insights
         </motion.div>
       </div>
     );
@@ -118,11 +121,10 @@ export default function OperationsDashboard() {
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         
         {/* KPI Ticker */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', marginBottom: '30px' }}>
-          <KPICard title="Forecast Accuracy" value={`${(data.accuracy * 100).toFixed(1)}%`} color={theme.primary} delay={0.1} />
-          <KPICard title="Throughput Units" value={data.total} color={theme.text} delay={0.2} />
-          <KPICard title="SLA Breach Flags" value={data.flagged} color={theme.danger} delay={0.3} />
-          <KPICard title="EBITDA Impact" value={`$${data.benefit.toLocaleString()}`} color={theme.success} delay={0.4} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
+          <KPICard title="Throughput Units" value={data.total} color={theme.text} delay={0.1} />
+          <KPICard title="SLA Breach Flags" value={data.flagged} color={theme.danger} delay={0.2} />
+          <KPICard title="EBITDA Impact" value={`$${data.benefit.toLocaleString()}`} color={theme.success} delay={0.3} />
         </div>
 
         {/* Analytics Grid */}
@@ -201,7 +203,7 @@ export default function OperationsDashboard() {
             <tbody>
               {data.ledger.slice(0, 10).map((row, i) => (
                 <tr key={i} style={trStyle}>
-                  <td style={{padding: '15px', color: theme.primary, fontWeight: '600'}}>{row.id}</td>
+                  <td style={{padding: '15px', color: theme.primary, fontWeight: '600'}}>{row.id || `NEURAL-${String(i+1).padStart(3, '0')}`}</td>
                   <td>
                     <span style={{ 
                       background: row.risk_status === 'LATE RISK' ? 'rgba(248, 81, 73, 0.1)' : 'rgba(63, 185, 80, 0.1)',
@@ -212,9 +214,33 @@ export default function OperationsDashboard() {
                       {row.risk_status === 'LATE RISK' ? 'Breached' : 'Compliant'}
                     </span>
                   </td>
-                  <td>{row.actual_estimate || row.scheduled} Days</td>
+                  
+                  {/* ⚡ Advanced key extraction logic to capture backend names */}
+                  <td>
+                    {(() => {
+                      if (row.cycle_time !== undefined) return `${row.cycle_time} Days`;
+                      if (row.actual_estimate !== undefined) return `${row.actual_estimate} Days`;
+                      if (row.scheduled !== undefined) return `${row.scheduled} Days`;
+                      if (row.transit_duration !== undefined) return `${row.transit_duration} Days`;
+                      if (row.days !== undefined) return `${row.days} Days`;
+
+                      const dynamicKey = Object.keys(row).find(k => 
+                        k.toLowerCase().includes('time') || 
+                        k.toLowerCase().includes('duration') || 
+                        k.toLowerCase().includes('days') ||
+                        k.toLowerCase().includes('estimate')
+                      );
+                      
+                      if (dynamicKey && row[dynamicKey] !== null) {
+                        return `${row[dynamicKey]} Days`;
+                      }
+
+                      return row.shipping_duration || row.lead_time || "0 Days";
+                    })()}
+                  </td>
+
                   <td style={{color: row.profit > 0 ? theme.success : theme.danger, fontWeight: '700'}}>
-                    {row.profit > 0 ? '+' : ''}{row.profit.toFixed(2)}
+                    {row.profit > 0 ? '+' : ''}{(row.profit || 0).toFixed(2)}
                   </td>
                 </tr>
               ))}
