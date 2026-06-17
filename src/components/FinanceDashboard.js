@@ -121,6 +121,7 @@ export default function ProfessionalFinanceTerminal() {
   const [dataStore, setDataStore] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [notification, setNotification] = useState("");
 
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
@@ -131,39 +132,43 @@ export default function ProfessionalFinanceTerminal() {
     let temporaryUploadedNames = [...uploadedFiles];
 
     try {
-      // Async resolution loop processing individual target files concurrently 
-      const parsedFilesPromises = files.map(file => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const text = e.target.result;
-            const rows = text.split("\n").filter(r => r.trim() !== "");
-            if (rows.length <= 1) {
-              resolve({ name: file.name, data: [] });
-              return;
-            }
+      const fileData = await Promise.all(files.map(file => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const rows = text.split("\n").filter(r => r.trim() !== "");
+          if (rows.length <= 1) {
+            resolve({ name: file.name, data: [] });
+            return;
+          }
 
-            const headers = rows[0].split(",").map(h => h.trim());
-            const parsed = rows.slice(1).map(row => {
-              const values = row.split(",");
-              return headers.reduce((obj, header, index) => {
-                const val = values[index]?.trim();
-                const cleanHeader = header.replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '');
-                obj[cleanHeader] = isNaN(val) ? val : parseFloat(val);
-                obj[header] = isNaN(val) ? val : parseFloat(val);
-                return obj;
-              }, {});
-            });
-            resolve({ name: file.name, data: parsed });
-          };
-          reader.readAsText(file);
-        });
+          const headers = rows[0].split(",").map(h => h.trim());
+          const parsed = rows.slice(1).map(row => {
+            const values = row.split(",");
+            return headers.reduce((obj, header, index) => {
+              const val = values[index]?.trim();
+              const cleanHeader = header.replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '');
+              obj[cleanHeader] = isNaN(val) ? val : parseFloat(val);
+              obj[header] = isNaN(val) ? val : parseFloat(val);
+              return obj;
+            }, {});
+          });
+          resolve({ name: file.name, data: parsed, content: text });
+        };
+        reader.readAsText(file);
+      })));
+
+      await fetch("http://localhost:5000/api/upload/upload-multiple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: fileData.map(f => ({ filename: f.name, content: f.content })) }),
       });
 
-      const processedResults = await Promise.all(parsedFilesPromises);
-      await new Promise(r => setTimeout(r, 1200)); // Standard simulation UI alignment buffer
+      // Notification Logic
+      setNotification("Archives successfully synchronized with PostgreSQL");
+      setTimeout(() => setNotification(""), 4000);
 
-      processedResults.forEach(res => {
+      fileData.forEach(res => {
         if (res.data.length > 0) {
           cumulativeRows = [...cumulativeRows, ...res.data];
           if (!temporaryUploadedNames.includes(res.name)) {
@@ -197,16 +202,21 @@ export default function ProfessionalFinanceTerminal() {
 
   const renderDashboard = () => {
     const data = dataStore[activeFunc];
-    if (!data || !data.ledger || data.ledger.length === 0) return (
-      <div style={emptyStateStyle}>
-        <div style={{ textAlign: 'center' }}>
-          <motion.div animate={{ scale: [1, 1.05, 1] }} transition={{ duration: 2, repeat: Infinity }} style={{ fontSize: '15px', fontWeight: '900', color: theme.subtext, letterSpacing: '2px' }}>
+    
+    if (!data || !data.ledger || data.ledger.length === 0) {
+      return (
+        <div style={emptyStateStyle}>
+          <motion.div 
+            animate={{ opacity: [0.3, 0.6, 0.3] }} 
+            transition={{ duration: 2, repeat: Infinity }} 
+            style={{ fontSize: '14px', fontWeight: '600', color: theme.primary }}
+          >
             Awaiting Financial Insights
           </motion.div>
         </div>
-      </div>
-    );
-
+      );
+    }
+    
     const config = modules.find(m => m.id === activeFunc);
     const lastEntry = data.ledger[data.ledger.length - 1] || {};
 
@@ -292,6 +302,11 @@ export default function ProfessionalFinanceTerminal() {
             <div style={{ ...spinnerStyle, animation: 'spin 0.8s linear infinite' }} />
           </motion.div>
         )}
+        {notification && (
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }} style={notificationStyle}>
+            {notification}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
@@ -304,11 +319,9 @@ export default function ProfessionalFinanceTerminal() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
           <label style={uploadButtonStyle}>
             Upload CSV Files
-            {/* Added 'multiple' property here to align with multi-file drop schemas */}
             <input type="file" multiple hidden onChange={handleFileUpload} accept=".csv" disabled={isProcessing} />
           </label>
           
-          {/* File Name Chip Registry Layout Render */}
           {uploadedFiles.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxWidth: '300px', justifyContent: 'flex-end' }}>
               {uploadedFiles.map((name, index) => (
@@ -349,7 +362,6 @@ export default function ProfessionalFinanceTerminal() {
   );
 }
 
-// ---------- Styled Components ----------
 const KPICard = ({ title, value, color }) => (
   <div style={{ ...cardStyle, borderTop: `3px solid ${color}` }}>
     <div style={{ fontSize: '10px', color: theme.subtext, marginBottom: '8px', fontWeight: '900', letterSpacing: '0.5px' }}>{title.toUpperCase()}</div>
@@ -366,4 +378,5 @@ const thStyle = { color: theme.subtext, borderBottom: `1px solid ${theme.border}
 const trStyle = { borderBottom: `1px solid ${theme.border}`, height: '50px', fontSize: '13px' };
 const statusBadge = { background: 'rgba(63, 185, 80, 0.1)', color: theme.success, padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '900', border: '1px solid rgba(63, 185, 80, 0.2)' };
 const loaderOverlayStyle = { position: 'fixed', inset: 0, background: 'rgba(13, 17, 23, 0.9)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(5px)' };
+const notificationStyle = { position: 'fixed', bottom: '30px', right: '30px', background: theme.success, color: '#fff', padding: '15px 25px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', zIndex: 2000, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' };
 const spinnerStyle = { width: '40px', height: '40px', border: `3px solid ${theme.primary}`, borderTopColor: 'transparent', borderRadius: '50%' };

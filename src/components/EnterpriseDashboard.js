@@ -13,6 +13,7 @@ function EnterpriseDashboard({ user, onHome }) {
   // ✅ APP.JS STYLE FLOW STATES
   const [step, setStep] = useState("upload"); // upload → dashboard
   const [files, setFiles] = useState([]);
+  const [loading, setLoading] = useState(false); // Added for consistent UX
 
   const modules = ["Finance", "HR", "Marketing", "Operations", "Sales", "Chatbot"];
 
@@ -21,12 +22,45 @@ function EnterpriseDashboard({ user, onHome }) {
     setFiles(Array.from(e.target.files));
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (files.length === 0) {
       alert("Please upload at least one file");
       return;
     }
-    setStep("dashboard"); 
+
+    setLoading(true);
+
+    // Convert files to the format your backend expects
+    const fileData = await Promise.all(
+      files.map((file) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve({ filename: file.name, content: e.target.result });
+          reader.readAsText(file);
+        });
+      })
+    );
+
+    try {
+      // Send the data to your backend API
+      const response = await fetch("http://localhost:5000/api/upload/upload-multiple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: fileData }),
+      });
+
+      if (response.ok) {
+        alert("Archives successfully synchronized with PostgreSQL.");
+        setStep("dashboard");
+      } else {
+        alert("Failed to save files to the database.");
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Could not connect to the database server. Ensure backend is running on port 5000.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ---------------- STYLES ----------------
@@ -81,9 +115,9 @@ function EnterpriseDashboard({ user, onHome }) {
     padding: "14px 40px",
     borderRadius: "12px",
     border: "none",
-    background: "linear-gradient(135deg, #4ac6ff 0%, #2a2f4a 100%)",
+    background: loading ? "#333" : "linear-gradient(135deg, #4ac6ff 0%, #2a2f4a 100%)",
     color: "#fff",
-    cursor: "pointer",
+    cursor: loading ? "wait" : "pointer",
     fontWeight: "600",
     boxShadow: "0 4px 15px rgba(74, 198, 255, 0.2)",
     transition: "transform 0.2s ease"
@@ -203,8 +237,8 @@ function EnterpriseDashboard({ user, onHome }) {
               </label>
 
               <div>
-                <button onClick={handleContinue} style={primaryBtnStyle}>
-                  Analyze Data & Continue
+                <button onClick={handleContinue} disabled={loading} style={primaryBtnStyle}>
+                  {loading ? "Analyzing..." : "Analyze Data & Continue"}
                 </button>
               </div>
             </div>

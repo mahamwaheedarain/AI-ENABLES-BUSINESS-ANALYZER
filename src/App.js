@@ -56,15 +56,45 @@ function App() {
 
   const handleFileUpload = (e) => {
     const selectedFiles = Array.from(e.target.files);
+    // Allow appending multiple files like the HR dashboard
     setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (files.length === 0) {
       alert("Please upload at least one file");
       return;
     }
-    setStep("dashboard");
+
+    // Convert all currently selected files to the format expected by the backend
+    const fileData = await Promise.all(
+      files.map((file) => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve({ filename: file.name, content: e.target.result });
+          reader.readAsText(file);
+        });
+      })
+    );
+
+    try {
+      // Send the aggregate data to your backend API
+      const response = await fetch("http://localhost:5000/api/upload/upload-multiple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: fileData }),
+      });
+
+      if (response.ok) {
+        alert("Archives successfully synchronized with PostgreSQL.");
+        setStep("dashboard");
+      } else {
+        alert("Failed to save files to the database.");
+      }
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Could not connect to the database server.");
+    }
   };
 
   // ----------------- AUTH HANDLERS -----------------
@@ -128,6 +158,12 @@ function App() {
                   <input type="file" multiple onChange={handleFileUpload} style={{ display: "none" }} />
                   <span>{files.length > 0 ? `${files.length} Files Ready` : "Drop files here or click to browse"}</span>
                 </label>
+                {/* Optional visual list of files */}
+                {files.length > 0 && (
+                  <div style={{ marginBottom: "20px", fontSize: "0.8rem", color: "#888" }}>
+                    {files.map(f => f.name).join(", ")}
+                  </div>
+                )}
                 <button onClick={handleContinue} style={styles.primaryBtn}>Analyze Data & Continue</button>
               </div>
             </div>

@@ -26,6 +26,7 @@ export default function HRDashboard() {
   const [dataStore, setDataStore] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [notification, setNotification] = useState("");
 
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
@@ -34,13 +35,28 @@ export default function HRDashboard() {
     setIsProcessing(true);
     const tasks = ["attrition", "training", "salary"];
     
-    let newStore = { ...dataStore };
-    let temporaryUploadedNames = [...uploadedFiles];
-
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      let newStore = { ...dataStore };
+      let temporaryUploadedNames = [...uploadedFiles];
 
       for (const file of files) {
+        const fileContent = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.readAsText(file);
+        });
+
+        // 1. Persist to PostgreSQL via API
+        await fetch("http://localhost:5000/api/hr/store", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ filename: file.name, content: fileContent })
+        });
+
+        // Trigger Notification
+        setNotification("Archives successfully synchronized with PostgreSQL");
+        setTimeout(() => setNotification(""), 4000);
+
         let fileSuccessfullyProcessed = false;
 
         for (const task of tasks) {
@@ -52,8 +68,6 @@ export default function HRDashboard() {
             body: formData 
           });
           const result = await response.json();
-          
-          console.log(`Live Debug Stream [${task}]:`, result);
           
           if (result) {
             fileSuccessfullyProcessed = true;
@@ -73,21 +87,20 @@ export default function HRDashboard() {
             }
 
             const ledger = rawRows.map((row, i) => {
-              const findValue = (possibleKeys) => {
+              const findValue = (possibleKeys, indexFallback) => {
                 for (let k of possibleKeys) {
                   if (row[k] !== undefined && row[k] !== null) return row[k];
-                  
                   const normalizedKey = k.toLowerCase().replace(/\s/g, '_').replace(/[^a-z0-9_]/g, '');
                   if (row[normalizedKey] !== undefined && row[normalizedKey] !== null) return row[normalizedKey];
                 }
-                return Object.values(row)[possibleKeys._indexFallback] !== undefined ? Object.values(row)[possibleKeys._indexFallback] : 0;
+                return Object.values(row)[indexFallback] !== undefined ? Object.values(row)[indexFallback] : 0;
               };
 
               return {
-                id: findValue(Object.assign(["Employee_ID", "ID", "id", "employee_id", "emp_id"], {_indexFallback: 0})) || `EMP-${100 + i}`,
-                salary: parseFloat(findValue(Object.assign(["Monthly_Salary", "Salary", "monthly_salary", "salary", "pay"], {_indexFallback: 1}))) || 0,
-                overtime: parseFloat(findValue(Object.assign(["Overtime_Hours", "Overtime", "overtime_hours", "overtime", "ot"], {_indexFallback: 2}))) || 0,
-                training: parseFloat(findValue(Object.assign(["Training_Hours", "Training", "training_hours", "training", "hours"], {_indexFallback: 3}))) || 0,
+                id: findValue(["Employee_ID", "ID", "id", "employee_id", "emp_id"], 0) || `EMP-${100 + i}`,
+                salary: parseFloat(findValue(["Monthly_Salary", "Salary", "monthly_salary", "salary", "pay"], 1)) || 0,
+                overtime: parseFloat(findValue(["Overtime_Hours", "Overtime", "overtime_hours", "overtime", "ot"], 2)) || 0,
+                training: parseFloat(findValue(["Training_Hours", "Training", "training_hours", "training", "hours"], 3)) || 0,
                 status: (result.predictions && result.predictions[i] === 1) || 
                         row.predicted_attrition === 1 || 
                         row.status === "CRITICAL" || 
@@ -113,8 +126,10 @@ export default function HRDashboard() {
 
       setDataStore(newStore);
       setUploadedFiles(temporaryUploadedNames);
+      
     } catch (e) {
       console.error("Critical Sync Error:", e);
+      alert("Failed to sync files with the HR database.");
     } finally {
       setIsProcessing(false);
       event.target.value = ""; 
@@ -151,7 +166,6 @@ export default function HRDashboard() {
       return [`${avgTraining.toFixed(1)}h`, data.ledger.filter(x => x.training > 20).length, "94.2%"];
     };
 
-    // Context-rich labels for the specific database columns mapped on layout
     const getMetricHeaderName = () => {
       if (activeFunc === "Salary Distribution") return "Salary";
       if (activeFunc === "Attrition Analysis") return "Overtime Hours";
@@ -162,15 +176,12 @@ export default function HRDashboard() {
 
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-        
-        {/* KPI Row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
           <KPICard title={config.kpi1} value={kpiVals[0]} color={config.color} delay={0.1} />
           <KPICard title={config.kpi2} value={kpiVals[1]} color={theme.text} delay={0.2} />
           <KPICard title={config.kpi3} value={kpiVals[2]} color={theme.success} delay={0.3} />
         </div>
 
-        {/* Visualization Area */}
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '25px', marginBottom: '30px' }}>
           <div style={cardStyle}>
             <div style={cardHeader}>{activeFunc} Distribution Matrix</div>
@@ -206,7 +217,6 @@ export default function HRDashboard() {
           </div>
         </div>
 
-        {/* Table Ledger */}
         <div style={cardStyle}>
           <div style={{ ...cardHeader, display: 'flex', justifyContent: 'space-between' }}>
             <span>{activeFunc} System Ledger</span>
@@ -258,16 +268,22 @@ export default function HRDashboard() {
             </motion.div>
           </motion.div>
         )}
+        
+        {notification && (
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }} style={notificationStyle}>
+            {notification}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
         <h1 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Business Analyzer | <span style={{ color: theme.primary }}>HR Dashboard</span></h1>
         
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px' }}>
-          <motion.label whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} style={buttonStyle}>
+          <label style={buttonStyle}>
             Upload CSV Files
             <input type="file" multiple hidden onChange={handleFileUpload} disabled={isProcessing} />
-          </motion.label>
+          </label>
           
           {uploadedFiles.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxWidth: '300px', justifyContent: 'flex-end' }}>
@@ -307,8 +323,9 @@ const KPICard = ({ title, value, color, delay }) => (
 const cardStyle = { background: theme.card, padding: '30px', borderRadius: '12px', border: `1px solid ${theme.border}` };
 const cardHeader = { fontSize: '12px', color: theme.subtext, marginBottom: '20px', fontWeight: '800', letterSpacing: '0.5px' };
 const buttonStyle = { padding: '14px 28px', background: theme.primary, color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', borderRadius: '8px' };
-const emptyStateStyle = { height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${theme.border}`, borderRadius: '16px' };
+const emptyStateStyle = { height: '350px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${theme.border}`, borderRadius: '12px' };
 const loaderOverlayStyle = { position: 'fixed', inset: 0, background: 'rgba(13, 17, 23, 0.95)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' };
+const notificationStyle = { position: 'fixed', bottom: '30px', right: '30px', background: theme.success, color: '#fff', padding: '15px 25px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', zIndex: 2000, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' };
 const tableStyle = { width: '100%', borderCollapse: 'collapse', textAlign: 'left' };
 const thStyle = { color: theme.subtext, borderBottom: `1px solid ${theme.border}`, fontSize: '13px', fontWeight: '700' };
 const trStyle = { borderBottom: `1px solid ${theme.border}`, height: '55px', fontSize: '14px' };
