@@ -21,139 +21,169 @@ const theme = {
   fontMain: "'Inter', -apple-system, system-ui, sans-serif",
 };
 
+// Modules referenced by the upload/merge logic — mirrors the four dashboard tabs
+const modules = [
+  { id: "Market Trends" },
+  { id: "Lead Prioritization" },
+  { id: "Retention & Churn" },
+  { id: "Campaign Analysis" },
+];
+
 export default function MarketingDashboard() {
   const [activeFunc, setActiveFunc] = useState("Market Trends");
   const [dataStore, setDataStore] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [notification, setNotification] = useState("");
 
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
     if (files.length === 0) return;
-
     setIsProcessing(true);
-    const tasks = ["trends", "lead_scoring", "churn", "campaign_roi"];
-    let newStore = { ...dataStore };
+
+    let cumulativeRows = [];
     let temporaryUploadedNames = [...uploadedFiles];
 
     try {
-      // Async task alignment delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const fileData = await Promise.all(files.map(file => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const rows = text.split("\n").filter(r => r.trim() !== "");
+          if (rows.length <= 1) {
+            resolve({ name: file.name, data: [] });
+            return;
+          }
 
-      for (const file of files) {
-        let fileSuccessfullyProcessed = false;
+          const headers = rows[0].split(",").map(h => h.trim());
+          const parsed = rows.slice(1).map(row => {
+            const values = row.split(",");
+            return headers.reduce((obj, header, index) => {
+              const val = values[index]?.trim();
+              const cleanHeader = header.replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '');
+              obj[cleanHeader] = isNaN(val) ? val : parseFloat(val);
+              obj[header] = isNaN(val) ? val : parseFloat(val);
+              return obj;
+            }, {});
+          });
+          resolve({ name: file.name, data: parsed, content: text });
+        };
+        reader.readAsText(file);
+      })));
 
-        for (const task of tasks) {
-          const formData = new FormData();
-          formData.append("file", file);
-          
-          const endpoint = `http://127.0.0.1:8000/api/marketing/predict?task=${task}`;
-          const response = await fetch(endpoint, { method: "POST", body: formData });
-          const result = await response.json();
+      await fetch("http://localhost:5000/api/upload/upload-multiple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: fileData.map(f => ({ filename: f.name, content: f.content })) }),
+      });
 
-          console.log(`Live Debug Stream [${task}]:`, result);
+      // Notification Logic
+      setNotification("Archives successfully synchronized with PostgreSQL");
+      setTimeout(() => setNotification(""), 4000);
 
-          if (result && (result.status === "success" || result.data_rows || result.marketing_data)) {
-            fileSuccessfullyProcessed = true;
-            const key = task === "trends" ? "Market Trends" : 
-                        task === "lead_scoring" ? "Lead Prioritization" :
-                        task === "churn" ? "Retention & Churn" : "Campaign Analysis";
-
-            let rawRows = [];
-            if (result.data_rows) rawRows = result.data_rows;
-            else if (result.marketing_data) rawRows = result.marketing_data;
-            else if (Array.isArray(result)) rawRows = result;
-            else if (typeof result === 'object') {
-              const alternativeArray = Object.values(result).find(val => Array.isArray(val));
-              if (alternativeArray) rawRows = alternativeArray;
-            }
-
-            const ledger = rawRows.map((row, i) => {
-              const findValue = (possibleKeys, fallbackIndex) => {
-                for (let k of possibleKeys) {
-                  if (row[k] !== undefined && row[k] !== null) return row[k];
-                  const normalizedKey = k.toLowerCase().replace(/\s/g, '_').replace(/[^a-z0-9_]/g, '');
-                  if (row[normalizedKey] !== undefined && row[normalizedKey] !== null) return row[normalizedKey];
-                }
-                return Object.values(row)[fallbackIndex] !== undefined ? Object.values(row)[fallbackIndex] : 0;
-              };
-
-              const spent = parseFloat(findValue(["Total_Spent", "Spent", "ad_spend", "budget", "total_spent"], 1)) || 0;
-              const eng = parseFloat(findValue(["Engagement_Score", "Engagement", "engagement_score", "clicks"], 2)) || 0;
-              const sessions = parseFloat(findValue(["Web_Sessions", "Sessions", "web_sessions", "traffic"], 3)) || 0;
-              const conv = parseFloat(findValue(["Conversion_Rate", "Conversion", "conversion_rate", "conversions"], 4)) || 0;
-              
-              return {
-                id: findValue(["Customer_ID", "ID", "id", "customer_id", "lead_id"], 0) || `CUST-${500 + i}`,
-                spent,
-                engagement: eng,
-                sessions,
-                conversion: conv,
-                roi: spent > 0 ? ((sessions * conv * 100) / spent).toFixed(2) : "0.00",
-                status: (result.predictions && result.predictions[i] === 1) || 
-                        row.predicted_churn === 1 || 
-                        row.status === "CRITICAL" ? "CRITICAL" : "STABLE"
-              };
-            });
-
-            // Generate dynamic insights based on task
-            let insights = [];
-            if (task === "trends") {
-              insights = [
-                { label: "Market Reach", text: "Organic growth trend suggests a 12% expansion in target demographics." },
-                { label: "Segment Velocity", text: "High-engagement clusters are forming around the mid-tier spending bracket." }
-              ];
-            } else if (task === "churn") {
-              insights = [
-                { label: "Churn Velocity", text: `${result.predictions?.filter(p => p === 1).length || ledger.filter(l=>l.status==='CRITICAL').length} profiles show signs of engagement decay.` },
-                { label: "Retention Strategy", text: "Re-engagement campaigns recommended for segments with high risk drop-offs." }
-              ];
-            } else if (task === "lead_scoring") {
-              insights = [
-                { label: "Hot Leads Identified", text: "Targeted conversions score highly across returning web sessions." },
-                { label: "Pipeline Velocity", text: "Accelerating routing mechanisms for immediate stable profile captures." }
-              ];
-            } else {
-              insights = [
-                { label: "ROI Optimization", text: "Multi-channel advertising campaigns verified steady scale multipliers." },
-                { label: "Capital Efficiency", text: "Budget distribution matrix validates lower customer acquisition costs." }
-              ];
-            }
-
-            newStore[key] = {
-              total: ledger.length,
-              flagged: result.predictions ? result.predictions.filter(p => p === 1).length : ledger.filter(l => l.status === "CRITICAL").length,
-              ledger: ledger,
-              insights: insights,
-              timeSeries: ledger.slice(0, 15).map((d, index) => ({ x: index, val: d.engagement, reach: d.sessions || d.spent }))
-            };
+      fileData.forEach(res => {
+        if (res.data.length > 0) {
+          cumulativeRows = [...cumulativeRows, ...res.data];
+          if (!temporaryUploadedNames.includes(res.name)) {
+            temporaryUploadedNames.push(res.name);
           }
         }
+      });
 
-        if (fileSuccessfullyProcessed && !temporaryUploadedNames.includes(file.name)) {
-          temporaryUploadedNames.push(file.name);
-        }
+      if (cumulativeRows.length > 0) {
+        setDataStore(prevStore => {
+          let updatedStore = { ...prevStore };
+          modules.forEach(mod => {
+            const currentLedger = prevStore[mod.id]?.ledger || [];
+            const structuralMerge = [...currentLedger, ...cumulativeRows];
+            updatedStore[mod.id] = {
+              ledger: structuralMerge,
+              total: structuralMerge.length
+            };
+          });
+          return updatedStore;
+        });
+        setUploadedFiles(temporaryUploadedNames);
       }
-
-      setDataStore(newStore);
-      setUploadedFiles(temporaryUploadedNames);
-    } catch (e) {
-      console.error("Marketing Sync Error:", e);
+    } catch (error) {
+      console.error("Aggregation Processing Failure:", error);
     } finally {
       setIsProcessing(false);
       event.target.value = ""; 
     }
   };
 
+  // Normalizes a raw parsed CSV row into the fields the dashboard renders,
+  // tolerant of different header spellings/casing from uploaded CSVs.
+  const normalizeRow = (row, i) => {
+    const findValue = (possibleKeys, fallbackIndex) => {
+      for (let k of possibleKeys) {
+        if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
+        const normalizedKey = k.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
+        if (row[normalizedKey] !== undefined && row[normalizedKey] !== null && row[normalizedKey] !== "") return row[normalizedKey];
+      }
+      const fallback = Object.values(row)[fallbackIndex];
+      return fallback !== undefined ? fallback : 0;
+    };
+
+    const spent = parseFloat(findValue(["Total_Spent", "Spent", "ad_spend", "budget", "total_spent"], 1)) || 0;
+    const eng = parseFloat(findValue(["Engagement_Score", "Engagement", "engagement_score", "clicks"], 2)) || 0;
+    const sessions = parseFloat(findValue(["Web_Sessions", "Sessions", "web_sessions", "traffic"], 3)) || 0;
+    const conv = parseFloat(findValue(["Conversion_Rate", "Conversion", "conversion_rate", "conversions"], 4)) || 0;
+
+    return {
+      id: findValue(["Customer_ID", "ID", "id", "customer_id", "lead_id"], 0) || `CUST-${500 + i}`,
+      spent,
+      engagement: eng,
+      sessions,
+      conversion: conv,
+      roi: spent > 0 ? ((sessions * conv * 100) / spent).toFixed(2) : "0.00",
+      status: (row.predicted_churn === 1 || row.status === "CRITICAL" || eng < 30) ? "CRITICAL" : "STABLE"
+    };
+  };
+
+  // Generates the same static insight copy the original task-based pipeline produced,
+  // keyed off the active tab rather than a backend task label.
+  const getInsightsFor = (tab, flaggedCount) => {
+    if (tab === "Market Trends") {
+      return [
+        { label: "Market Reach", text: "Organic growth trend suggests a 12% expansion in target demographics." },
+        { label: "Segment Velocity", text: "High-engagement clusters are forming around the mid-tier spending bracket." }
+      ];
+    }
+    if (tab === "Retention & Churn") {
+      return [
+        { label: "Churn Velocity", text: `${flaggedCount} profiles show signs of engagement decay.` },
+        { label: "Retention Strategy", text: "Re-engagement campaigns recommended for segments with high risk drop-offs." }
+      ];
+    }
+    if (tab === "Lead Prioritization") {
+      return [
+        { label: "Hot Leads Identified", text: "Targeted conversions score highly across returning web sessions." },
+        { label: "Pipeline Velocity", text: "Accelerating routing mechanisms for immediate stable profile captures." }
+      ];
+    }
+    return [
+      { label: "ROI Optimization", text: "Multi-channel advertising campaigns verified steady scale multipliers." },
+      { label: "Capital Efficiency", text: "Budget distribution matrix validates lower customer acquisition costs." }
+    ];
+  };
+
   const renderContent = () => {
-    const data = dataStore[activeFunc];
-    if (!data || !data.ledger || data.ledger.length === 0) return (
+    const raw = dataStore[activeFunc];
+    if (!raw || !raw.ledger || raw.ledger.length === 0) return (
       <div style={emptyStateStyle}>
         <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 2, repeat: Infinity }} style={{ color: theme.primary, fontSize: '14px', fontWeight: '600' }}>
           Awaiting Marketing Insights
         </motion.div>
       </div>
     );
+
+    const ledger = raw.ledger.map((row, i) => normalizeRow(row, i));
+    const flagged = ledger.filter(l => l.status === "CRITICAL").length;
+    const timeSeries = ledger.slice(0, 15).map((d, index) => ({ x: index, val: d.engagement, reach: d.sessions || d.spent }));
+    const insights = getInsightsFor(activeFunc, flagged);
+    const data = { ...raw, ledger, flagged, timeSeries, insights };
 
     const config = {
       "Market Trends": { kpi1: "Total Audience", kpi2: "Avg Engagement", kpi3: "Market Cap", accent: theme.primary },
@@ -332,6 +362,12 @@ export default function MarketingDashboard() {
             </motion.div>
           </motion.div>
         )}
+
+        {notification && (
+          <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 50 }} style={notificationStyle}>
+            {notification}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '40px' }}>
@@ -383,6 +419,7 @@ const cardHeader = { fontSize: '13px', color: theme.subtext, marginBottom: '25px
 const buttonStyle = { padding: '14px 28px', background: theme.primary, color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', borderRadius: '8px' };
 const emptyStateStyle = { height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${theme.border}`, borderRadius: '16px' };
 const loaderOverlayStyle = { position: 'fixed', inset: 0, background: 'rgba(13, 17, 23, 0.95)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' };
+const notificationStyle = { position: 'fixed', bottom: '30px', right: '30px', background: theme.success, color: '#fff', padding: '15px 25px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', zIndex: 2000, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' };
 const tableStyle = { width: '100%', borderCollapse: 'collapse', textAlign: 'left' };
 const thStyle = { color: theme.subtext, borderBottom: `1px solid ${theme.border}`, fontSize: '13px', fontWeight: '700' };
 const trStyle = { borderBottom: `1px solid ${theme.border}`, height: '55px', fontSize: '14px' };

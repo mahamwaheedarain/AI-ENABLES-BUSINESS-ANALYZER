@@ -21,6 +21,13 @@ const theme = {
   fontMain: "'Inter', -apple-system, system-ui, sans-serif",
 };
 
+// Modules referenced by the upload/merge logic — mirrors the three dashboard tabs
+const modules = [
+  { id: "Salary Distribution", chartKey: "salary" },
+  { id: "Attrition Analysis", chartKey: "overtime" },
+  { id: "Training Impact", chartKey: "training" },
+];
+
 export default function HRDashboard() {
   const [activeFunc, setActiveFunc] = useState("Salary Distribution");
   const [dataStore, setDataStore] = useState({});
@@ -31,120 +38,117 @@ export default function HRDashboard() {
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files);
     if (files.length === 0) return;
-
     setIsProcessing(true);
-    const tasks = ["attrition", "training", "salary"];
-    
+
+    let cumulativeRows = [];
+    let temporaryUploadedNames = [...uploadedFiles];
+
     try {
-      let newStore = { ...dataStore };
-      let temporaryUploadedNames = [...uploadedFiles];
+      const fileData = await Promise.all(files.map(file => new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target.result;
+          const rows = text.split("\n").filter(r => r.trim() !== "");
+          if (rows.length <= 1) {
+            resolve({ name: file.name, data: [] });
+            return;
+          }
 
-      for (const file of files) {
-        const fileContent = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.readAsText(file);
-        });
-
-        // 1. Persist to PostgreSQL via API
-        await fetch("http://localhost:5000/api/hr/store", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ filename: file.name, content: fileContent })
-        });
-
-        // Trigger Notification
-        setNotification("Archives successfully synchronized with PostgreSQL");
-        setTimeout(() => setNotification(""), 4000);
-
-        let fileSuccessfullyProcessed = false;
-
-        for (const task of tasks) {
-          const formData = new FormData();
-          formData.append("file", file);
-          
-          const response = await fetch(`http://127.0.0.1:8000/api/hr/predict?task=${task}`, { 
-            method: "POST", 
-            body: formData 
+          const headers = rows[0].split(",").map(h => h.trim());
+          const parsed = rows.slice(1).map(row => {
+            const values = row.split(",");
+            return headers.reduce((obj, header, index) => {
+              const val = values[index]?.trim();
+              const cleanHeader = header.replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '');
+              obj[cleanHeader] = isNaN(val) ? val : parseFloat(val);
+              obj[header] = isNaN(val) ? val : parseFloat(val);
+              return obj;
+            }, {});
           });
-          const result = await response.json();
-          
-          if (result) {
-            fileSuccessfullyProcessed = true;
-            const key = task === "attrition" ? "Attrition Analysis" :
-                        task === "training" ? "Training Impact" : "Salary Distribution";
+          resolve({ name: file.name, data: parsed, content: text });
+        };
+        reader.readAsText(file);
+      })));
 
-            let rawRows = [];
-            if (Array.isArray(result)) {
-              rawRows = result;
-            } else if (result.data) { rawRows = result.data; }
-            else if (result.results) { rawRows = result.results; }
-            else if (result.ledger_data) { rawRows = result.ledger_data; }
-            else if (result.data_rows) { rawRows = result.data_rows; }
-            else if (typeof result === 'object') {
-              const alternativeArray = Object.values(result).find(val => Array.isArray(val));
-              if (alternativeArray) rawRows = alternativeArray;
-            }
+      await fetch("http://localhost:5000/api/upload/upload-multiple", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ files: fileData.map(f => ({ filename: f.name, content: f.content })) }),
+      });
 
-            const ledger = rawRows.map((row, i) => {
-              const findValue = (possibleKeys, indexFallback) => {
-                for (let k of possibleKeys) {
-                  if (row[k] !== undefined && row[k] !== null) return row[k];
-                  const normalizedKey = k.toLowerCase().replace(/\s/g, '_').replace(/[^a-z0-9_]/g, '');
-                  if (row[normalizedKey] !== undefined && row[normalizedKey] !== null) return row[normalizedKey];
-                }
-                return Object.values(row)[indexFallback] !== undefined ? Object.values(row)[indexFallback] : 0;
-              };
+      // Notification Logic
+      setNotification("Archives successfully synchronized with PostgreSQL");
+      setTimeout(() => setNotification(""), 4000);
 
-              return {
-                id: findValue(["Employee_ID", "ID", "id", "employee_id", "emp_id"], 0) || `EMP-${100 + i}`,
-                salary: parseFloat(findValue(["Monthly_Salary", "Salary", "monthly_salary", "salary", "pay"], 1)) || 0,
-                overtime: parseFloat(findValue(["Overtime_Hours", "Overtime", "overtime_hours", "overtime", "ot"], 2)) || 0,
-                training: parseFloat(findValue(["Training_Hours", "Training", "training_hours", "training", "hours"], 3)) || 0,
-                status: (result.predictions && result.predictions[i] === 1) || 
-                        row.predicted_attrition === 1 || 
-                        row.status === "CRITICAL" || 
-                        row.prediction === 1 ? "CRITICAL" : "STABLE"
-              };
-            });
-
-            if (ledger.length > 0) {
-              newStore[key] = {
-                total: ledger.length,
-                flagged: result.predictions ? result.predictions.filter(p => p === 1).length : ledger.filter(l => l.status === "CRITICAL").length,
-                ledger: ledger,
-                accuracy: result.accuracy || result.model_accuracy || 0.94
-              };
-            }
+      fileData.forEach(res => {
+        if (res.data.length > 0) {
+          cumulativeRows = [...cumulativeRows, ...res.data];
+          if (!temporaryUploadedNames.includes(res.name)) {
+            temporaryUploadedNames.push(res.name);
           }
         }
+      });
 
-        if (fileSuccessfullyProcessed && !temporaryUploadedNames.includes(file.name)) {
-          temporaryUploadedNames.push(file.name);
-        }
+      if (cumulativeRows.length > 0) {
+        setDataStore(prevStore => {
+          let updatedStore = { ...prevStore };
+          modules.forEach(mod => {
+            const currentLedger = prevStore[mod.id]?.ledger || [];
+            const structuralMerge = [...currentLedger, ...cumulativeRows];
+            updatedStore[mod.id] = {
+              ledger: structuralMerge,
+              total: structuralMerge.length
+            };
+          });
+          return updatedStore;
+        });
+        setUploadedFiles(temporaryUploadedNames);
       }
-
-      setDataStore(newStore);
-      setUploadedFiles(temporaryUploadedNames);
-      
-    } catch (e) {
-      console.error("Critical Sync Error:", e);
-      alert("Failed to sync files with the HR database.");
+    } catch (error) {
+      console.error("Aggregation Processing Failure:", error);
     } finally {
       setIsProcessing(false);
       event.target.value = ""; 
     }
   };
 
+  // Normalizes a raw parsed CSV row into the fields the dashboard renders,
+  // tolerant of different header spellings/casing from uploaded CSVs.
+  const normalizeRow = (row, i) => {
+    const findValue = (possibleKeys, indexFallback) => {
+      for (let k of possibleKeys) {
+        if (row[k] !== undefined && row[k] !== null && row[k] !== "") return row[k];
+        const normalizedKey = k.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
+        if (row[normalizedKey] !== undefined && row[normalizedKey] !== null && row[normalizedKey] !== "") return row[normalizedKey];
+      }
+      const fallback = Object.values(row)[indexFallback];
+      return fallback !== undefined ? fallback : 0;
+    };
+
+    const overtimeVal = parseFloat(findValue(["Overtime_Hours", "Overtime", "overtime_hours", "overtime", "ot"], 2)) || 0;
+
+    return {
+      id: findValue(["Employee_ID", "ID", "id", "employee_id", "emp_id"], 0) || `EMP-${100 + i}`,
+      salary: parseFloat(findValue(["Monthly_Salary", "Salary", "monthly_salary", "salary", "pay"], 1)) || 0,
+      overtime: overtimeVal,
+      training: parseFloat(findValue(["Training_Hours", "Training", "training_hours", "training", "hours"], 3)) || 0,
+      status: (row.predicted_attrition === 1 || row.status === "CRITICAL" || row.prediction === 1 || overtimeVal > 20) ? "CRITICAL" : "STABLE"
+    };
+  };
+
   const renderContent = () => {
-    const data = dataStore[activeFunc];
-    if (!data || !data.ledger || data.ledger.length === 0) return (
+    const raw = dataStore[activeFunc];
+    if (!raw || !raw.ledger || raw.ledger.length === 0) return (
       <div style={emptyStateStyle}>
         <motion.div animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 2, repeat: Infinity }} style={{ fontSize: '14px', fontWeight: '600', color: theme.primary }}>
           Awaiting HR Insights
         </motion.div>
       </div>
     );
+
+    const ledger = raw.ledger.map((row, i) => normalizeRow(row, i));
+    const flagged = ledger.filter(l => l.status === "CRITICAL").length;
+    const data = { ...raw, ledger, flagged };
 
     const config = {
       "Salary Distribution": { kpi1: "Headcount", kpi2: "Avg Salary", kpi3: "Total Payroll", color: theme.primary, chartKey: "salary" },
