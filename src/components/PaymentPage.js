@@ -110,7 +110,7 @@ function PaymentPage({ plan, onSuccess, onBack }) {
     );
   }
 
-  // ---------------- CHECKOUT FORM ----------------
+  // ---------------- CHECKOUT FORM (BUSINESS DETAILS) ----------------
   return (
     <div style={containerStyle}>
       <div style={{ ...cardStyle, display: "flex", gap: "40px", maxWidth: "900px" }}>
@@ -123,26 +123,29 @@ function PaymentPage({ plan, onSuccess, onBack }) {
           </ul>
         </div>
 
-        <div style={{ flex: 2 }}>
-          <h3 style={{ marginBottom: "20px", fontWeight: "400", borderBottom: "1px solid #333", paddingBottom: "10px" }}>Business Registration</h3>
-          <div style={rowStyle}>
-            <input name="name" value={form.name} onChange={handleChange} placeholder="Full Name" style={inputStyle} />
-            <input name="business" value={form.business} onChange={handleChange} placeholder="Business Name" style={inputStyle} />
-          </div>
-          <input name="contact" value={form.contact} onChange={handleChange} placeholder="Contact Number" style={inputStyle} />
-          <input name="email" value={form.email} onChange={handleChange} placeholder="Business Email" style={inputStyle} autoComplete="off" />
-          <input name="password" type="password" value={form.password} onChange={handleChange} placeholder="Dashboard Password" style={inputStyle} autoComplete="new-password" />
+        <div style={{ flex: 2, display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ width: "100%" }}>
+            <h3 style={{ marginBottom: "20px", fontWeight: "400", borderBottom: "1px solid #333", paddingBottom: "10px", letterSpacing: "0.5px" }}>Business Registration</h3>
+            <div style={rowStyle}>
+              <input name="name" value={form.name} onChange={handleChange} placeholder="Full Name" style={inputStyle} />
+              <input name="business" value={form.business} onChange={handleChange} placeholder="Business Name" style={inputStyle} />
+            </div>
+            <input name="contact" value={form.contact} onChange={handleChange} placeholder="Contact Number" style={inputStyle} />
+            <input name="email" value={form.email} onChange={handleChange} placeholder="Business Email" style={inputStyle} autoComplete="off" />
+            <input name="password" type="password" value={form.password} onChange={handleChange} placeholder="Dashboard Password" style={inputStyle} autoComplete="new-password" />
 
-          <h3 style={{ margin: "30px 0 20px 0", fontWeight: "400", borderBottom: "1px solid #333", paddingBottom: "10px" }}>Payment Details</h3>
-          <input placeholder="Card Number" style={inputStyle} />
-          <div style={rowStyle}>
-            <input placeholder="MM / YY" style={inputStyle} />
-            <input placeholder="CVV" style={inputStyle} />
-          </div>
+            <h3 style={{ margin: "30px 0 20px 0", fontWeight: "400", borderBottom: "1px solid #333", paddingBottom: "10px", letterSpacing: "0.5px" }}>Payment Details</h3>
+            <input placeholder="Card Number" style={inputStyle} />
+            <div style={rowStyle}>
+              <input placeholder="MM / YY" style={inputStyle} />
+              <input placeholder="CVV" style={inputStyle} />
+            </div>
 
-          <button onClick={handlePayment} style={{ ...primaryBtnStyle, marginTop: "20px" }}>
-            {loading ? "Verifying..." : `Activate ${plan.name} Plan`}
-          </button>
+            <button onClick={handlePayment} style={{ ...primaryBtnStyle, marginTop: "20px" }}>
+              {loading ? "Verifying..." : `Activate ${plan.name} Plan`}
+            </button>
+          </div>
+          <button onClick={onBack} style={linkBtnStyle}>Back to Plans</button>
         </div>
       </div>
     </div>

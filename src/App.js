@@ -3,6 +3,8 @@ import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "
 import FinanceDashboard from "./components/FinanceDashboard";
 import HRDashboard from "./components/HRDashboard";
 import MarketingDashboard from "./components/MarketingDashboard";
+import OperationsDashboard from "./components/OperationsDashboard";
+import SalesDashboard from "./components/SalesDashboard";
 import EnterpriseDashboard from "./components/EnterpriseDashboard";
 import Subscription from "./SubscriptionPlans";
 import ChatbotPage from "./components/ChatbotPage";
@@ -43,8 +45,13 @@ const MODULE_META = {
   finance: { icon: "💠", label: "Finance", blurb: "Revenue, margins & cash flow" },
   hr: { icon: "🧬", label: "HR", blurb: "Headcount, retention & sentiment" },
   marketing: { icon: "📡", label: "Marketing", blurb: "Funnel, spend & attribution" },
+  operations: { icon: "⚙️", label: "Operations", blurb: "Throughput & SLA health" },
+  sales: { icon: "🎯", label: "Sales", blurb: "Pipeline & win-rate trends" },
   chatbot: { icon: "🜂", label: "Chatbot", blurb: "Conversational AI assistant" },
 };
+
+// Updated to include only the active modules for the Pro Dashboard
+const MODULES = ["Finance", "HR", "Marketing", "Chatbot"];
 
 const INGEST_STAGES = [
   { key: "upload", label: "Transmitting" },
@@ -191,23 +198,73 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
 
-  // ✅ PRO FILE FLOW (Mirrors Enterprise Dashboard)
+  // ✅ PRO FILE FLOW (Identical to Enterprise Dashboard)
   const [step, setStep] = useState("upload");
   const [files, setFiles] = useState([]);
-  const proModules = ["Finance", "HR", "Marketing", "Chatbot"];
+  const [loading, setLoading] = useState(false);
+  const proModules = MODULES;
 
-  // Pro-dashboard presentation-only state
+  // Pro-dashboard presentation state (mirrors EnterpriseDashboard exactly)
   const [isDragOver, setIsDragOver] = useState(false);
   const [ingestStage, setIngestStage] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const [toasts, setToasts] = useState([]);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const ingestTimerRef = useRef(null);
+  const toastIdRef = useRef(0);
 
   const totalBytes = useMemo(() => files.reduce((s, f) => s + (f.size || 0), 0), [files]);
 
+  // -------- toast helper (purely presentational notification layer) --------
+  const pushToast = (message, tone = "info") => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev, { id, message, tone }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3600);
+  };
+
+  // -------- global keyboard shortcuts: ⌘K / Ctrl+K opens palette, ? opens shortcuts --------
+  useEffect(() => {
+    if (page !== "proDashboard") return;
+    const onKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((p) => !p);
+      } else if (e.key === "Escape") {
+        setPaletteOpen(false);
+        setShortcutsOpen(false);
+      } else if (e.key === "?" && !paletteOpen) {
+        setShortcutsOpen((s) => !s);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [paletteOpen, page]);
+
+  const paletteActions = useMemo(
+    () => [
+      { id: "home", label: "Go to Home", icon: "🏠", action: () => setPage("subscription") },
+      ...MODULES.map((m) => ({
+        id: m.toLowerCase(),
+        label: `Open ${m} module`,
+        icon: MODULE_META[m.toLowerCase()].icon,
+        disabled: step !== "dashboard",
+        action: () => setModule(m.toLowerCase()),
+      })),
+      { id: "toggle-sidebar", label: sidebarOpen ? "Collapse sidebar" : "Expand sidebar", icon: "▤", action: () => setSidebarOpen((s) => !s) },
+    ],
+    [step, sidebarOpen]
+  );
+
+  const filteredPaletteActions = paletteActions.filter((a) =>
+    a.label.toLowerCase().includes(paletteQuery.toLowerCase())
+  );
+
   const handleFileUpload = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    setFiles((prevFiles) => [...prevFiles, ...selectedFiles]);
+    setFiles(Array.from(e.target.files));
   };
 
   const removeFile = (name) => {
@@ -218,7 +275,7 @@ function App() {
     e.preventDefault();
     setIsDragOver(false);
     if (e.dataTransfer?.files?.length) {
-      setFiles((prev) => [...prev, ...Array.from(e.dataTransfer.files)]);
+      setFiles(Array.from(e.dataTransfer.files));
     }
   };
 
@@ -229,6 +286,8 @@ function App() {
     }
 
     setLoading(true);
+
+    // Cosmetic stage progression — purely visual, runs alongside the real request
     setIngestStage(0);
     let stage = 0;
     ingestTimerRef.current = setInterval(() => {
@@ -256,6 +315,7 @@ function App() {
       if (response.ok) {
         clearInterval(ingestTimerRef.current);
         setIngestStage(INGEST_STAGES.length - 1);
+        pushToast("Archives synchronized with PostgreSQL", "success");
         alert("Archives successfully synchronized with PostgreSQL.");
         setStep("dashboard");
       } else {
@@ -263,7 +323,7 @@ function App() {
       }
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Could not connect to the database server.");
+      alert("Could not connect to the database server. Ensure backend is running on port 5000.");
     } finally {
       clearInterval(ingestTimerRef.current);
       setLoading(false);
@@ -302,7 +362,7 @@ function App() {
   };
 
   // ============================================================
-  // PRO DASHBOARD — Enterprise-identical styling
+  // PRO DASHBOARD — exact functional parity with EnterpriseDashboard
   // ============================================================
   if (page === "proDashboard") {
     const sidebarStyle = {
@@ -437,7 +497,7 @@ function App() {
                     margin: 0,
                   }}
                 >
-                  Analytical Dashboards
+                  Analytics Dashboards
                 </p>
                 <span
                   style={{
@@ -460,7 +520,7 @@ function App() {
                       display: "inline-block",
                     }}
                   />
-                  {step === "dashboard" ? "" : "IDLE"}
+                  {step === "dashboard" ? "LIVE" : "IDLE"}
                 </span>
               </div>
 
@@ -543,6 +603,8 @@ function App() {
                 placeholder="Search business insights..."
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
+                onClick={() => setPaletteOpen(true)}
+                readOnly
                 style={{
                   width: "100%",
                   padding: "12px 44px 12px 20px",
@@ -552,12 +614,14 @@ function App() {
                   color: "#fff",
                   outline: "none",
                   fontSize: "14px",
+                  cursor: "pointer",
                   boxShadow: searchFocused ? "0 0 0 4px rgba(88,166,255,0.08)" : "none",
                   transition: "all 0.2s ease",
                   boxSizing: "border-box",
                 }}
               />
               <span
+                onClick={() => setPaletteOpen(true)}
                 style={{
                   position: "absolute",
                   right: 14,
@@ -566,10 +630,10 @@ function App() {
                   fontSize: "11px",
                   color: "#5b6472",
                   border: `1px solid ${theme.border}`,
-                  borderRadius: "6px",
+                  borderRadius: 6,
                   padding: "3px 7px",
                   background: "rgba(255,255,255,0.02)",
-                  pointerEvents: "none",
+                  cursor: "pointer",
                 }}
               >
                 ⌘K
@@ -577,6 +641,23 @@ function App() {
             </div>
 
             <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+              <motion.button
+                whileHover={{ scale: 1.05, borderColor: "rgba(88,166,255,0.4)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShortcutsOpen(true)}
+                style={{
+                  background: "rgba(255,255,255,0.02)",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 10,
+                  padding: "7px 11px",
+                  color: "#8b949e",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                }}
+              >
+                ?
+              </motion.button>
               <motion.div whileHover={{ scale: 1.1 }} style={{ fontSize: "1.2rem", cursor: "pointer", opacity: 0.75, position: "relative" }}>
                 🔔
                 <span
@@ -721,7 +802,7 @@ function App() {
                   {loading ? "Engine Processing..." : "Initialize AI Engine"}
                 </h2>
                 <p style={{ color: theme.subtext, marginBottom: "32px", lineHeight: "1.6", fontSize: "15px" }}>
-                  Upload your financial records, HR logs, or sales data.
+                  Upload your financial records, HR logs, or marketing data.
                   <br />
                   Our AI will process these to generate your executive dashboards.
                 </p>
@@ -944,7 +1025,9 @@ function App() {
                   >
                     {[
                       { label: "Files Indexed", value: files.length || 12, suffix: "" },
-                      { label: "Modules Live", value: proModules.length, suffix: "" },
+                  
+                      { label: "Modules Live", value: MODULES.length, suffix: "" },
+                    
                     ].map((stat) => (
                       <div
                         key={stat.label}
@@ -1022,6 +1105,257 @@ function App() {
               )}
             </div>
           )}
+        </div>
+
+        {/* ---------------- TOP LOADING BAR ---------------- */}
+        <AnimatePresence>
+          {loading && (
+            <motion.div
+              initial={{ scaleX: 0, opacity: 1 }}
+              animate={{ scaleX: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 2.4, ease: "easeInOut" }}
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 2,
+                transformOrigin: "left",
+                background: "linear-gradient(90deg, #42b3ff, #a371f7)",
+                boxShadow: "0 0 12px rgba(88,166,255,0.8)",
+                zIndex: 100,
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* ---------------- COMMAND PALETTE ---------------- */}
+        <AnimatePresence>
+          {paletteOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPaletteOpen(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(5, 8, 14, 0.6)",
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+                zIndex: 200,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "flex-start",
+                paddingTop: "12vh",
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.97 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: "100%",
+                  maxWidth: 540,
+                  background: "rgba(18, 22, 30, 0.85)",
+                  backdropFilter: "blur(32px) saturate(190%)",
+                  WebkitBackdropFilter: "blur(32px) saturate(190%)",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 20,
+                  boxShadow: "0 0 60px -10px rgba(58,162,230,0.35), 0 40px 80px -20px rgba(0,0,0,0.85)",
+                  overflow: "hidden",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: `1px solid ${theme.border}` }}>
+                  <span style={{ opacity: 0.6 }}>🔍</span>
+                  <input
+                    autoFocus
+                    value={paletteQuery}
+                    onChange={(e) => setPaletteQuery(e.target.value)}
+                    placeholder="Type a command or search..."
+                    style={{
+                      flex: 1,
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      color: "#fff",
+                      fontSize: 15,
+                    }}
+                  />
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: "#5b6472",
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: 6,
+                      padding: "3px 7px",
+                    }}
+                  >
+                    ESC
+                  </span>
+                </div>
+                <div style={{ maxHeight: 320, overflowY: "auto", padding: 8 }}>
+                  {filteredPaletteActions.length === 0 && (
+                    <div style={{ padding: 24, textAlign: "center", color: theme.subtext, fontSize: 13 }}>No matching commands</div>
+                  )}
+                  {filteredPaletteActions.map((a) => (
+                    <motion.div
+                      key={a.id}
+                      whileHover={!a.disabled ? { background: "rgba(88,166,255,0.08)" } : {}}
+                      onClick={() => {
+                        if (a.disabled) return;
+                        a.action();
+                        setPaletteOpen(false);
+                        setPaletteQuery("");
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "11px 14px",
+                        borderRadius: 12,
+                        cursor: a.disabled ? "not-allowed" : "pointer",
+                        color: a.disabled ? "#444c5e" : "#dfe3ea",
+                        fontSize: 13.5,
+                      }}
+                    >
+                      <span>{a.icon}</span>
+                      <span style={{ flex: 1 }}>{a.label}</span>
+                      {a.disabled && <span style={{ fontSize: 10.5, color: "#444c5e" }}>Locked</span>}
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ---------------- KEYBOARD SHORTCUTS PANEL ---------------- */}
+        <AnimatePresence>
+          {shortcutsOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShortcutsOpen(false)}
+              style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(5, 8, 14, 0.6)",
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+                zIndex: 200,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  width: "100%",
+                  maxWidth: 380,
+                  background: "rgba(18, 22, 30, 0.9)",
+                  backdropFilter: "blur(32px) saturate(190%)",
+                  WebkitBackdropFilter: "blur(32px) saturate(190%)",
+                  border: `1px solid ${theme.border}`,
+                  borderRadius: 20,
+                  boxShadow: "0 0 60px -10px rgba(58,162,230,0.3), 0 40px 80px -20px rgba(0,0,0,0.85)",
+                  padding: "24px 26px",
+                }}
+              >
+                <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: "#fff", fontFamily: "'Montserrat', sans-serif" }}>
+                  Keyboard Shortcuts
+                </h3>
+                {[
+                  { keys: ["⌘", "K"], label: "Open command palette" },
+                  { keys: ["☰"], label: "Toggle sidebar" },
+                  { keys: ["Esc"], label: "Close any overlay" },
+                  { keys: ["?"], label: "Toggle this panel" },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "9px 0",
+                      borderBottom: `1px solid ${theme.border}`,
+                      fontSize: 13,
+                    }}
+                  >
+                    <span style={{ color: "#dfe3ea" }}>{row.label}</span>
+                    <span style={{ display: "flex", gap: 4 }}>
+                      {row.keys.map((k) => (
+                        <span
+                          key={k}
+                          style={{
+                            fontSize: 11,
+                            color: "#dfe3ea",
+                            border: `1px solid ${theme.border}`,
+                            borderRadius: 6,
+                            padding: "3px 7px",
+                            background: "rgba(255,255,255,0.03)",
+                          }}
+                        >
+                          {k}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                ))}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ---------------- TOAST STACK ---------------- */}
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            zIndex: 300,
+          }}
+        >
+          <AnimatePresence>
+            {toasts.map((t) => (
+              <motion.div
+                key={t.id}
+                initial={{ opacity: 0, x: 40, scale: 0.95 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 40, scale: 0.95 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "13px 18px",
+                  borderRadius: 14,
+                  minWidth: 260,
+                  background: "rgba(18, 22, 30, 0.92)",
+                  backdropFilter: "blur(24px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                  border: `1px solid ${t.tone === "success" ? "rgba(63,185,80,0.35)" : theme.border}`,
+                  boxShadow: "0 20px 40px -15px rgba(0,0,0,0.7)",
+                  fontSize: 13,
+                  color: "#dfe3ea",
+                }}
+              >
+                <span>{t.tone === "success" ? "✅" : "ℹ️"}</span>
+                <span style={{ flex: 1 }}>{t.message}</span>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       </div>
     );

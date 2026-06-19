@@ -40,122 +40,95 @@ const mainStyle = {
   flex: 1,
   display: "flex",
   flexDirection: "column",
+  height: "100vh",
   position: "relative",
-  background: theme.bg
 };
 
-const topbarStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
+const headerStyle = {
   padding: "20px 40px",
-  background: theme.card,
   borderBottom: `1px solid ${theme.border}`,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  background: "rgba(22, 27, 34, 0.5)",
+  backdropFilter: "blur(8px)",
 };
 
-const chatWindowStyle = {
+const chatContainerStyle = {
   flex: 1,
-  padding: "40px",
   overflowY: "auto",
+  padding: "40px",
   display: "flex",
   flexDirection: "column",
-  gap: "25px",
-  background: `radial-gradient(circle at top right, #161b22, ${theme.bg})`,
+  gap: "24px",
 };
 
-const messageWrapper = (isUser) => ({
-  alignSelf: isUser ? "flex-end" : "flex-start",
-  maxWidth: "70%",
+const messageWrapperStyle = (isUser) => ({
   display: "flex",
   flexDirection: "column",
   alignItems: isUser ? "flex-end" : "flex-start",
-  position: "relative",
+  maxWidth: "75%",
+  alignSelf: isUser ? "flex-end" : "flex-start",
 });
 
 const messageStyle = (isUser) => ({
   background: isUser ? theme.accent : theme.surface,
   color: theme.text,
-  padding: "16px 22px",
+  padding: "14px 20px",
   borderRadius: isUser ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
-  fontSize: "15px",
+  fontSize: "14.5px",
   lineHeight: "1.6",
-  fontWeight: "400",
-  border: `1px solid ${isUser ? theme.accent : theme.border}`,
-  boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+  whiteSpace: "pre-wrap",
 });
 
 const inputContainerStyle = {
-  display: "flex",
-  gap: "20px",
   padding: "30px 40px",
-  background: theme.card,
-  borderTop: `1px solid ${theme.border}`,
+  background: "transparent",
+  display: "flex",
+  gap: "15px",
 };
 
 const inputStyle = {
   flex: 1,
-  padding: "16px 24px",
-  borderRadius: "8px",
+  background: theme.card,
   border: `1px solid ${theme.border}`,
-  background: theme.bg,
+  borderRadius: "12px",
+  padding: "15px 20px",
   color: theme.text,
-  fontSize: "15px",
+  fontSize: "14px",
   outline: "none",
-  fontFamily: theme.fontMain,
-  transition: "border-color 0.2s ease",
+  transition: "border-color 0.2s",
 };
 
 const buttonStyle = {
-  padding: "0 30px",
-  borderRadius: "8px",
+  background: theme.accent,
+  color: "#ffffff",
   border: "none",
-  background: theme.primary,
-  color: "#fff",
-  cursor: "pointer",
-  fontWeight: "700",
+  borderRadius: "12px",
+  padding: "0 28px",
   fontSize: "14px",
-  transition: "opacity 0.2s ease",
+  fontWeight: "600",
+  cursor: "pointer",
+  transition: "opacity 0.2s",
 };
 
-// ---------- Global Styles ----------
-const globalStyles = `
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-thumb { background: #30363d; border-radius: 10px; }
-.message-entry {
-  animation: fadeIn 0.4s ease-out forwards;
-}
-.edit-btn { opacity: 0; transition: opacity 0.2s; cursor: pointer; color: ${theme.subtext}; font-size: 12px; }
-.message-wrapper:hover .edit-btn { opacity: 1; }
-.action-icons { display: flex; gap: 8px; opacity: 0.6; }
-.action-icons:hover { opacity: 1; }
-`;
-
 export default function ChatbotPage() {
-  const [sessions, setSessions] = useState([
-    { 
-      id: Date.now(), 
-      name: "New Analysis", 
-      messages: [{ text: "How can I assist with your business data analysis today?", isUser: false, time: new Date() }] 
-    }
+  const [messages, setMessages] = useState([
+    { text: "Hello! I am your InsightIQ Business Intelligence Assistant. How can I analyze your company architecture today?", isUser: false, time: new Date() }
   ]);
-  const [activeId, setActiveId] = useState(sessions[0].id);
   const [input, setInput] = useState("");
-  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [editingMsgIdx, setEditingMsgIdx] = useState(null);
   const [editBuffer, setEditBuffer] = useState("");
+  
   const chatEndRef = useRef(null);
-
-  const activeSession = sessions.find(s => s.id === activeId);
-  const capitalizeFirst = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeSession.messages]);
+  }, [messages]);
 
+  // ---------- PostgreSQL Connected Query Handler ----------
   const fetchBotResponse = async (userMessage) => {
     try {
       const response = await fetch("http://localhost:5000/api/chatbot/chat", {
@@ -163,98 +136,125 @@ export default function ChatbotPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMessage }),
       });
+      
+      if (!response.ok) throw new Error("Network execution error");
       const data = await response.json();
-      return { text: data.reply || "Data Error.", isUser: false, time: new Date() };
+      
+      return { 
+        text: data.reply || "No structured analysis returned.", 
+        isUser: false, 
+        time: new Date() 
+      };
     } catch (error) {
-      return { text: "Critical System Failure.", isUser: false, time: new Date() };
+      console.error("AI Retrieval Failure:", error);
+      return { 
+        text: "Critical Connection Failure. Ensure your local PostgreSQL engine and Node server are active.", 
+        isUser: false, 
+        time: new Date() 
+      };
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-    const userMsg = { text: input, isUser: true, time: new Date() };
-    setSessions(prev => prev.map(s => {
-      if (s.id !== activeId) return s;
-      return { ...s, messages: [...s.messages, userMsg], name: s.messages.length === 1 ? capitalizeFirst(input.substring(0, 20)) : s.name };
-    }));
-    const currentInput = input;
-    setInput("");
-    const botReply = await fetchBotResponse(currentInput);
-    setSessions(prev => prev.map(s => s.id === activeId ? { ...s, messages: [...s.messages, botReply] } : s));
+  const handleSend = async (messageToSend) => {
+    const text = messageToSend || input;
+    if (!text.trim()) return;
+
+    if (!messageToSend) setInput("");
+
+    // Append user query node
+    const userMsg = { text, isUser: true, time: new Date() };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
+
+    // Call connected backend route pipeline
+    const botReply = await fetchBotResponse(text);
+    setMessages((prev) => [...prev, botReply]);
+    setIsLoading(false);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") handleSend();
   };
 
   const saveEdit = async (idx) => {
-    setSessions(prev => prev.map(s => s.id === activeId ? {
-      ...s, messages: s.messages.map((m, i) => i === idx ? { ...m, text: editBuffer } : m).slice(0, idx + 1)
-    } : s));
+    if (!editBuffer.trim()) return;
+    
+    // Clear modern message slice trail
+    const updated = messages.slice(0, idx);
+    setMessages(updated);
     setEditingMsgIdx(null);
-    const botReply = await fetchBotResponse(editBuffer);
-    setSessions(prev => prev.map(s => s.id === activeId ? { ...s, messages: [...s.messages, botReply] } : s));
+    
+    // Process updated payload structure
+    await handleSend(editBuffer);
   };
 
-  const deleteSession = (id, e) => {
-    e.stopPropagation();
-    const newSessions = sessions.filter(s => s.id !== id);
-    if (newSessions.length === 0) {
-        setSessions([{ id: Date.now(), name: "New Analysis", messages: [{ text: "How can I assist you?", isUser: false, time: new Date() }] }]);
-        setActiveId(sessions[0].id);
-    } else {
-        setSessions(newSessions);
-        setActiveId(newSessions[0].id);
-    }
+  const formatTime = (date) => {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
-
-  const clearSession = (id, e) => {
-    e.stopPropagation();
-    setSessions(prev => prev.map(s => s.id === id ? { ...s, messages: [] } : s));
-  };
-
-  const handleKeyPress = (e) => { if (e.key === "Enter") sendMessage(); };
-  const formatTime = (date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
     <div style={containerStyle}>
-      <style>{globalStyles}</style>
+      {/* Dynamic Sidebar Module */}
+      <div style={sidebarStyle}>
+        <div style={{ marginBottom: "40px" }}>
+          <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "800", color: theme.primary, letterSpacing: "-0.5px" }}>
+            Insight<span style={{ color: "#ffffff", fontStyle: "italic" }}>IQ</span>
+          </h2>
+          <p style={{ margin: "5px 0 0", fontSize: "11px", color: theme.subtext, textTransform: "uppercase", letterSpacing: "1px" }}>
+            Enterprise Workspace
+          </p>
+        </div>
 
-      <aside style={sidebarStyle}>
-        <div style={{ fontSize: '18px', fontWeight: '800', marginBottom: '40px', color: theme.primary }}>Business Analyzer | Chatbot</div>
-        <div style={{ color: theme.subtext, fontSize: '12px', fontWeight: '700', marginBottom: '20px' }}>Chat History</div>
-        {sessions.map(s => (
-          <div key={s.id} style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px', borderRadius: '8px', background: activeId === s.id ? "rgba(88,166,255,0.08)" : "transparent" }}>
-            {editingSessionId === s.id ? (
-              <input autoFocus defaultValue={s.name} onBlur={(e) => { setSessions(p => p.map(sess => sess.id === s.id ? {...sess, name: capitalizeFirst(e.target.value)} : sess)); setEditingSessionId(null); }} />
-            ) : (
-              <span onClick={() => setActiveId(s.id)} style={{ cursor: 'pointer', fontSize: '13px', color: activeId === s.id ? theme.primary : theme.textMuted }}>{s.name}</span>
-            )}
-            <div className="action-icons">
-              <span onClick={() => setEditingSessionId(s.id)} style={{ cursor: 'pointer' }}>✎</span>
-              <span onClick={(e) => clearSession(s.id, e)} style={{ cursor: 'pointer' }}>○</span>
-              <span onClick={(e) => deleteSession(s.id, e)} style={{ cursor: 'pointer', color: theme.danger }}>🗑</span>
-            </div>
+        <div style={{ flex: 1 }}>
+          <div style={{ background: "rgba(88, 166, 255, 0.05)", border: `1px solid ${theme.border}`, borderRadius: "10px", padding: "15px", marginBottom: "20px" }}>
+            <h4 style={{ margin: "0 0 8px 0", fontSize: "12px", color: theme.primary }}>Operational Target</h4>
+            <p style={{ margin: 0, fontSize: "13px", color: theme.textMuted, fontWeight: "500" }}>Academic Attire Co.</p>
           </div>
-        ))}
-      </aside>
+        </div>
 
+        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "20px", fontSize: "11px", color: theme.subtext, textAlign: "center" }}>
+          Connected to PostgreSQL Pipeline
+        </div>
+      </div>
+
+      {/* Primary Communication Terminal */}
       <div style={mainStyle}>
-        <header style={topbarStyle}>
-          <span style={{ fontSize: '13px', fontWeight: '700' }}>{activeSession.name}</span>
+        <header style={headerStyle}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600" }}>Analytical Core Chat</h3>
+            <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.subtext }}>Real-time cross-functional system query console</p>
+          </div>
+          {isLoading && (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: theme.primary }}>
+              <div style={{ width: "12px", height: "12px", border: `2px solid ${theme.primary}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+              Processing Metrics...
+            </div>
+          )}
         </header>
 
-        <div style={chatWindowStyle}>
-          {activeSession.messages.map((msg, idx) => (
-            <div key={idx} className="message-wrapper" style={messageWrapper(msg.isUser)}>
+        <div style={chatContainerStyle}>
+          {messages.map((msg, idx) => (
+            <div key={idx} style={messageWrapperStyle(msg.isUser)} className="message-wrapper">
               {editingMsgIdx === idx ? (
-                <div style={{ width: '100%' }}>
-                  <textarea defaultValue={msg.text} onChange={(e) => setEditBuffer(e.target.value)} style={{ ...inputStyle, width: '100%', marginBottom: '10px' }} />
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => saveEdit(idx)} style={{ ...buttonStyle, padding: '5px 15px', fontSize: '12px' }}>Save & Regenerate</button>
-                    <button onClick={() => setEditingMsgIdx(null)} style={{ ...buttonStyle, background: theme.surface, padding: '5px 15px', fontSize: '12px' }}>Cancel</button>
+                <div style={{ width: "100%", background: theme.card, padding: "15px", borderRadius: "12px", border: `1px solid ${theme.primary}` }}>
+                  <textarea defaultValue={msg.text} onChange={(e) => setEditBuffer(e.target.value)} style={{ ...inputStyle, width: "100%", marginBottom: "10px", resize: "none", height: "80px" }} />
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <button onClick={() => saveEdit(idx)} style={{ ...buttonStyle, padding: "5px 15px", fontSize: "12px" }}>Save &amp; Regenerate</button>
+                    <button onClick={() => setEditingMsgIdx(null)} style={{ ...buttonStyle, background: theme.surface, padding: "5px 15px", fontSize: "12px" }}>Cancel</button>
                   </div>
                 </div>
               ) : (
                 <>
                   <div style={messageStyle(msg.isUser)}>{msg.text}</div>
-                  {msg.isUser && <span className="edit-btn" onClick={() => { setEditBuffer(msg.text); setEditingMsgIdx(idx); }} style={{ marginTop: '5px', alignSelf: 'flex-end' }}>Edit</span>}
+                  {msg.isUser && (
+                    <span 
+                      className="edit-btn" 
+                      onClick={() => { setEditBuffer(msg.text); setEditingMsgIdx(idx); }} 
+                      style={{ marginTop: "6px", alignSelf: "flex-end", fontSize: "11px", color: theme.primary, cursor: "pointer", opacity: 0.7 }}
+                    >
+                      Edit Prompt
+                    </span>
+                  )}
                 </>
               )}
               <div style={{ fontSize: 11, marginTop: 8, color: theme.subtext }}>{formatTime(msg.time)}</div>
@@ -264,11 +264,29 @@ export default function ChatbotPage() {
         </div>
 
         <footer style={inputContainerStyle}>
-          <input type="text" placeholder="Ask a question..." style={inputStyle} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyPress} />
-          <button onClick={sendMessage} style={buttonStyle}>Send</button>
+          <input 
+            type="text" 
+            placeholder="Ask a question regarding operational analytics..." 
+            style={inputStyle} 
+            value={input} 
+            onChange={(e) => setInput(e.target.value)} 
+            onKeyDown={handleKeyPress} 
+            disabled={isLoading}
+          />
+          <button 
+            onClick={() => handleSend()} 
+            style={{ ...buttonStyle, opacity: isLoading || !input.trim() ? 0.6 : 1 }}
+            disabled={isLoading || !input.trim()}
+          >
+            Send
+          </button>
         </footer>
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .message-wrapper:hover .edit-btn { opacity: 1 !important; }
+      `}</style>
     </div>
   );
 }
-

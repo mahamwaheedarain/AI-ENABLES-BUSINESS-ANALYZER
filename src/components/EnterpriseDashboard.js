@@ -162,17 +162,75 @@ function EnterpriseDashboard({ user, onHome }) {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false); // Added for consistent UX
 
-  // -------- presentation-only state (does not alter original flow/logic) --------
+  // -------- presentation-only state --------
   const [isDragOver, setIsDragOver] = useState(false);
   const [ingestStage, setIngestStage] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const [toasts, setToasts] = useState([]);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const ingestTimerRef = useRef(null);
+  const toastIdRef = useRef(0);
 
   const modules = MODULES;
 
-  // ---------------- FILE UPLOAD ----------------
+  // -------- toast helper --------
+  const pushToast = (message, tone = "info") => {
+    const id = ++toastIdRef.current;
+    setToasts((prev) => [...prev, { id, message, tone }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3600);
+  };
+
+  // -------- global keyboard shortcuts --------
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((p) => !p);
+      } else if (e.key === "Escape") {
+        setPaletteOpen(false);
+        setShortcutsOpen(false);
+      } else if (e.key === "?" && !paletteOpen) {
+        setShortcutsOpen((s) => !s);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [paletteOpen]);
+
+  const paletteActions = useMemo(
+    () => [
+      { id: "home", label: "Go to Home", icon: "🏠", action: () => onHome() },
+      ...MODULES.map((m) => ({
+        id: m.toLowerCase(),
+        label: `Open ${m} module`,
+        icon: MODULE_META[m.toLowerCase()].icon,
+        disabled: step !== "dashboard",
+        action: () => setModule(m.toLowerCase()),
+      })),
+      { id: "toggle-sidebar", label: sidebarOpen ? "Collapse sidebar" : "Expand sidebar", icon: "▤", action: () => setSidebarOpen((s) => !s) },
+    ],
+    [step, sidebarOpen, onHome]
+  );
+
+  const filteredPaletteActions = paletteActions.filter((a) =>
+    a.label.toLowerCase().includes(paletteQuery.toLowerCase())
+  );
+
+  // ---------------- FILE UPLOAD (Natively supporting multiple files) ----------------
   const handleFileUpload = (e) => {
-    setFiles(Array.from(e.target.files));
+    if (e.target.files?.length) {
+      const incomingFiles = Array.from(e.target.files);
+      setFiles((prev) => {
+        // Prevent duplicate files with identical names if uploaded sequentially
+        const existingNames = new Set(prev.map(f => f.name));
+        const filteredNew = incomingFiles.filter(f => !existingNames.has(f.name));
+        return [...prev, ...filteredNew];
+      });
+    }
   };
 
   const removeFile = (name) => {
@@ -183,7 +241,12 @@ function EnterpriseDashboard({ user, onHome }) {
     e.preventDefault();
     setIsDragOver(false);
     if (e.dataTransfer?.files?.length) {
-      setFiles(Array.from(e.dataTransfer.files));
+      const incomingFiles = Array.from(e.dataTransfer.files);
+      setFiles((prev) => {
+        const existingNames = new Set(prev.map(f => f.name));
+        const filteredNew = incomingFiles.filter(f => !existingNames.has(f.name));
+        return [...prev, ...filteredNew];
+      });
     }
   };
 
@@ -195,7 +258,7 @@ function EnterpriseDashboard({ user, onHome }) {
 
     setLoading(true);
 
-    // Cosmetic stage progression — purely visual, runs alongside the real request
+    // Cosmetic stage progression
     setIngestStage(0);
     let stage = 0;
     ingestTimerRef.current = setInterval(() => {
@@ -225,6 +288,7 @@ function EnterpriseDashboard({ user, onHome }) {
       if (response.ok) {
         clearInterval(ingestTimerRef.current);
         setIngestStage(INGEST_STAGES.length - 1);
+        pushToast("Archives synchronized with PostgreSQL", "success");
         alert("Archives successfully synchronized with PostgreSQL.");
         setStep("dashboard");
       } else {
@@ -379,7 +443,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   margin: 0,
                 }}
               >
-                Analytical Dashboards
+                Analytics Dashboards
               </p>
               <span
                 style={{
@@ -402,7 +466,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     display: "inline-block",
                   }}
                 />
-                {step === "dashboard" ? "" : "IDLE"}
+                {step === "dashboard" ? "LIVE" : "IDLE"}
               </span>
             </div>
 
@@ -475,6 +539,7 @@ function EnterpriseDashboard({ user, onHome }) {
               fontSize: "18px",
               cursor: "pointer",
               opacity: 0.85,
+                boxSizing: "border-box"
             }}
           >
             ☰
@@ -485,6 +550,8 @@ function EnterpriseDashboard({ user, onHome }) {
               placeholder="Search business insights..."
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
+              onClick={() => setPaletteOpen(true)}
+              readOnly
               style={{
                 width: "100%",
                 padding: "12px 44px 12px 20px",
@@ -494,12 +561,14 @@ function EnterpriseDashboard({ user, onHome }) {
                 color: "#fff",
                 outline: "none",
                 fontSize: "14px",
+                cursor: "pointer",
                 boxShadow: searchFocused ? "0 0 0 4px rgba(88,166,255,0.08)" : "none",
                 transition: "all 0.2s ease",
                 boxSizing: "border-box",
               }}
             />
             <span
+              onClick={() => setPaletteOpen(true)}
               style={{
                 position: "absolute",
                 right: 14,
@@ -511,7 +580,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 borderRadius: "6px",
                 padding: "3px 7px",
                 background: "rgba(255,255,255,0.02)",
-                pointerEvents: "none",
+                cursor: "pointer",
               }}
             >
               ⌘K
@@ -519,6 +588,23 @@ function EnterpriseDashboard({ user, onHome }) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+            <motion.button
+              whileHover={{ scale: 1.05, borderColor: "rgba(88,166,255,0.4)" }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShortcutsOpen(true)}
+              style={{
+                background: "rgba(255,255,255,0.02)",
+                border: `1px solid ${theme.border}`,
+                borderRadius: 10,
+                padding: "7px 11px",
+                color: "#8b949e",
+                fontSize: 11,
+                cursor: "pointer",
+                fontWeight: 600,
+              }}
+            >
+              ?
+            </motion.button>
             <motion.div whileHover={{ scale: 1.1 }} style={{ fontSize: "1.2rem", cursor: "pointer", opacity: 0.75, position: "relative" }}>
               🔔
               <span
@@ -581,7 +667,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 ⚡ Secure Ingestion Pipeline
               </div>
 
-              {/* ---------------- SIGNATURE ELEMENT: live ingestion core ---------------- */}
+              {/* Ingestion Center Anim */}
               <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto 22px" }}>
                 <motion.div
                   animate={{ rotate: 360 }}
@@ -628,7 +714,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   {loading ? "⏳" : files.length > 0 ? "📦" : "🧠"}
                 </motion.div>
 
-                {/* orbiting file particles while loading */}
+                {/* Particle orbits */}
                 {loading &&
                   [0, 1, 2].map((i) => (
                     <motion.div
@@ -671,7 +757,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 Our AI will process these to generate your executive dashboards.
               </p>
 
-              {/* ---------------- progress stepper (shown only while loading) ---------------- */}
+              {/* Progress Stepper */}
               {loading && (
                 <div style={{ display: "flex", justifyContent: "center", gap: 0, marginBottom: 36 }}>
                   {INGEST_STAGES.map((s, i) => (
@@ -715,7 +801,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 </div>
               )}
 
-              {/* ---------------- drag & drop zone with file chips ---------------- */}
+              {/* Drop Zone */}
               {!loading && (
                 <>
                   <label
@@ -747,7 +833,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     </span>
                   </label>
 
-                  {/* file chips */}
+                  {/* Multiple file chips view */}
                   <AnimatePresence>
                     {files.length > 0 && (
                       <motion.div
@@ -880,7 +966,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   </p>
                 </div>
 
-                {/* quick stat strip — purely presentational, counts up on mount */}
+                {/* Quick stats panel */}
                 <div
                   style={{
                     display: "grid",
@@ -891,9 +977,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 >
                   {[
                     { label: "Files Indexed", value: files.length || 12, suffix: "" },
-                   
                     { label: "Modules Live", value: MODULES.length, suffix: "" },
-                    
                   ].map((stat) => (
                     <div
                       key={stat.label}
@@ -915,7 +999,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   ))}
                 </div>
 
-                {/* module gallery */}
+                {/* Grid gallery */}
                 <div
                   style={{
                     display: "grid",
@@ -971,6 +1055,257 @@ function EnterpriseDashboard({ user, onHome }) {
             )}
           </div>
         )}
+      </div>
+
+      {/* SaaS Async Line Indicator */}
+      <AnimatePresence>
+        {loading && (
+          <motion.div
+            initial={{ scaleX: 0, opacity: 1 }}
+            animate={{ scaleX: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 2.4, ease: "easeInOut" }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 2,
+              transformOrigin: "left",
+              background: "linear-gradient(90deg, #42b3ff, #a371f7)",
+              boxShadow: "0 0 12px rgba(88,166,255,0.8)",
+              zIndex: 100,
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Command Palette */}
+      <AnimatePresence>
+        {paletteOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setPaletteOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(5, 8, 14, 0.6)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              zIndex: 200,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "flex-start",
+              paddingTop: "12vh",
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: -16, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.97 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 540,
+                background: "rgba(18, 22, 30, 0.85)",
+                backdropFilter: "blur(32px) saturate(190%)",
+                WebkitBackdropFilter: "blur(32px) saturate(190%)",
+                border: `1px solid ${theme.border}`,
+                borderRadius: 20,
+                boxShadow: "0 0 60px -10px rgba(58,162,230,0.35), 0 40px 80px -20px rgba(0,0,0,0.85)",
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: `1px solid ${theme.border}` }}>
+                <span style={{ opacity: 0.6 }}>🔍</span>
+                <input
+                  autoFocus
+                  value={paletteQuery}
+                  onChange={(e) => setPaletteQuery(e.target.value)}
+                  placeholder="Type a command or search..."
+                  style={{
+                    flex: 1,
+                    background: "transparent",
+                    border: "none",
+                    outline: "none",
+                    color: "#fff",
+                    fontSize: 15,
+                  }}
+                />
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "#5b6472",
+                    border: `1px solid ${theme.border}`,
+                    borderRadius: 6,
+                    padding: "3px 7px",
+                  }}
+                >
+                  ESC
+                </span>
+              </div>
+              <div style={{ maxHeight: 320, overflowY: "auto", padding: 8 }}>
+                {filteredPaletteActions.length === 0 && (
+                  <div style={{ padding: 24, textAlign: "center", color: theme.subtext, fontSize: 13 }}>No matching commands</div>
+                )}
+                {filteredPaletteActions.map((a) => (
+                  <motion.div
+                    key={a.id}
+                    whileHover={!a.disabled ? { background: "rgba(88,166,255,0.08)" } : {}}
+                    onClick={() => {
+                      if (a.disabled) return;
+                      a.action();
+                      setPaletteOpen(false);
+                      setPaletteQuery("");
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "11px 14px",
+                      borderRadius: 12,
+                      cursor: a.disabled ? "not-allowed" : "pointer",
+                      color: a.disabled ? "#444c5e" : "#dfe3ea",
+                      fontSize: 13.5,
+                    }}
+                  >
+                    <span>{a.icon}</span>
+                    <span style={{ flex: 1 }}>{a.label}</span>
+                    {a.disabled && <span style={{ fontSize: 10.5, color: "#444c5e" }}>Locked</span>}
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Keyboard Panel */}
+      <AnimatePresence>
+        {shortcutsOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShortcutsOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(5, 8, 14, 0.6)",
+              backdropFilter: "blur(6px)",
+              WebkitBackdropFilter: "blur(6px)",
+              zIndex: 200,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 380,
+                background: "rgba(18, 22, 30, 0.9)",
+                backdropFilter: "blur(32px) saturate(190%)",
+                WebkitBackdropFilter: "blur(32px) saturate(190%)",
+                border: `1px solid ${theme.border}`,
+                borderRadius: 20,
+                boxShadow: "0 0 60px -10px rgba(58,162,230,0.3), 0 40px 80px -20px rgba(0,0,0,0.85)",
+                padding: "24px 26px",
+              }}
+            >
+              <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: "#fff", fontFamily: "'Montserrat', sans-serif" }}>
+                Keyboard Shortcuts
+              </h3>
+              {[
+                { keys: ["⌘", "K"], label: "Open command palette" },
+                { keys: ["☰"], label: "Toggle sidebar" },
+                { keys: ["Esc"], label: "Close any overlay" },
+                { keys: ["?"], label: "Toggle this panel" },
+              ].map((row) => (
+                <div
+                  key={row.label}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "9px 0",
+                    borderBottom: `1px solid ${theme.border}`,
+                    fontSize: 13,
+                  }}
+                >
+                  <span style={{ color: "#dfe3ea" }}>{row.label}</span>
+                  <span style={{ display: "flex", gap: 4 }}>
+                    {row.keys.map((k) => (
+                      <span
+                        key={k}
+                        style={{
+                          fontSize: 11,
+                          color: "#dfe3ea",
+                          border: `1px solid ${theme.border}`,
+                          borderRadius: 6,
+                          padding: "3px 7px",
+                          background: "rgba(255,255,255,0.03)",
+                        }}
+                      >
+                        {k}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Toast Notification Container */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          zIndex: 300,
+        }}
+      >
+        <AnimatePresence>
+          {toasts.map((t) => (
+            <motion.div
+              key={t.id}
+              initial={{ opacity: 0, x: 40, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 40, scale: 0.95 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "13px 18px",
+                borderRadius: 14,
+                minWidth: 260,
+                background: "rgba(18, 22, 30, 0.92)",
+                backdropFilter: "blur(24px) saturate(180%)",
+                WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                border: `1px solid ${t.tone === "success" ? "rgba(63,185,80,0.35)" : theme.border}`,
+                boxShadow: "0 20px 40px -15px rgba(0,0,0,0.7)",
+                fontSize: 13,
+                color: "#dfe3ea",
+              }}
+            >
+              <span>{t.tone === "success" ? "✅" : "ℹ️"}</span>
+              <span style={{ flex: 1 }}>{t.message}</span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </div>
   );
