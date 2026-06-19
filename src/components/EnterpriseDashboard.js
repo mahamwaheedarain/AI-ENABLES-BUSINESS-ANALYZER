@@ -157,9 +157,26 @@ function EnterpriseDashboard({ user, onHome }) {
   const [module, setModule] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  // Dynamic localStorage key isolated by user email or fallback unique identifier
+  const userFileKey = useMemo(() => {
+    const identifier = user?.email || user?.id || "anonymous";
+    return `insightiq_files_${identifier}`;
+  }, [user]);
+
   // ✅ APP.JS STYLE FLOW STATES
   const [step, setStep] = useState("upload"); // upload → dashboard
-  const [files, setFiles] = useState([]);
+  
+  // Lazy state initialization parsing storage contents on boot setup
+  const [files, setFiles] = useState(() => {
+    try {
+      const persisted = localStorage.getItem(userFileKey);
+      return persisted ? JSON.parse(persisted) : [];
+    } catch (e) {
+      console.error("Failed to parse stored files from localStorage", e);
+      return [];
+    }
+  });
+  
   const [loading, setLoading] = useState(false); // Added for consistent UX
 
   // -------- presentation-only state --------
@@ -174,6 +191,11 @@ function EnterpriseDashboard({ user, onHome }) {
   const toastIdRef = useRef(0);
 
   const modules = MODULES;
+
+  // Sync files collection state safely to local persistence on change cycles
+  useEffect(() => {
+    localStorage.setItem(userFileKey, JSON.stringify(files));
+  }, [files, userFileKey]);
 
   // -------- toast helper --------
   const pushToast = (message, tone = "info") => {
@@ -224,11 +246,27 @@ function EnterpriseDashboard({ user, onHome }) {
   const handleFileUpload = (e) => {
     if (e.target.files?.length) {
       const incomingFiles = Array.from(e.target.files);
-      setFiles((prev) => {
-        // Prevent duplicate files with identical names if uploaded sequentially
-        const existingNames = new Set(prev.map(f => f.name));
-        const filteredNew = incomingFiles.filter(f => !existingNames.has(f.name));
-        return [...prev, ...filteredNew];
+      
+      Promise.all(
+        incomingFiles.map((file) => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              resolve({
+                name: file.name,
+                size: file.size,
+                content: event.target.result
+              });
+            };
+            reader.readAsText(file);
+          });
+        })
+      ).then((processedFiles) => {
+        setFiles((prev) => {
+          const existingNames = new Set(prev.map(f => f.name));
+          const filteredNew = processedFiles.filter(f => !existingNames.has(f.name));
+          return [...prev, ...filteredNew];
+        });
       });
     }
   };
@@ -242,10 +280,27 @@ function EnterpriseDashboard({ user, onHome }) {
     setIsDragOver(false);
     if (e.dataTransfer?.files?.length) {
       const incomingFiles = Array.from(e.dataTransfer.files);
-      setFiles((prev) => {
-        const existingNames = new Set(prev.map(f => f.name));
-        const filteredNew = incomingFiles.filter(f => !existingNames.has(f.name));
-        return [...prev, ...filteredNew];
+      
+      Promise.all(
+        incomingFiles.map((file) => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              resolve({
+                name: file.name,
+                size: file.size,
+                content: event.target.result
+              });
+            };
+            reader.readAsText(file);
+          });
+        })
+      ).then((processedFiles) => {
+        setFiles((prev) => {
+          const existingNames = new Set(prev.map(f => f.name));
+          const filteredNew = processedFiles.filter(f => !existingNames.has(f.name));
+          return [...prev, ...filteredNew];
+        });
       });
     }
   };
@@ -266,16 +321,11 @@ function EnterpriseDashboard({ user, onHome }) {
       if (stage < INGEST_STAGES.length - 1) setIngestStage(stage);
     }, 650);
 
-    // Convert files to the format your backend expects
-    const fileData = await Promise.all(
-      files.map((file) => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve({ filename: file.name, content: e.target.result });
-          reader.readAsText(file);
-        });
-      })
-    );
+    // Dynamic schema conversion matching storage or live read payloads safely
+    const fileData = files.map((file) => ({
+      filename: file.name,
+      content: file.content
+    }));
 
     try {
       // Send the data to your backend API
@@ -577,7 +627,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 fontSize: "11px",
                 color: "#5b6472",
                 border: `1px solid ${theme.border}`,
-                borderRadius: "6px",
+                borderRadius: 6,
                 padding: "3px 7px",
                 background: "rgba(255,255,255,0.02)",
                 cursor: "pointer",
@@ -976,7 +1026,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   }}
                 >
                   {[
-                    { label: "Files Indexed", value: files.length || 12, suffix: "" },
+                    { label: "Files Indexed", value: files.length, suffix: "" },
                     { label: "Modules Live", value: MODULES.length, suffix: "" },
                   ].map((stat) => (
                     <div
