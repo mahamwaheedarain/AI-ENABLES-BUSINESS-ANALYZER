@@ -24,6 +24,8 @@ const analyzerRoutes = require("./routes/analyzer");
  * /api/analyzer: Pulls from DB for AI-driven insights (Finance, HR, Marketing).
  * /api/chatbot: Manages the analytical conversation history in 'chat_history'.
  */
+const adminRouter = require("./routes/admin");
+app.use("/api/admin", adminRouter);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/analyzer", analyzerRoutes);
