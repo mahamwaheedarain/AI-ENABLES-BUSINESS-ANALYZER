@@ -8,7 +8,7 @@ import OperationsDashboard from "./OperationsDashboard";
 import SalesDashboard from "./SalesDashboard";
 
 // ============================================================
-// THEME — shared language with Subscription.js
+// THEME
 // ============================================================
 const theme = {
   primary: "#58a6ff",
@@ -40,7 +40,7 @@ const INGEST_STAGES = [
 ];
 
 // ============================================================
-// SMALL UTILITIES
+// UTILITIES
 // ============================================================
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "";
@@ -66,7 +66,6 @@ function CountUp({ value, duration = 1.1, suffix = "" }) {
   return <span ref={ref}>0{suffix}</span>;
 }
 
-// Animated mesh-gradient ambient backdrop — quiet, not garish
 const MeshBackdrop = () => (
   <div style={{ position: "absolute", inset: 0, overflow: "hidden", zIndex: 0, pointerEvents: "none" }}>
     <motion.div
@@ -113,7 +112,6 @@ const MeshBackdrop = () => (
         background: "radial-gradient(circle, #a371f7 0%, transparent 70%)",
       }}
     />
-    {/* faint grid for depth */}
     <div
       style={{
         position: "absolute",
@@ -153,33 +151,35 @@ const MagneticTilt = ({ children, style, ...props }) => {
   );
 };
 
+// ============================================================
+// ENTERPRISE DASHBOARD
+// ============================================================
 function EnterpriseDashboard({ user, onHome }) {
   const [module, setModule] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Dynamic localStorage key isolated by user email or fallback unique identifier
+  // Isolated localStorage key per user
   const userFileKey = useMemo(() => {
     const identifier = user?.email || user?.id || "anonymous";
-    return `insightiq_files_${identifier}`;
+    return `insightiq_enterprise_files_${identifier}`;
   }, [user]);
 
-  // ✅ APP.JS STYLE FLOW STATES
-  const [step, setStep] = useState("upload"); // upload → dashboard
-  
-  // Lazy state initialization parsing storage contents on boot setup
+  // step: "upload" → "dashboard"  (mirrors Pro Dashboard exactly)
+  const [step, setStep] = useState("upload");
+
   const [files, setFiles] = useState(() => {
     try {
-      const persisted = localStorage.getItem(userFileKey);
+      const persisted = localStorage.getItem(
+        `insightiq_enterprise_files_${user?.email || user?.id || "anonymous"}`
+      );
       return persisted ? JSON.parse(persisted) : [];
     } catch (e) {
-      console.error("Failed to parse stored files from localStorage", e);
+      console.error("Failed to parse stored files", e);
       return [];
     }
   });
-  
-  const [loading, setLoading] = useState(false); // Added for consistent UX
 
-  // -------- presentation-only state --------
+  const [loading, setLoading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [ingestStage, setIngestStage] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -190,12 +190,29 @@ function EnterpriseDashboard({ user, onHome }) {
   const ingestTimerRef = useRef(null);
   const toastIdRef = useRef(0);
 
-  const modules = MODULES;
+  const totalBytes = useMemo(() => files.reduce((s, f) => s + (f.size || 0), 0), [files]);
 
-  // Sync files collection state safely to local persistence on change cycles
+  // Persist files to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem(userFileKey, JSON.stringify(files));
   }, [files, userFileKey]);
+
+  // On mount: if files already exist in storage, jump straight to dashboard
+  useEffect(() => {
+    try {
+      const persisted = localStorage.getItem(userFileKey);
+      if (persisted) {
+        const parsed = JSON.parse(persisted);
+        if (parsed && parsed.length > 0) {
+          setFiles(parsed);
+          setStep("dashboard");
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // -------- toast helper --------
   const pushToast = (message, tone = "info") => {
@@ -206,7 +223,7 @@ function EnterpriseDashboard({ user, onHome }) {
     }, 3600);
   };
 
-  // -------- global keyboard shortcuts --------
+  // -------- keyboard shortcuts --------
   useEffect(() => {
     const onKeyDown = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -223,9 +240,16 @@ function EnterpriseDashboard({ user, onHome }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [paletteOpen]);
 
+  // -------- palette actions --------
   const paletteActions = useMemo(
     () => [
       { id: "home", label: "Go to Home", icon: "🏠", action: () => onHome() },
+      {
+        id: "manage-files",
+        label: "Manage / Upload Files",
+        icon: "📁",
+        action: () => { setStep("upload"); setModule(null); },
+      },
       ...MODULES.map((m) => ({
         id: m.toLowerCase(),
         label: `Open ${m} module`,
@@ -233,7 +257,12 @@ function EnterpriseDashboard({ user, onHome }) {
         disabled: step !== "dashboard",
         action: () => setModule(m.toLowerCase()),
       })),
-      { id: "toggle-sidebar", label: sidebarOpen ? "Collapse sidebar" : "Expand sidebar", icon: "▤", action: () => setSidebarOpen((s) => !s) },
+      {
+        id: "toggle-sidebar",
+        label: sidebarOpen ? "Collapse sidebar" : "Expand sidebar",
+        icon: "▤",
+        action: () => setSidebarOpen((s) => !s),
+      },
     ],
     [step, sidebarOpen, onHome]
   );
@@ -242,78 +271,52 @@ function EnterpriseDashboard({ user, onHome }) {
     a.label.toLowerCase().includes(paletteQuery.toLowerCase())
   );
 
-  // ---------------- FILE UPLOAD (Natively supporting multiple files) ----------------
-  const handleFileUpload = (e) => {
-    if (e.target.files?.length) {
-      const incomingFiles = Array.from(e.target.files);
-      
-      Promise.all(
-        incomingFiles.map((file) => {
-          return new Promise((resolve) => {
+  // -------- file helpers --------
+  const readFiles = (rawFiles) =>
+    Promise.all(
+      rawFiles.map(
+        (file) =>
+          new Promise((resolve) => {
             const reader = new FileReader();
-            reader.onload = (event) => {
-              resolve({
-                name: file.name,
-                size: file.size,
-                content: event.target.result
-              });
-            };
+            reader.onload = (event) =>
+              resolve({ name: file.name, size: file.size, content: event.target.result });
             reader.readAsText(file);
-          });
-        })
-      ).then((processedFiles) => {
-        setFiles((prev) => {
-          const existingNames = new Set(prev.map(f => f.name));
-          const filteredNew = processedFiles.filter(f => !existingNames.has(f.name));
-          return [...prev, ...filteredNew];
-        });
-      });
-    }
+          })
+      )
+    );
+
+  const mergeFiles = (prev, incoming) => {
+    const existingNames = new Set(prev.map((f) => f.name));
+    return [...prev, ...incoming.filter((f) => !existingNames.has(f.name))];
+  };
+
+  const handleFileUpload = (e) => {
+    if (!e.target.files?.length) return;
+    readFiles(Array.from(e.target.files)).then((processed) => {
+      setFiles((prev) => mergeFiles(prev, processed));
+    });
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (!e.dataTransfer?.files?.length) return;
+    readFiles(Array.from(e.dataTransfer.files)).then((processed) => {
+      setFiles((prev) => mergeFiles(prev, processed));
+    });
   };
 
   const removeFile = (name) => {
     setFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    if (e.dataTransfer?.files?.length) {
-      const incomingFiles = Array.from(e.dataTransfer.files);
-      
-      Promise.all(
-        incomingFiles.map((file) => {
-          return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              resolve({
-                name: file.name,
-                size: file.size,
-                content: event.target.result
-              });
-            };
-            reader.readAsText(file);
-          });
-        })
-      ).then((processedFiles) => {
-        setFiles((prev) => {
-          const existingNames = new Set(prev.map(f => f.name));
-          const filteredNew = processedFiles.filter(f => !existingNames.has(f.name));
-          return [...prev, ...filteredNew];
-        });
-      });
-    }
-  };
-
+  // -------- continue / ingest --------
   const handleContinue = async () => {
     if (files.length === 0) {
       alert("Please upload at least one file");
       return;
     }
-
     setLoading(true);
-
-    // Cosmetic stage progression
     setIngestStage(0);
     let stage = 0;
     ingestTimerRef.current = setInterval(() => {
@@ -321,20 +324,14 @@ function EnterpriseDashboard({ user, onHome }) {
       if (stage < INGEST_STAGES.length - 1) setIngestStage(stage);
     }, 650);
 
-    // Dynamic schema conversion matching storage or live read payloads safely
-    const fileData = files.map((file) => ({
-      filename: file.name,
-      content: file.content
-    }));
+    const fileData = files.map((f) => ({ filename: f.name, content: f.content }));
 
     try {
-      // Send the data to your backend API
       const response = await fetch("http://localhost:5000/api/upload/upload-multiple", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: fileData }),
+        body: JSON.stringify({ files: fileData, userEmail: user?.email || "anonymous" }),
       });
-
       if (response.ok) {
         clearInterval(ingestTimerRef.current);
         setIngestStage(INGEST_STAGES.length - 1);
@@ -353,11 +350,11 @@ function EnterpriseDashboard({ user, onHome }) {
     }
   };
 
-  useEffect(() => {
-    return () => clearInterval(ingestTimerRef.current);
-  }, []);
+  useEffect(() => () => clearInterval(ingestTimerRef.current), []);
 
-  // ---------------- STYLES ----------------
+  // ============================================================
+  // STYLES
+  // ============================================================
   const sidebarStyle = {
     width: 288,
     background: "rgba(22, 27, 34, 0.55)",
@@ -433,9 +430,9 @@ function EnterpriseDashboard({ user, onHome }) {
     width: "100%",
   };
 
-  const totalBytes = useMemo(() => files.reduce((s, f) => s + (f.size || 0), 0), [files]);
-
-  // ---------------- MAIN RETURN ----------------
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div
       style={{
@@ -450,7 +447,7 @@ function EnterpriseDashboard({ user, onHome }) {
     >
       <MeshBackdrop />
 
-      {/* Sidebar */}
+      {/* ── SIDEBAR ── */}
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
@@ -460,6 +457,7 @@ function EnterpriseDashboard({ user, onHome }) {
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             style={sidebarStyle}
           >
+            {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
               <h2
                 style={{
@@ -476,12 +474,38 @@ function EnterpriseDashboard({ user, onHome }) {
               </h2>
             </div>
 
+            {/* Home */}
             <motion.div whileHover={{ x: 2 }} style={navItemStyle(false, false)} onClick={onHome}>
               <span style={{ display: "flex", alignItems: "center", gap: 12 }}>🏠 Home</span>
             </motion.div>
 
+            {/* ── MANAGE FILES — exact Pro Dashboard concept ── */}
+            <motion.div
+              whileHover={{ x: 2 }}
+              style={navItemStyle(step === "upload", false)}
+              onClick={() => { setStep("upload"); setModule(null); }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>📁 Manage Files</span>
+              {files.length > 0 && (
+                <span
+                  style={{
+                    fontSize: "0.65rem",
+                    background: "rgba(88,166,255,0.15)",
+                    border: "1px solid rgba(88,166,255,0.3)",
+                    color: theme.primary,
+                    borderRadius: "100px",
+                    padding: "2px 8px",
+                    fontWeight: 700,
+                  }}
+                >
+                  {files.length}
+                </span>
+              )}
+            </motion.div>
+
             <div style={{ height: "1px", background: theme.border, margin: "16px 4px" }} />
 
+            {/* Section header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 10px" }}>
               <p
                 style={{
@@ -520,7 +544,8 @@ function EnterpriseDashboard({ user, onHome }) {
               </span>
             </div>
 
-            {modules.map((m) => {
+            {/* Module nav items */}
+            {MODULES.map((m) => {
               const key = m.toLowerCase();
               const isCurrent = module === key;
               const isDisabled = step !== "dashboard";
@@ -538,7 +563,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   </span>
                   {isCurrent && (
                     <motion.span
-                      layoutId="active-dot"
+                      layoutId="enterprise-active-dot"
                       style={{
                         width: 6,
                         height: 6,
@@ -571,8 +596,9 @@ function EnterpriseDashboard({ user, onHome }) {
         )}
       </AnimatePresence>
 
-      {/* Main Content Area */}
+      {/* ── MAIN CONTENT ── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 2 }}>
+
         {/* Topbar */}
         <div style={topbarStyle}>
           <motion.button
@@ -589,7 +615,7 @@ function EnterpriseDashboard({ user, onHome }) {
               fontSize: "18px",
               cursor: "pointer",
               opacity: 0.85,
-                boxSizing: "border-box"
+              boxSizing: "border-box",
             }}
           >
             ☰
@@ -683,14 +709,12 @@ function EnterpriseDashboard({ user, onHome }) {
                 fontWeight: 500,
               }}
             >
-              <span style={{ fontSize: "1.2rem" }}>👤</span> {user?.name || "Premium User"}
+              <span style={{ fontSize: "1.2rem" }}>👤</span> {user?.name || "Enterprise User"}
             </div>
           </div>
         </div>
 
-        {/* ---------------- STEP CONTROL ---------------- */}
-
-        {/* ✅ STEP 1: FILE UPLOAD */}
+        {/* ── STEP 1: FILE UPLOAD / MANAGE FILES ── */}
         {step === "upload" && (
           <div style={{ flex: 1, overflowY: "auto", padding: "40px" }}>
             <motion.div
@@ -717,36 +741,22 @@ function EnterpriseDashboard({ user, onHome }) {
                 ⚡ Secure Ingestion Pipeline
               </div>
 
-              {/* Ingestion Center Anim */}
+              {/* Animated orb */}
               <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto 22px" }}>
                 <motion.div
                   animate={{ rotate: 360 }}
                   transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    borderRadius: "50%",
-                    border: "1px dashed rgba(88,166,255,0.35)",
-                  }}
+                  style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "1px dashed rgba(88,166,255,0.35)" }}
                 />
                 <motion.div
                   animate={{ rotate: -360 }}
                   transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
-                  style={{
-                    position: "absolute",
-                    inset: 14,
-                    borderRadius: "50%",
-                    border: "1px solid rgba(163,113,247,0.3)",
-                  }}
+                  style={{ position: "absolute", inset: 14, borderRadius: "50%", border: "1px solid rgba(163,113,247,0.3)" }}
                 />
                 <motion.div
                   animate={{
                     boxShadow: loading
-                      ? [
-                          "0 0 20px rgba(88,166,255,0.4)",
-                          "0 0 50px rgba(88,166,255,0.7)",
-                          "0 0 20px rgba(88,166,255,0.4)",
-                        ]
+                      ? ["0 0 20px rgba(88,166,255,0.4)", "0 0 50px rgba(88,166,255,0.7)", "0 0 20px rgba(88,166,255,0.4)"]
                       : "0 0 24px rgba(88,166,255,0.35)",
                   }}
                   transition={{ duration: 1.4, repeat: loading ? Infinity : 0, ease: "easeInOut" }}
@@ -763,8 +773,6 @@ function EnterpriseDashboard({ user, onHome }) {
                 >
                   {loading ? "⏳" : files.length > 0 ? "📦" : "🧠"}
                 </motion.div>
-
-                {/* Particle orbits */}
                 {loading &&
                   [0, 1, 2].map((i) => (
                     <motion.div
@@ -799,7 +807,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   color: "#fff",
                 }}
               >
-                {loading ? "Engine Processing..." : "Initialize AI Engine"}
+                {loading ? "Engine Processing..." : files.length > 0 ? "Manage Your Files" : "Initialize AI Engine"}
               </h2>
               <p style={{ color: theme.subtext, marginBottom: "32px", lineHeight: "1.6", fontSize: "15px" }}>
                 Upload your financial records, HR logs, or sales data.
@@ -807,7 +815,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 Our AI will process these to generate your executive dashboards.
               </p>
 
-              {/* Progress Stepper */}
+              {/* Ingest progress stepper */}
               {loading && (
                 <div style={{ display: "flex", justifyContent: "center", gap: 0, marginBottom: 36 }}>
                   {INGEST_STAGES.map((s, i) => (
@@ -851,14 +859,11 @@ function EnterpriseDashboard({ user, onHome }) {
                 </div>
               )}
 
-              {/* Drop Zone */}
+              {/* Drop zone + file chips (hidden while loading) */}
               {!loading && (
                 <>
                   <label
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDragOver(true);
-                    }}
+                    onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
                     onDragLeave={() => setIsDragOver(false)}
                     onDrop={handleDrop}
                     style={{
@@ -878,12 +883,12 @@ function EnterpriseDashboard({ user, onHome }) {
                     <div style={{ fontSize: "1.6rem", marginBottom: 8 }}>{isDragOver ? "📥" : "📁"}</div>
                     <span style={{ color: "#aaa", fontSize: "14px" }}>
                       {files.length > 0
-                        ? `${files.length} file${files.length > 1 ? "s" : ""} ready · ${formatBytes(totalBytes)}`
+                        ? `${files.length} file${files.length > 1 ? "s" : ""} active · ${formatBytes(totalBytes)}`
                         : "Drop files here, or click to browse"}
                     </span>
                   </label>
 
-                  {/* Multiple file chips view */}
+                  {/* File chips — add / remove */}
                   <AnimatePresence>
                     {files.length > 0 && (
                       <motion.div
@@ -924,10 +929,7 @@ function EnterpriseDashboard({ user, onHome }) {
                             </span>
                             <span style={{ color: "#5b6472" }}>{formatBytes(f.size)}</span>
                             <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                removeFile(f.name);
-                              }}
+                              onClick={(e) => { e.preventDefault(); removeFile(f.name); }}
                               style={{
                                 background: "rgba(255,255,255,0.06)",
                                 border: "none",
@@ -952,11 +954,7 @@ function EnterpriseDashboard({ user, onHome }) {
               )}
 
               <motion.button
-                whileHover={
-                  !loading
-                    ? { scale: 1.02, boxShadow: "0 0 28px rgba(58, 162, 230, 0.55), 0 0 50px rgba(58, 162, 230, 0.25)" }
-                    : {}
-                }
+                whileHover={!loading ? { scale: 1.02, boxShadow: "0 0 28px rgba(58, 162, 230, 0.55), 0 0 50px rgba(58, 162, 230, 0.25)" } : {}}
                 whileTap={!loading ? { scale: 0.98 } : {}}
                 onClick={handleContinue}
                 disabled={loading}
@@ -972,7 +970,7 @@ function EnterpriseDashboard({ user, onHome }) {
           </div>
         )}
 
-        {/* ✅ STEP 2: DASHBOARD */}
+        {/* ── STEP 2: DASHBOARD ── */}
         {step === "dashboard" && (
           <div style={{ flex: 1, overflowY: "auto", padding: "30px" }}>
             {module === "finance" && <FinanceDashboard />}
@@ -1016,7 +1014,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   </p>
                 </div>
 
-                {/* Quick stats panel */}
+                {/* Quick stats */}
                 <div
                   style={{
                     display: "grid",
@@ -1049,24 +1047,15 @@ function EnterpriseDashboard({ user, onHome }) {
                   ))}
                 </div>
 
-                {/* Grid gallery */}
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
-                    gap: 18,
-                  }}
-                >
-                  {modules.map((m) => {
+                {/* Module grid */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18 }}>
+                  {MODULES.map((m) => {
                     const key = m.toLowerCase();
                     const meta = MODULE_META[key];
                     return (
                       <MagneticTilt
                         key={m}
-                        whileHover={{
-                          y: -4,
-                          boxShadow: "0 0 40px -8px rgba(58,162,230,0.4), 0 25px 50px -15px rgba(0,0,0,0.8)",
-                        }}
+                        whileHover={{ y: -4, boxShadow: "0 0 40px -8px rgba(58,162,230,0.4), 0 25px 50px -15px rgba(0,0,0,0.8)" }}
                         onClick={() => setModule(key)}
                         style={{
                           cursor: "pointer",
@@ -1107,7 +1096,7 @@ function EnterpriseDashboard({ user, onHome }) {
         )}
       </div>
 
-      {/* SaaS Async Line Indicator */}
+      {/* Loading progress bar */}
       <AnimatePresence>
         {loading && (
           <motion.div
@@ -1176,24 +1165,9 @@ function EnterpriseDashboard({ user, onHome }) {
                   value={paletteQuery}
                   onChange={(e) => setPaletteQuery(e.target.value)}
                   placeholder="Type a command or search..."
-                  style={{
-                    flex: 1,
-                    background: "transparent",
-                    border: "none",
-                    outline: "none",
-                    color: "#fff",
-                    fontSize: 15,
-                  }}
+                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#fff", fontSize: 15 }}
                 />
-                <span
-                  style={{
-                    fontSize: 11,
-                    color: "#5b6472",
-                    border: `1px solid ${theme.border}`,
-                    borderRadius: 6,
-                    padding: "3px 7px",
-                  }}
-                >
+                <span style={{ fontSize: 11, color: "#5b6472", border: `1px solid ${theme.border}`, borderRadius: 6, padding: "3px 7px" }}>
                   ESC
                 </span>
               </div>
@@ -1233,7 +1207,7 @@ function EnterpriseDashboard({ user, onHome }) {
         )}
       </AnimatePresence>
 
-      {/* Keyboard Panel */}
+      {/* Keyboard Shortcuts Panel */}
       <AnimatePresence>
         {shortcutsOpen && (
           <motion.div
@@ -1315,18 +1289,8 @@ function EnterpriseDashboard({ user, onHome }) {
         )}
       </AnimatePresence>
 
-      {/* Toast Notification Container */}
-      <div
-        style={{
-          position: "fixed",
-          bottom: 24,
-          right: 24,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          zIndex: 300,
-        }}
-      >
+      {/* Toast stack */}
+      <div style={{ position: "fixed", bottom: 24, right: 24, display: "flex", flexDirection: "column", gap: 10, zIndex: 300 }}>
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div

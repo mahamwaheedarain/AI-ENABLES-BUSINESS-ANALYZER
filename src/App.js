@@ -50,7 +50,6 @@ const MODULE_META = {
   chatbot: { icon: "🜂", label: "Chatbot", blurb: "Conversational AI assistant" },
 };
 
-// Updated to include only the active modules for the Pro Dashboard
 const MODULES = ["Finance", "HR", "Marketing", "Chatbot"];
 
 const INGEST_STAGES = [
@@ -60,9 +59,6 @@ const INGEST_STAGES = [
   { key: "ready", label: "Ready" },
 ];
 
-// ============================================================
-// SMALL UTILITIES
-// ============================================================
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "";
   if (bytes < 1024) return `${bytes} B`;
@@ -87,7 +83,6 @@ function CountUp({ value, duration = 1.1, suffix = "" }) {
   return <span ref={ref}>0{suffix}</span>;
 }
 
-// Animated mesh-gradient ambient backdrop
 const MeshBackdrop = () => (
   <div style={{ position: "absolute", inset: 0, overflow: "hidden", zIndex: 0, pointerEvents: "none" }}>
     <motion.div
@@ -173,38 +168,49 @@ const MagneticTilt = ({ children, style, ...props }) => {
   );
 };
 
-// ----------------- ENTERPRISE/PRO UI CONSTANTS (kept for reference, unused now) -----------------
-const enterpriseStyles = {
-  sidebar: { width: 280, background: "rgba(26, 26, 46, 0.6)", backdropFilter: "blur(15px)", padding: "30px 20px", display: "flex", flexDirection: "column", gap: 10, borderRight: "1px solid rgba(255, 255, 255, 0.05)" },
-  uploadCard: { background: "rgba(26, 26, 46, 0.4)", backdropFilter: "blur(10px)", padding: "60px", borderRadius: "30px", border: "1px solid rgba(255, 255, 255, 0.08)", maxWidth: "600px", margin: "100px auto", textAlign: "center" },
-  navItem: (isActive, isDisabled) => ({
-    padding: "14px 20px",
-    cursor: isDisabled ? "not-allowed" : "pointer",
-    color: isDisabled ? "#555" : isActive ? "#4ac6ff" : "#e0e0e0",
-    borderRadius: "12px",
-    background: isActive ? "rgba(74, 198, 255, 0.1)" : "transparent",
-    fontSize: "0.95rem",
-    fontWeight: isActive ? "600" : "400",
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    border: isActive ? "1px solid rgba(74, 198, 255, 0.3)" : "1px solid transparent"
-  })
-};
-
 function App() {
   const [page, setPage] = useState("login");
   const [module, setModule] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [user, setUser] = useState(null);
 
-  // ✅ PRO FILE FLOW (Identical to Enterprise Dashboard)
   const [step, setStep] = useState("upload");
-  const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const proModules = MODULES;
+  const [files, setFiles] = useState([]);
 
-  // Pro-dashboard presentation state (mirrors EnterpriseDashboard exactly)
+  useEffect(() => {
+    if (page !== "proDashboard" || !user?.email) return;
+
+    // Check LocalStorage first for speed/offline capability
+    const localData = localStorage.getItem(`pro_files_${user.email}`);
+    if (localData) {
+      setFiles(JSON.parse(localData));
+      setStep("dashboard");
+      return;
+    }
+
+    const fetchFilesFromDB = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:5000/api/upload/files/${encodeURIComponent(user.email)}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.files && data.files.length > 0) {
+            setFiles(data.files);
+            localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(data.files));
+            setStep("dashboard");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch files from PostgreSQL:", err);
+      }
+    };
+
+    fetchFilesFromDB();
+  }, [page, user]);
+
   const [isDragOver, setIsDragOver] = useState(false);
   const [ingestStage, setIngestStage] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
@@ -217,7 +223,6 @@ function App() {
 
   const totalBytes = useMemo(() => files.reduce((s, f) => s + (f.size || 0), 0), [files]);
 
-  // -------- toast helper (purely presentational notification layer) --------
   const pushToast = (message, tone = "info") => {
     const id = ++toastIdRef.current;
     setToasts((prev) => [...prev, { id, message, tone }]);
@@ -226,7 +231,6 @@ function App() {
     }, 3600);
   };
 
-  // -------- global keyboard shortcuts: ⌘K / Ctrl+K opens palette, ? opens shortcuts --------
   useEffect(() => {
     if (page !== "proDashboard") return;
     const onKeyDown = (e) => {
@@ -247,6 +251,7 @@ function App() {
   const paletteActions = useMemo(
     () => [
       { id: "home", label: "Go to Home", icon: "🏠", action: () => setPage("subscription") },
+      { id: "manage-files", label: "Manage / Upload Files", icon: "📁", action: () => { setStep("upload"); setModule(null); } },
       ...MODULES.map((m) => ({
         id: m.toLowerCase(),
         label: `Open ${m} module`,
@@ -264,18 +269,62 @@ function App() {
   );
 
   const handleFileUpload = (e) => {
-    setFiles(Array.from(e.target.files));
+    if (e.target.files?.length) {
+      const incomingFiles = Array.from(e.target.files);
+      Promise.all(
+        incomingFiles.map((file) => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              resolve({ name: file.name, size: file.size, content: event.target.result });
+            };
+            reader.readAsText(file);
+          });
+        })
+      ).then((processedFiles) => {
+        setFiles((prev) => {
+          const existingNames = new Set(prev.map((f) => f.name));
+          const filteredNew = processedFiles.filter((f) => !existingNames.has(f.name));
+          const updated = [...prev, ...filteredNew];
+          if (user?.email) localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(updated));
+          return updated;
+        });
+      });
+    }
   };
 
   const removeFile = (name) => {
-    setFiles((prev) => prev.filter((f) => f.name !== name));
+    setFiles((prev) => {
+      const updated = prev.filter((f) => f.name !== name);
+      if (user?.email) localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
     if (e.dataTransfer?.files?.length) {
-      setFiles(Array.from(e.dataTransfer.files));
+      const incomingFiles = Array.from(e.dataTransfer.files);
+      Promise.all(
+        incomingFiles.map((file) => {
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              resolve({ name: file.name, size: file.size, content: event.target.result });
+            };
+            reader.readAsText(file);
+          });
+        })
+      ).then((processedFiles) => {
+        setFiles((prev) => {
+          const existingNames = new Set(prev.map((f) => f.name));
+          const filteredNew = processedFiles.filter((f) => !existingNames.has(f.name));
+          const updated = [...prev, ...filteredNew];
+          if (user?.email) localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(updated));
+          return updated;
+        });
+      });
     }
   };
 
@@ -284,37 +333,24 @@ function App() {
       alert("Please upload at least one file");
       return;
     }
-
     setLoading(true);
-
-    // Cosmetic stage progression — purely visual, runs alongside the real request
     setIngestStage(0);
     let stage = 0;
     ingestTimerRef.current = setInterval(() => {
       stage += 1;
       if (stage < INGEST_STAGES.length - 1) setIngestStage(stage);
     }, 650);
-
-    const fileData = await Promise.all(
-      files.map((file) => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve({ filename: file.name, content: e.target.result });
-          reader.readAsText(file);
-        });
-      })
-    );
-
+    const fileData = files.map((file) => ({ filename: file.name, content: file.content }));
     try {
       const response = await fetch("http://localhost:5000/api/upload/upload-multiple", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: fileData }),
+        body: JSON.stringify({ files: fileData, userEmail: user?.email || "anonymous" }),
       });
-
       if (response.ok) {
         clearInterval(ingestTimerRef.current);
         setIngestStage(INGEST_STAGES.length - 1);
+        localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(files));
         pushToast("Archives synchronized with PostgreSQL", "success");
         alert("Archives successfully synchronized with PostgreSQL.");
         setStep("dashboard");
@@ -334,7 +370,6 @@ function App() {
     return () => clearInterval(ingestTimerRef.current);
   }, []);
 
-  // ----------------- AUTH HANDLERS -----------------
   const handleLogin = async (email, password) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -361,9 +396,6 @@ function App() {
     }
   };
 
-  // ============================================================
-  // PRO DASHBOARD — exact functional parity with EnterpriseDashboard
-  // ============================================================
   if (page === "proDashboard") {
     const sidebarStyle = {
       width: 288,
@@ -454,7 +486,6 @@ function App() {
       >
         <MeshBackdrop />
 
-        {/* Sidebar */}
         <AnimatePresence>
           {sidebarOpen && (
             <motion.div
@@ -482,6 +513,10 @@ function App() {
 
               <motion.div whileHover={{ x: 2 }} style={navItemStyle(false, false)} onClick={() => setPage("subscription")}>
                 <span style={{ display: "flex", alignItems: "center", gap: 12 }}>🏠 Home</span>
+              </motion.div>
+
+              <motion.div whileHover={{ x: 2 }} style={navItemStyle(step === "upload", false)} onClick={() => { setStep("upload"); setModule(null); }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 12 }}>📁 Manage Files</span>
               </motion.div>
 
               <div style={{ height: "1px", background: theme.border, margin: "16px 4px" }} />
@@ -575,9 +610,7 @@ function App() {
           )}
         </AnimatePresence>
 
-        {/* Main Content Area */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", zIndex: 2 }}>
-          {/* Topbar */}
           <div style={topbarStyle}>
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -593,6 +626,7 @@ function App() {
                 fontSize: "18px",
                 cursor: "pointer",
                 opacity: 0.85,
+                boxSizing: "border-box",
               }}
             >
               ☰
@@ -691,7 +725,6 @@ function App() {
             </div>
           </div>
 
-          {/* ✅ STEP 1: FILE UPLOAD */}
           {step === "upload" && (
             <div style={{ flex: 1, overflowY: "auto", padding: "40px" }}>
               <motion.div
@@ -718,7 +751,6 @@ function App() {
                   ⚡ Secure Ingestion Pipeline
                 </div>
 
-                {/* Signature element: live ingestion core */}
                 <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto 22px" }}>
                   <motion.div
                     animate={{ rotate: 360 }}
@@ -807,7 +839,6 @@ function App() {
                   Our AI will process these to generate your executive dashboards.
                 </p>
 
-                {/* Progress stepper (shown only while loading) */}
                 {loading && (
                   <div style={{ display: "flex", justifyContent: "center", gap: 0, marginBottom: 36 }}>
                     {INGEST_STAGES.map((s, i) => (
@@ -851,7 +882,6 @@ function App() {
                   </div>
                 )}
 
-                {/* Drag & drop zone with file chips */}
                 {!loading && (
                   <>
                     <label
@@ -878,12 +908,11 @@ function App() {
                       <div style={{ fontSize: "1.6rem", marginBottom: 8 }}>{isDragOver ? "📥" : "📁"}</div>
                       <span style={{ color: "#aaa", fontSize: "14px" }}>
                         {files.length > 0
-                          ? `${files.length} file${files.length > 1 ? "s" : ""} ready · ${formatBytes(totalBytes)}`
+                          ? `${files.length} file${files.length > 1 ? "s" : ""} active · ${formatBytes(totalBytes)}`
                           : "Drop files here, or click to browse"}
                       </span>
                     </label>
 
-                    {/* File chips */}
                     <AnimatePresence>
                       {files.length > 0 && (
                         <motion.div
@@ -972,7 +1001,6 @@ function App() {
             </div>
           )}
 
-          {/* ✅ STEP 2: DASHBOARD */}
           {step === "dashboard" && (
             <div style={{ flex: 1, overflowY: "auto", padding: "30px" }}>
               {module === "finance" && <FinanceDashboard />}
@@ -1014,7 +1042,6 @@ function App() {
                     </p>
                   </div>
 
-                  {/* Quick stat strip */}
                   <div
                     style={{
                       display: "grid",
@@ -1024,10 +1051,8 @@ function App() {
                     }}
                   >
                     {[
-                      { label: "Files Indexed", value: files.length || 12, suffix: "" },
-                  
+                      { label: "Files Indexed", value: files.length, suffix: "" },
                       { label: "Modules Live", value: MODULES.length, suffix: "" },
-                    
                     ].map((stat) => (
                       <div
                         key={stat.label}
@@ -1049,7 +1074,6 @@ function App() {
                     ))}
                   </div>
 
-                  {/* Module gallery */}
                   <div
                     style={{
                       display: "grid",
@@ -1107,7 +1131,6 @@ function App() {
           )}
         </div>
 
-        {/* ---------------- TOP LOADING BAR ---------------- */}
         <AnimatePresence>
           {loading && (
             <motion.div
@@ -1130,7 +1153,6 @@ function App() {
           )}
         </AnimatePresence>
 
-        {/* ---------------- COMMAND PALETTE ---------------- */}
         <AnimatePresence>
           {paletteOpen && (
             <motion.div
@@ -1233,7 +1255,6 @@ function App() {
           )}
         </AnimatePresence>
 
-        {/* ---------------- KEYBOARD SHORTCUTS PANEL ---------------- */}
         <AnimatePresence>
           {shortcutsOpen && (
             <motion.div
@@ -1315,7 +1336,6 @@ function App() {
           )}
         </AnimatePresence>
 
-        {/* ---------------- TOAST STACK ---------------- */}
         <div
           style={{
             position: "fixed",
@@ -1361,11 +1381,9 @@ function App() {
     );
   }
 
-  // ----------------- PAGE ROUTING -----------------
   if (page === "enterpriseDashboard") return <EnterpriseDashboard user={user} onHome={() => setPage("subscription")} />;
   if (page === "subscription") return <Subscription onSubscribe={handleSubscription} onGoToDashboard={() => setPage("proDashboard")} />;
 
-  // LOGIN & SIGNUP PAGES (RETAINING YOUR ORIGINAL STYLING)
   if (page === "login") {
     return <Login onLogin={handleLogin} switchToSignup={() => setPage("signup")} styles={styles} />;
   }
