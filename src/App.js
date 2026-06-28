@@ -182,7 +182,7 @@ function App() {
   useEffect(() => {
     if (page !== "proDashboard" || !user?.email) return;
 
-    // Check LocalStorage first for speed/offline capability
+    // Check LocalStorage first for speed/offline capability using the email scope
     const localData = localStorage.getItem(`pro_files_${user.email}`);
     if (localData) {
       setFiles(JSON.parse(localData));
@@ -495,7 +495,7 @@ function App() {
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               style={sidebarStyle}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyindex: "center", gap: 8, marginBottom: 8 }}>
                 <h2
                   style={{
                     color: "#fff",
@@ -1221,7 +1221,7 @@ function App() {
                 </div>
                 <div style={{ maxHeight: 320, overflowY: "auto", padding: 8 }}>
                   {filteredPaletteActions.length === 0 && (
-                    <div style={{ padding: 24, textAlign: "center", color: theme.subtext, fontSize: 13 }}>No matching commands</div>
+                    <div style={{ padding: 24, textalign: "center", color: theme.subtext, fontSize: 13 }}>No matching commands</div>
                   )}
                   {filteredPaletteActions.map((a) => (
                     <motion.div

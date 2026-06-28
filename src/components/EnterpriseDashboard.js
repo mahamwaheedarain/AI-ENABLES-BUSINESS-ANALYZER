@@ -158,20 +158,20 @@ function EnterpriseDashboard({ user, onHome }) {
   const [module, setModule] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Isolated localStorage key per user
+  // Isolated localStorage key per specific user email
   const userFileKey = useMemo(() => {
     const identifier = user?.email || user?.id || "anonymous";
     return `insightiq_enterprise_files_${identifier}`;
   }, [user]);
 
-  // step: "upload" → "dashboard"  (mirrors Pro Dashboard exactly)
+  // step: "upload" → "dashboard"
   const [step, setStep] = useState("upload");
 
+  // Load files using the dynamic email-specific identifier
   const [files, setFiles] = useState(() => {
     try {
-      const persisted = localStorage.getItem(
-        `insightiq_enterprise_files_${user?.email || user?.id || "anonymous"}`
-      );
+      const identifier = user?.email || user?.id || "anonymous";
+      const persisted = localStorage.getItem(`insightiq_enterprise_files_${identifier}`);
       return persisted ? JSON.parse(persisted) : [];
     } catch (e) {
       console.error("Failed to parse stored files", e);
@@ -192,12 +192,12 @@ function EnterpriseDashboard({ user, onHome }) {
 
   const totalBytes = useMemo(() => files.reduce((s, f) => s + (f.size || 0), 0), [files]);
 
-  // Persist files to localStorage whenever they change
+  // Persist files to user-specific localStorage whenever they change
   useEffect(() => {
     localStorage.setItem(userFileKey, JSON.stringify(files));
   }, [files, userFileKey]);
 
-  // On mount: if files already exist in storage, jump straight to dashboard
+  // On mount: if user-specific records exist, bypass upload phase
   useEffect(() => {
     try {
       const persisted = localStorage.getItem(userFileKey);
@@ -209,10 +209,9 @@ function EnterpriseDashboard({ user, onHome }) {
         }
       }
     } catch (e) {
-      // ignore
+      // ignore safely
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [userFileKey]);
 
   // -------- toast helper --------
   const pushToast = (message, tone = "info") => {
@@ -430,9 +429,6 @@ function EnterpriseDashboard({ user, onHome }) {
     width: "100%",
   };
 
-  // ============================================================
-  // RENDER
-  // ============================================================
   return (
     <div
       style={{
@@ -458,7 +454,7 @@ function EnterpriseDashboard({ user, onHome }) {
             style={sidebarStyle}
           >
             {/* Logo */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyYContent: "center", gap: 8, marginBottom: 8 }}>
               <h2
                 style={{
                   color: "#fff",
@@ -479,7 +475,7 @@ function EnterpriseDashboard({ user, onHome }) {
               <span style={{ display: "flex", alignItems: "center", gap: 12 }}>🏠 Home</span>
             </motion.div>
 
-            {/* ── MANAGE FILES — exact Pro Dashboard concept ── */}
+            {/* ── MANAGE FILES ── */}
             <motion.div
               whileHover={{ x: 2 }}
               style={navItemStyle(step === "upload", false)}
@@ -505,7 +501,7 @@ function EnterpriseDashboard({ user, onHome }) {
 
             <div style={{ height: "1px", background: theme.border, margin: "16px 4px" }} />
 
-            {/* Section header */}
+            {/* Section Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 10px" }}>
               <p
                 style={{
@@ -544,7 +540,7 @@ function EnterpriseDashboard({ user, onHome }) {
               </span>
             </div>
 
-            {/* Module nav items */}
+            {/* Module Nav Items */}
             {MODULES.map((m) => {
               const key = m.toLowerCase();
               const isCurrent = module === key;
@@ -741,7 +737,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 ⚡ Secure Ingestion Pipeline
               </div>
 
-              {/* Animated orb */}
+              {/* Animated Orb */}
               <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto 22px" }}>
                 <motion.div
                   animate={{ rotate: 360 }}
@@ -815,7 +811,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 Our AI will process these to generate your executive dashboards.
               </p>
 
-              {/* Ingest progress stepper */}
+              {/* Ingest Progress Stepper */}
               {loading && (
                 <div style={{ display: "flex", justifyContent: "center", gap: 0, marginBottom: 36 }}>
                   {INGEST_STAGES.map((s, i) => (
@@ -859,7 +855,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 </div>
               )}
 
-              {/* Drop zone + file chips (hidden while loading) */}
+              {/* Drop Zone + File Chips */}
               {!loading && (
                 <>
                   <label
@@ -888,7 +884,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     </span>
                   </label>
 
-                  {/* File chips — add / remove */}
+                  {/* File Chips Matrix */}
                   <AnimatePresence>
                     {files.length > 0 && (
                       <motion.div
@@ -970,7 +966,7 @@ function EnterpriseDashboard({ user, onHome }) {
           </div>
         )}
 
-        {/* ── STEP 2: DASHBOARD ── */}
+        {/* ── STEP 2: DASHBOARD DISPLAY ── */}
         {step === "dashboard" && (
           <div style={{ flex: 1, overflowY: "auto", padding: "30px" }}>
             {module === "finance" && <FinanceDashboard />}
@@ -1014,7 +1010,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   </p>
                 </div>
 
-                {/* Quick stats */}
+                {/* Micro Stats Matrix */}
                 <div
                   style={{
                     display: "grid",
@@ -1047,7 +1043,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   ))}
                 </div>
 
-                {/* Module grid */}
+                {/* Module Interaction Grid */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 18 }}>
                   {MODULES.map((m) => {
                     const key = m.toLowerCase();
@@ -1096,7 +1092,7 @@ function EnterpriseDashboard({ user, onHome }) {
         )}
       </div>
 
-      {/* Loading progress bar */}
+      {/* Progress Loader Bar */}
       <AnimatePresence>
         {loading && (
           <motion.div
@@ -1119,7 +1115,7 @@ function EnterpriseDashboard({ user, onHome }) {
         )}
       </AnimatePresence>
 
-      {/* Command Palette */}
+      {/* Interactive Command Palette */}
       <AnimatePresence>
         {paletteOpen && (
           <motion.div
@@ -1207,7 +1203,7 @@ function EnterpriseDashboard({ user, onHome }) {
         )}
       </AnimatePresence>
 
-      {/* Keyboard Shortcuts Panel */}
+      {/* Keyboard Shortcuts Dialog */}
       <AnimatePresence>
         {shortcutsOpen && (
           <motion.div
@@ -1289,7 +1285,7 @@ function EnterpriseDashboard({ user, onHome }) {
         )}
       </AnimatePresence>
 
-      {/* Toast stack */}
+      {/* Live Toast Stack Notification Layer */}
       <div style={{ position: "fixed", bottom: 24, right: 24, display: "flex", flexDirection: "column", gap: 10, zIndex: 300 }}>
         <AnimatePresence>
           {toasts.map((t) => (
