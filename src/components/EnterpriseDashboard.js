@@ -199,19 +199,10 @@ function EnterpriseDashboard({ user, onHome }) {
 
   // On mount: if user-specific records exist, bypass upload phase
   useEffect(() => {
-    try {
-      const persisted = localStorage.getItem(userFileKey);
-      if (persisted) {
-        const parsed = JSON.parse(persisted);
-        if (parsed && parsed.length > 0) {
-          setFiles(parsed);
-          setStep("dashboard");
-        }
-      }
-    } catch (e) {
-      // ignore safely
+    if (files && files.length > 0) {
+      setStep("dashboard");
     }
-  }, [userFileKey]);
+  }, [files]);
 
   // -------- toast helper --------
   const pushToast = (message, tone = "info") => {
@@ -334,8 +325,6 @@ function EnterpriseDashboard({ user, onHome }) {
       if (response.ok) {
         clearInterval(ingestTimerRef.current);
         setIngestStage(INGEST_STAGES.length - 1);
-        pushToast("Archives synchronized with PostgreSQL", "success");
-        alert("Archives successfully synchronized with PostgreSQL.");
         setStep("dashboard");
       } else {
         alert("Failed to save files to the database.");
@@ -454,7 +443,7 @@ function EnterpriseDashboard({ user, onHome }) {
             style={sidebarStyle}
           >
             {/* Logo */}
-            <div style={{ display: "flex", alignItems: "center", justifyYContent: "center", gap: 8, marginBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
               <h2
                 style={{
                   color: "#fff",

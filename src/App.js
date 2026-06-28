@@ -351,8 +351,6 @@ function App() {
         clearInterval(ingestTimerRef.current);
         setIngestStage(INGEST_STAGES.length - 1);
         localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(files));
-        pushToast("Archives synchronized with PostgreSQL", "success");
-        alert("Archives successfully synchronized with PostgreSQL.");
         setStep("dashboard");
       } else {
         alert("Failed to save files to the database.");

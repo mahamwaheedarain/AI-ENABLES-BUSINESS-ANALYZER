@@ -20,7 +20,7 @@ const plans = [
     name: "Enterprise", 
     price: "$50", 
     period: "/month",
-    features: ["All Features + Core AI Insights", "Predictive Operations & Sales Engine", "Custom Infrastructure Hooks", "Dedicated 24/7 Priority SLA", "Multi-Tenant Workspace Partitioning", "Anomalous Telemetry Mitigation Hooks", "Advanced Encrypted Key Rotation"] 
+    features: ["All Features + Core AI Insights", "Predictive Operations & Sales Engine",  "Anomalous Telemetry Mitigation Hooks", "Advanced Encrypted Key Rotation"] 
   },
 ];
 
@@ -57,7 +57,7 @@ const theme = {
   text: "#ffffff",
   subtext: "#8b949e",
   border: "rgba(255, 255, 255, 0.08)",
-  accentGlow: "rgba(58, 162, 230, 0.35)" // Tuned for higher vibrance
+  accentGlow: "rgba(58, 162, 230, 0.35)"
 };
 
 const styles = {
@@ -120,7 +120,6 @@ const styles = {
     lineHeight: "1.05",
     letterSpacing: "-2.5px",
   },
-  // Premium SaaS Arial Specific Overrides for Login Viewports
   saasLoginCard: {
     background: "rgba(18, 22, 30, 0.7)",
     borderRadius: "24px",
@@ -148,7 +147,6 @@ const styles = {
     boxSizing: "border-box",
     transition: "all 0.25s ease"
   },
-  // Dynamic SaaS Layout Additions Preserving Visual Standards Perfectly
   toggleContainer: {
     display: "flex",
     background: "rgba(255, 255, 255, 0.03)",
@@ -208,8 +206,221 @@ const styles = {
     marginTop: "120px",
     zIndex: 10,
     position: "relative"
+  },
+  toastBanner: {
+    position: "fixed",
+    top: "24px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    padding: "14px 28px",
+    background: "rgba(22, 27, 34, 0.8)",
+    backdropFilter: "blur(20px) saturate(180%)",
+    WebkitBackdropFilter: "blur(20px) saturate(180%)",
+    border: `1px solid ${theme.border}`,
+    borderRadius: "16px",
+    zIndex: 100,
+    color: theme.text,
+    fontSize: "14px",
+    fontWeight: "500",
+    fontFamily: "'Inter', sans-serif",
+    boxShadow: "0 10px 40px -10px rgba(0, 0, 0, 0.5), 0 0 30px -5px rgba(58, 162, 230, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1)",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px"
   }
 };
+
+// ─── ACCESS DENIED MODAL ───────────────────────────────────────────────────────
+const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
+  <AnimatePresence>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0, 0, 0, 0.75)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 9999,
+        padding: "24px"
+      }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.92, y: 10 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "rgba(14, 18, 26, 0.92)",
+          borderRadius: "24px",
+          backdropFilter: "blur(40px) saturate(200%)",
+          WebkitBackdropFilter: "blur(40px) saturate(200%)",
+          border: "1px solid rgba(239, 68, 68, 0.35)",
+          boxShadow: "0 0 60px -10px rgba(239, 68, 68, 0.3), 0 30px 60px -15px rgba(0, 0, 0, 0.85), inset 0 1px 1px rgba(255,255,255,0.06)",
+          padding: "48px 44px",
+          width: "100%",
+          maxWidth: "420px",
+          textAlign: "center",
+          fontFamily: "Arial, sans-serif",
+          position: "relative"
+        }}
+      >
+        {/* Red glow blob behind icon */}
+        <div style={{
+          position: "absolute",
+          top: "0",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "200px",
+          height: "120px",
+          background: "radial-gradient(circle, rgba(239,68,68,0.18) 0%, transparent 70%)",
+          pointerEvents: "none",
+          borderRadius: "50%"
+        }} />
+
+        {/* Icon */}
+        <motion.div
+          initial={{ scale: 0.6, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          style={{
+            width: "64px",
+            height: "64px",
+            borderRadius: "50%",
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "0 auto 24px",
+            fontSize: "26px",
+            boxShadow: "0 0 20px rgba(239, 68, 68, 0.2)"
+          }}
+        >
+          🔒
+        </motion.div>
+
+        {/* Title */}
+        <motion.h2
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.35 }}
+          style={{
+            fontSize: "22px",
+            fontWeight: "700",
+            color: "#ffffff",
+            margin: "0 0 10px 0",
+            letterSpacing: "-0.4px"
+          }}
+        >
+          Access Denied
+        </motion.h2>
+
+        {/* Subtitle */}
+        <motion.p
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.35 }}
+          style={{
+            color: theme.subtext,
+            fontSize: "13px",
+            lineHeight: "1.6",
+            margin: "0 0 28px 0"
+          }}
+        >
+          Your credentials do not match an active{" "}
+          <span style={{ color: "#f87171", fontWeight: "600" }}>
+            {attemptedPlan || "subscription"}
+          </span>{" "}
+          tier. Verify your account and subscription status before retrying.
+        </motion.p>
+
+        {/* Divider */}
+        <div style={{
+          height: "1px",
+          background: "linear-gradient(90deg, transparent, rgba(239,68,68,0.25), transparent)",
+          margin: "0 0 28px 0"
+        }} />
+
+        {/* Error code badge */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.28, duration: 0.3 }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 16px",
+            background: "rgba(239, 68, 68, 0.07)",
+            border: "1px solid rgba(239, 68, 68, 0.2)",
+            borderRadius: "10px",
+            marginBottom: "32px"
+          }}
+        >
+          <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#ef4444", display: "inline-block", boxShadow: "0 0 6px #ef4444" }} />
+          <span style={{ fontSize: "11px", fontWeight: "700", color: "#f87171", letterSpacing: "0.5px", fontFamily: "monospace" }}>
+            ERR_AUTH_TIER_MISMATCH
+          </span>
+        </motion.div>
+
+        {/* Dismiss button */}
+        <motion.button
+          whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(239, 68, 68, 0.35)" }}
+          whileTap={{ scale: 0.97 }}
+          onClick={onClose}
+          style={{
+            width: "100%",
+            padding: "13px",
+            background: "linear-gradient(135deg, rgba(239,68,68,0.85) 0%, rgba(185,28,28,0.9) 100%)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            borderRadius: "12px",
+            color: "#ffffff",
+            fontSize: "14px",
+            fontWeight: "700",
+            cursor: "pointer",
+            fontFamily: "Arial, sans-serif",
+            boxShadow: "0 0 15px rgba(239, 68, 68, 0.2), 0 4px 10px rgba(0,0,0,0.4)",
+            transition: "all 0.25s ease"
+          }}
+        >
+          Dismiss & Retry
+        </motion.button>
+
+        {/* Close X */}
+        <button
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "18px",
+            right: "20px",
+            background: "none",
+            border: "none",
+            color: "rgba(255,255,255,0.25)",
+            fontSize: "18px",
+            cursor: "pointer",
+            lineHeight: 1,
+            transition: "color 0.2s ease",
+            padding: "4px"
+          }}
+          onMouseEnter={(e) => e.target.style.color = "rgba(255,255,255,0.7)"}
+          onMouseLeave={(e) => e.target.style.color = "rgba(255,255,255,0.25)"}
+        >
+          ✕
+        </button>
+      </motion.div>
+    </motion.div>
+  </AnimatePresence>
+);
+// ──────────────────────────────────────────────────────────────────────────────
 
 const MagneticCard = ({ children, style, ...props }) => {
   const mouseX = useMotionValue(0);
@@ -381,6 +592,10 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
+  // ACCESS DENIED MODAL STATE
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [deniedPlanName, setDeniedPlanName] = useState("");
+
   // FUNCTION 1: Currency Converter Engine (Configured for PKR and USD Only)
   const handleCurrencyToggle = (selectedCurrency) => {
     handleTrackAnalyticsClick("Currency Switch: " + selectedCurrency);
@@ -494,15 +709,18 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             onGoToDashboard();
           }
         } else {
-          alert(`Access Denied!`);
           await signOut(auth);
+          setDeniedPlanName(type.charAt(0).toUpperCase() + type.slice(1));
+          setAccessDenied(true);
         }
       } else {
-        alert("No business subscription found for this account.");
         await signOut(auth);
+        setDeniedPlanName(type.charAt(0).toUpperCase() + type.slice(1));
+        setAccessDenied(true);
       }
     } catch (error) {
-      alert("Verification Failed: " + error.message);
+      setDeniedPlanName(type.charAt(0).toUpperCase() + type.slice(1));
+      setAccessDenied(true);
     }
   };
 
@@ -519,114 +737,132 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   // Premium SaaS Enterprise Auth
   if (verifyEnterprise) {
     return (
-      <PremiumAuthLayout 
-        title="Enterprise Terminal Gateway" 
-        subtitle="Log into your interactive metrics tracking runtime environment."
-        onCancel={() => setVerifyEnterprise(false)}
-      >
-        <form onSubmit={(e) => { e.preventDefault(); handleBusinessAuth(authEmail, authPassword, "enterprise"); }}>
-          <input 
-            type="email" 
-            placeholder="name@company.com" 
-            style={styles.saasInputField} 
-            value={authEmail} 
-            onChange={(e) => setAuthEmail(e.target.value)}
-            onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
-            onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+      <>
+        <PremiumAuthLayout 
+          title="Enterprise Terminal Gateway" 
+          subtitle="Log into your interactive metrics tracking runtime environment."
+          onCancel={() => setVerifyEnterprise(false)}
+        >
+          <form onSubmit={(e) => { e.preventDefault(); handleBusinessAuth(authEmail, authPassword, "enterprise"); }}>
+            <input 
+              type="email" 
+              placeholder="name@company.com" 
+              style={styles.saasInputField} 
+              value={authEmail} 
+              onChange={(e) => setAuthEmail(e.target.value)}
+              onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
+              onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+            />
+            <input 
+              type="password" 
+              placeholder="••••••••••••" 
+              style={styles.saasInputField} 
+              value={authPassword} 
+              onChange={(e) => setAuthPassword(e.target.value)} 
+              onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
+              onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+            />
+            <motion.button 
+              whileHover={{ 
+                scale: 1.02, 
+                boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" 
+              }}
+              whileTap={{ scale: 0.98 }}
+              type="submit" 
+              style={{ 
+                width: "100%", 
+                padding: "14px", 
+                background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
+                border: "1px solid rgba(255, 255, 255, 0.1)", 
+                borderRadius: "12px", 
+                fontWeight: "700", 
+                cursor: "pointer", 
+                color: "#ffffff", 
+                fontFamily: "Arial, sans-serif",
+                fontSize: "14px",
+                marginTop: "8px",
+                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
+                transition: "all 0.25s ease"
+              }}
+            >
+              Access Enterprise Plan 
+            </motion.button>
+          </form>
+        </PremiumAuthLayout>
+
+        {accessDenied && (
+          <AccessDeniedModal
+            attemptedPlan={deniedPlanName}
+            onClose={() => setAccessDenied(false)}
           />
-          <input 
-            type="password" 
-            placeholder="••••••••••••" 
-            style={styles.saasInputField} 
-            value={authPassword} 
-            onChange={(e) => setAuthPassword(e.target.value)} 
-            onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
-            onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
-          />
-          <motion.button 
-            whileHover={{ 
-              scale: 1.02, 
-              boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" 
-            }}
-            whileTap={{ scale: 0.98 }}
-            type="submit" 
-            style={{ 
-              width: "100%", 
-              padding: "14px", 
-              background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-              border: "1px solid rgba(255, 255, 255, 0.1)", 
-              borderRadius: "12px", 
-              fontWeight: "700", 
-              cursor: "pointer", 
-              color: "#ffffff", 
-              fontFamily: "Arial, sans-serif",
-              fontSize: "14px",
-              marginTop: "8px",
-              boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
-              transition: "all 0.25s ease"
-            }}
-          >
-            Access Enterprise Plan 
-          </motion.button>
-        </form>
-      </PremiumAuthLayout>
+        )}
+      </>
     );
   }
 
   // Premium SaaS Pro Auth
   if (verifyPro) {
     return (
-      <PremiumAuthLayout 
-        title="Pro Terminal Gateway" 
-        subtitle="Log into your interactive metrics tracking runtime environment."
-        onCancel={() => setVerifyPro(false)}
-      >
-        <form onSubmit={(e) => { e.preventDefault(); handleBusinessAuth(proEmail, proPassword, "pro"); }}>
-          <input 
-            type="email" 
-            placeholder="Account profile email address" 
-            style={styles.saasInputField} 
-            value={proEmail} 
-            onChange={(e) => setProEmail(e.target.value)} 
-            onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
-            onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+      <>
+        <PremiumAuthLayout 
+          title="Pro Terminal Gateway" 
+          subtitle="Log into your interactive metrics tracking runtime environment."
+          onCancel={() => setVerifyPro(false)}
+        >
+          <form onSubmit={(e) => { e.preventDefault(); handleBusinessAuth(proEmail, proPassword, "pro"); }}>
+            <input 
+              type="email" 
+              placeholder="Account profile email address" 
+              style={styles.saasInputField} 
+              value={proEmail} 
+              onChange={(e) => setProEmail(e.target.value)} 
+              onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
+              onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+            />
+            <input 
+              type="password" 
+              placeholder="••••••••••••" 
+              style={styles.saasInputField} 
+              value={proPassword} 
+              onChange={(e) => setProPassword(e.target.value)} 
+              onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
+              onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+            />
+            <motion.button 
+              whileHover={{ 
+                scale: 1.02, 
+                boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" 
+              }}
+              whileTap={{ scale: 0.98 }}
+              type="submit" 
+              style={{ 
+                width: "100%", 
+                padding: "14px", 
+                background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
+                border: "1px solid rgba(255, 255, 255, 0.1)", 
+                borderRadius: "12px", 
+                fontWeight: "700", 
+                cursor: "pointer", 
+                color: "#ffffff", 
+                fontFamily: "Arial, sans-serif",
+                fontSize: "14px",
+                marginTop: "8px",
+                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
+                transition: "all 0.25s ease"
+              }}
+            >
+               Access Pro Plan
+            </motion.button>
+          </form>
+        </PremiumAuthLayout>
+
+        {accessDenied && (
+          <AccessDeniedModal
+            attemptedPlan={deniedPlanName}
+            onClose={() => setAccessDenied(false)}
           />
-          <input 
-            type="password" 
-            placeholder="••••••••••••" 
-            style={styles.saasInputField} 
-            value={proPassword} 
-            onChange={(e) => setProPassword(e.target.value)} 
-            onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
-            onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
-          />
-          <motion.button 
-            whileHover={{ 
-              scale: 1.02, 
-              boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" 
-            }}
-            whileTap={{ scale: 0.98 }}
-            type="submit" 
-            style={{ 
-              width: "100%", 
-              padding: "14px", 
-              background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-              border: "1px solid rgba(255, 255, 255, 0.1)", 
-              borderRadius: "12px", 
-              fontWeight: "700", 
-              cursor: "pointer", 
-              color: "#ffffff", 
-              fontFamily: "Arial, sans-serif",
-              fontSize: "14px",
-              marginTop: "8px",
-              boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
-              transition: "all 0.25s ease"
-            }}
-          >
-             Access Pro Plan
-          </motion.button>
-        </form>
-      </PremiumAuthLayout>
+        )}
+      </>
     );
   }
 
@@ -639,16 +875,102 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
 
   return (
     <div style={{ ...styles.pageWrapper, flexDirection: "column" }}>
+
+      {/* ── PRICING CARD KEYFRAMES (ported from second code) ── */}
+      <style>{`
+        @keyframes iiq-float-a  { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-6px) rotate(.4deg)} }
+        @keyframes iiq-float-b  { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-5px) rotate(-.3deg)} }
+        @keyframes iiq-blink    { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes iiq-spin     { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        @keyframes iiq-beam {
+          0%   { transform: translateX(-100%) skewX(-15deg); opacity:0; }
+          10%  { opacity: 1; }
+          90%  { opacity: 1; }
+          100% { transform: translateX(400%) skewX(-15deg); opacity:0; }
+        }
+
+        .iiq-float-card-0 { animation: iiq-float-a 10s ease-in-out infinite; }
+        .iiq-float-card-1 { animation: iiq-float-b 12s ease-in-out infinite 1.8s; }
+
+        /* Live badge */
+        .iiq-live-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.25);border-radius:20px;font-size:10px;font-weight:700;color:#34d399;letter-spacing:.4px;margin-bottom:16px;animation:iiq-float-a 4s ease-in-out infinite; }
+        .iiq-live-dot   { width:5px;height:5px;border-radius:50%;background:#34d399;box-shadow:0 0 5px #34d399;animation:iiq-blink 1.4s ease-in-out infinite; }
+
+      
+
+        /* Savings chip */
+        .iiq-savings-chip { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);border-radius:12px;font-size:11px;font-weight:700;color:#34d399;margin-bottom:20px; }
+
+        /* Feature check */
+        .iiq-feature-check { display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.25);flex-shrink:0;font-size:10px;color:#58a6ff; }
+
+        /* Beam sweep */
+        .iiq-beam-wrap { position:absolute;inset:0;overflow:hidden;border-radius:32px;pointer-events:none; }
+        .iiq-beam {
+          position: absolute;
+          top: 0; bottom: 0;
+          width: 60px;
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+          animation: iiq-beam 3.5s ease-in-out infinite;
+        }
+
+        /* Top highlight line on cards */
+        .iiq-top-line {
+          position: absolute;
+          top: 0; left: 20%; right: 20%;
+          height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(88,166,255,0.6), transparent);
+          border-radius: 1px;
+        }
+
+        /* Enterprise card animated border ring */
+        .iiq-ring-border {
+          position: absolute;
+          inset: -1px;
+          border-radius: 33px;
+          pointer-events: none;
+          background: conic-gradient(from 0deg, transparent 0deg, rgba(88,166,255,0.5) 60deg, transparent 120deg, transparent 360deg);
+          animation: iiq-spin 6s linear infinite;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+          padding: 1px;
+        }
+
+        /* Subscribe button gradient border wrap */
+        .iiq-btn-wrap {
+          position: relative;
+          display: inline-block;
+        }
+        .iiq-btn-wrap::before {
+          content: '';
+          position: absolute;
+          inset: -1px;
+          border-radius: 25px;
+          background: linear-gradient(135deg, rgba(88,166,255,0.5), rgba(29,82,143,0.3), rgba(88,166,255,0.5));
+          z-index: 0;
+          animation: iiq-spin 4s linear infinite;
+        }
+      `}</style>
+
       {/* Canvas Lights */}
       <motion.div animate={{ x: [-30, 30, -30], y: [0, 60, 0] }} transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }} style={{ ...styles.blob, top: "-15%", right: "-10%" }} />
       <motion.div animate={{ x: [30, -30, 30], y: [0, -60, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }} style={{ ...styles.blob, bottom: "-20%", left: "-10%", background: "radial-gradient(circle, #1f6feb 0%, transparent 70%)", opacity: 0.08 }} />
 
       {/* Shared Action Notification Broadcast Banner Row */}
-      {toastMessage && (
-        <div style={{ position: "fixed", top: "24px", left: "50%", transform: "translateX(-50%)", padding: "12px 24px", background: "linear-gradient(135deg, #1d528f 0%, #05080e 100%)", border: "1px solid #58a6ff", borderRadius: "12px", zIndex: 100, color: "#fff", fontSize: "13px", fontFamily: "Arial, sans-serif", boxShadow: "0 0 20px rgba(58,162,230,0.5)" }}>
-          {toastMessage}
-        </div>
-      )}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20, scale: 0.95, translateX: "-50%" }}
+            animate={{ opacity: 1, y: 0, scale: 1, translateX: "-50%" }}
+            exit={{ opacity: 0, y: -10, scale: 0.95, translateX: "-50%" }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            style={styles.toastBanner}
+          >
+            <span style={{ color: theme.primary }}>✦</span>
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Header */}
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "32px 64px", zIndex: 10, width: "100%", boxSizing: "border-box" }}>
@@ -657,7 +979,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           <button style={styles.navButton} onClick={() => { handleTrackAnalyticsClick("Our Story Navigation Clicked"); setShowAbout(true); }} className="saas-nav-link">Our Story</button>
           <button style={styles.navButton} onClick={() => { handleTrackAnalyticsClick("Support Navigation Clicked"); setShowContact(true); }} className="saas-nav-link">Support</button>
           
-          {/* Nav Interactions with Added High-tier Hover Blowups */}
           <motion.button 
             whileHover={{ boxShadow: "0 0 15px rgba(58, 162, 230, 0.4)", borderColor: "rgba(58, 162, 230, 0.6)" }}
             style={{ ...styles.navButton, borderColor: "rgba(255,255,255,0.15)" }} 
@@ -751,7 +1072,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         {/* Pricing Cards Grid Container */}
         <div style={{ display: "flex", gap: "32px", flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: "1100px", position: "relative", zIndex: 2 }}>
           {plans.map((plan, index) => {
-            // Apply Dynamic Currency and Billing Cycle Calculations
+            const isEnterprise = plan.name === "Enterprise";
             const baseData = getCurrencySymbolAndPrice(plan.price);
             let rawNumericPrice = baseData.price;
             
@@ -761,97 +1082,138 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
 
             const calculatedPrice = baseData.symbol + rawNumericPrice;
             const calculatedPeriod = billingCycle === "annual" ? "/year" : "/month";
+            const annualSavings = billingCycle === "annual"
+              ? baseData.symbol + Math.floor(baseData.price * 12 * 0.2)
+              : null;
 
             return (
-              <MagneticCard
+              <div
                 key={plan.name}
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, type: "spring", stiffness: 90, damping: 20 }}
-                whileHover={{ 
-                  boxShadow: "0 0 50px -5px rgba(58, 162, 230, 0.45), 0 30px 60px -10px rgba(0, 0, 0, 0.85)",
-                  borderColor: "rgba(58, 162, 230, 0.4)"
-                }}
-                style={{ 
-                  ...styles.card, 
-                  width: "100%", 
-                  maxWidth: "420px", 
-                  padding: "54px 40px", 
-                  boxSizing: "border-box", 
-                  display: "flex", 
-                  flexDirection: "column", 
-                  alignItems: "center",
-                  justifyContent: "space-between", 
-                  position: "relative" 
-                }}
+                className={`iiq-float-card-${index}`}
+                style={{ width: "100%", maxWidth: "420px", paddingTop: isEnterprise ? "14px" : "0" }}
               >
-                <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  {/* Title */}
-                  <h3 style={{ fontSize: "32px", fontWeight: "700", color: "#798cb3", margin: "0 0 14px 0", letterSpacing: "-0.5px", fontFamily: "'Inter', sans-serif" }}>
-                    {plan.name}
-                  </h3>
-                  
-                  {/* Tagline */}
-                  <p style={{ color: theme.subtext, fontSize: "13px", textAlign: "center", margin: "0 0 24px 0", padding: "0 14px", lineHeight: "1.4" }}>
-                    {plan.tagline}
-                  </p>
-
-                  {/* Price */}
-                  <div style={{ display: "flex", alignItems: "baseline", marginBottom: "16px" }}>
-                    <span style={{ fontSize: "24px", fontWeight: "700", color: "#3aa2e6" }}>
-                      {calculatedPrice}{calculatedPeriod}
-                    </span>
-                  </div>
-
-                  <span 
-                    onClick={() => handleSharePlan(plan.name)}
-                    style={{ fontSize: "11px", color: theme.primary, cursor: "pointer", textDecoration: "underline", marginBottom: "24px" }}
-                  >
-                    🔗 Share Link Tier Route
-                  </span>
-                  
-                  {/* Features */}
-                  <ul style={{ listStyle: "none", padding: 0, margin: "0 0 40px 0", display: "flex", flexDirection: "column", gap: "12px", alignItems: "center" }}>
-                    {plan.features.map((feature, i) => (
-                      <li key={i} style={{ fontSize: "14px", color: "#9ca3af", display: "flex", alignItems: "center", gap: "8px" }}>
-                        <span style={{ color: "#9ca3af" }}>✓</span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* NEON GLOWING SUBSCRIBE BUTTON */}
-                <motion.button 
+                <MagneticCard
+                  initial={{ opacity: 0, y: 40 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1, type: "spring", stiffness: 90, damping: 20 }}
                   whileHover={{ 
-                    scale: 1.04,
-                    boxShadow: "0 0 25px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3), 0 4px 15px rgba(0, 0, 0, 0.5)",
-                    textShadow: "0 0 8px rgba(255, 255, 255, 0.6)"
-                  }}
-                  whileTap={{ scale: 0.96 }}
-                  onClick={() => {
-                    handleTrackAnalyticsClick("Checkout Initiated: " + plan.name);
-                    setSelectedPlan({ ...plan, price: calculatedPrice, period: calculatedPeriod });
-                    setGoToPayment(true);
+                    boxShadow: isEnterprise
+                      ? "0 0 60px -5px rgba(88,166,255,0.5), 0 30px 60px -10px rgba(0,0,0,0.9)"
+                      : "0 0 50px -5px rgba(58, 162, 230, 0.45), 0 30px 60px -10px rgba(0, 0, 0, 0.85)",
+                    borderColor: "rgba(88, 166, 255, 0.4)"
                   }}
                   style={{ 
-                    width: "160px", 
-                    padding: "11px 0", 
-                    borderRadius: "24px", 
-                    fontSize: "14px", 
-                    fontWeight: "700", 
-                    cursor: "pointer", 
-                    border: "1px solid rgba(255, 255, 255, 0.1)",
-                    background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-                    color: "#fff",
-                    boxShadow: "0 0 15px rgba(58, 162, 230, 0.3), 0 4px 10px rgba(0, 0, 0, 0.4)",
-                    textAlign: "center",
-                    transition: "box-shadow 0.25s ease, border-color 0.25s ease"
+                    ...styles.card,
+                    ...(isEnterprise ? {
+                      borderColor: "rgba(58, 162, 230, 0.32)",
+                      boxShadow: "0 0 0 1px rgba(58,162,230,0.18), 0 0 40px -10px rgba(58,162,230,0.35), 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.15)"
+                    } : {}),
+                    width: "100%", 
+                    padding: "54px 40px", 
+                    boxSizing: "border-box", 
+                    display: "flex", 
+                    flexDirection: "column", 
+                    alignItems: "center",
+                    justifyContent: "space-between", 
+                    position: "relative",
+                    overflow: "hidden"
                   }}
                 >
-                  Subscribe
-                </motion.button>
-              </MagneticCard>
+                  {/* Beam sweep */}
+                  <div className="iiq-beam-wrap"><div className="iiq-beam" /></div>
+                  {/* Top highlight line */}
+                  <div className="iiq-top-line" />
+                  {/* Animated spinning border ring (Enterprise only) */}
+                  {isEnterprise && <div className="iiq-ring-border" />}
+                  {/* Most popular badge (Enterprise only) */}
+                 
+
+                  <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <h3 style={{ fontSize: "32px", fontWeight: "700", color: isEnterprise ? "#7aa2d4" : "#798cb3", margin: "0 0 14px 0", letterSpacing: "-0.5px", fontFamily: "'Inter', sans-serif" }}>
+                      {plan.name}
+                    </h3>
+
+                    
+                    
+                    <p style={{ color: theme.subtext, fontSize: "13px", textAlign: "center", margin: "0 0 24px 0", padding: "0 14px", lineHeight: "1.4" }}>
+                      {plan.tagline}
+                    </p>
+
+                    {/* Price */}
+                    <div style={{ display: "flex", alignItems: "baseline", marginBottom: "10px" }}>
+                      <span style={{ fontSize: "28px", fontWeight: "800", color: isEnterprise ? "#58a6ff" : "#3aa2e6", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-1px" }}>
+                        {calculatedPrice}
+                      </span>
+                      <span style={{ fontSize: "14px", color: theme.subtext, marginLeft: "4px" }}>
+                        {calculatedPeriod}
+                      </span>
+                    </div>
+
+                    {/* Savings chip */}
+                    {annualSavings ? (
+                      <div className="iiq-savings-chip">✦ You save {annualSavings} per year</div>
+                    ) : (
+                      <div style={{ marginBottom: "20px" }} />
+                    )}
+
+                    <span 
+                      onClick={() => handleSharePlan(plan.name)}
+                      style={{ fontSize: "11px", color: theme.primary, cursor: "pointer", textDecoration: "underline", marginBottom: "28px", opacity: 0.7 }}
+                    >
+                      🔗 Share tier route
+                    </span>
+                    
+                    {/* Feature list */}
+                    <ul style={{ listStyle: "none", padding: 0, margin: "0 0 40px 0", display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start", width: "100%" }}>
+                      {plan.features.map((feature, i) => (
+                        <li key={i} style={{ fontSize: "14px", color: "rgba(255,255,255,0.65)", display: "flex", alignItems: "center", gap: "10px" }}>
+                          <span className="iiq-feature-check">✓</span>
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Subscribe Button */}
+                  <div className="iiq-btn-wrap" style={{ position: "relative" }}>
+                    <motion.button 
+                      whileHover={{ 
+                        scale: 1.04,
+                        boxShadow: isEnterprise
+                          ? "0 0 30px rgba(88,166,255,0.65), 0 0 60px rgba(88,166,255,0.3)"
+                          : "0 0 25px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)",
+                      }}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => {
+                        handleTrackAnalyticsClick("Checkout Initiated: " + plan.name);
+                        setSelectedPlan({ ...plan, price: calculatedPrice, period: calculatedPeriod });
+                        setGoToPayment(true);
+                      }}
+                      style={{ 
+                        position: "relative",
+                        zIndex: 1,
+                        width: "160px", 
+                        padding: "12px 0", 
+                        borderRadius: "24px", 
+                        fontSize: "14px", 
+                        fontWeight: "700", 
+                        cursor: "pointer", 
+                        border: "1px solid rgba(255, 255, 255, 0.15)",
+                        background: isEnterprise
+                          ? "linear-gradient(135deg, #58a6ff 0%, #1d528f 100%)"
+                          : "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
+                        color: "#fff",
+                        boxShadow: isEnterprise
+                          ? "0 0 20px rgba(88,166,255,0.45)"
+                          : "0 0 15px rgba(58, 162, 230, 0.3)",
+                        textAlign: "center",
+                      }}
+                    >
+                      {isEnterprise ? "Get Started" : "Subscribe"}
+                    </motion.button>
+                  </div>
+                </MagneticCard>
+              </div>
             );
           })}
         </div>
@@ -931,7 +1293,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               Everything you need to understand about the InsightIQ orchestration engine.
             </p>
 
-            {/* Dynamic FAQ Search Input Elements */}
             <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap", maxWidth: "480px", margin: "0 auto" }}>
               <input 
                 type="text" 
@@ -999,7 +1360,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               Architecting the next standard of system telemetry monitoring and programmatic log mapping analytics.
             </p>
             
-            {/* Integrated In-Footer Newsletter Terminal Form Row */}
             <form onSubmit={handleNewsletterSubmit} style={{ marginTop: "20px" }}>
               <label style={{ display: "block", fontSize: "11px", color: theme.subtext, marginBottom: "8px", fontWeight: "600" }}>JOIN RELEASES DEPLOYMENT LOOP</label>
               <div style={{ display: "flex", gap: "6px" }}>
