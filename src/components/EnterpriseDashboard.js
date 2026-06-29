@@ -258,7 +258,7 @@ function EnterpriseDashboard({ user, onHome }) {
   // -------- palette actions --------
   const paletteActions = useMemo(
     () => [
-      { id: "home", label: "Go to Home", icon: "🏠", action: () => onHome() },
+      { id: "home", label: "Go to Home", action: () => onHome() },
       {
         id: "manage-files",
         label: "Manage / Upload Files",

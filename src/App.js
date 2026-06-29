@@ -270,7 +270,7 @@ function App() {
 
   const paletteActions = useMemo(
     () => [
-      { id: "home", label: "Go to Home", icon: "🏠", action: () => setPage("subscription") },
+      { id: "home", label: "Go to Home", action: () => setPage("subscription") },
       { id: "manage-files", label: "Manage / Upload Files", icon: "📁", action: () => { setStep("upload"); setModule(null); } },
       ...MODULES.map((m) => ({
         id: m.toLowerCase(),

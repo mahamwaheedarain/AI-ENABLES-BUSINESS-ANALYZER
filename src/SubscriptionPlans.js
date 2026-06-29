@@ -115,11 +115,11 @@ const styles = {
     transition: "border-color 0.2s ease",
   },
   titleH1: {
-    fontSize: "72px",
+    fontSize: "66px",
     fontWeight: "900",
     fontFamily: "'Montserrat', sans-serif",
     lineHeight: "1.05",
-    letterSpacing: "-2.5px",
+    letterSpacing: "-2.3px",
   },
   saasLoginCard: {
     background: "rgba(18, 22, 30, 0.7)",
@@ -434,6 +434,123 @@ const MagneticCard = ({ children, style, ...props }) => {
     </motion.div>
   );
 };
+
+// ─── ROTATING 3D CUBE ────────────────────────────────────────────────────────
+const RotatingCube = () => (
+  <div style={{
+    width: "420px",
+    height: "420px",
+    position: "relative",
+    flexShrink: 0,
+    perspective: "900px",
+    perspectiveOrigin: "50% 50%",
+  }}>
+    {/* Ambient glow behind the cube */}
+    <div style={{
+      position: "absolute",
+      inset: "10%",
+      borderRadius: "50%",
+      background: "radial-gradient(circle, rgba(58,162,230,0.18) 0%, transparent 70%)",
+      filter: "blur(40px)",
+      pointerEvents: "none",
+    }} />
+    <style>{`
+      @keyframes iiq-cube-spin {
+        0%   { transform: rotateX(15deg) rotateY(0deg)   rotateZ(0deg); }
+        100% { transform: rotateX(15deg) rotateY(360deg) rotateZ(0deg); }
+      }
+      .iiq-cube-scene {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .iiq-cube-wrapper {
+        width: 240px;
+        height: 240px;
+        position: relative;
+        transform-style: preserve-3d;
+        animation: iiq-cube-spin 10s linear infinite;
+      }
+      .iiq-cube-face {
+        position: absolute;
+        width: 240px;
+        height: 240px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        gap: 3px;
+        padding: 3px;
+        box-sizing: border-box;
+        backface-visibility: visible;
+      }
+      .iiq-cube-face.front  { transform: translateZ(120px); }
+      .iiq-cube-face.back   { transform: rotateY(180deg) translateZ(120px); }
+      .iiq-cube-face.right  { transform: rotateY(90deg)  translateZ(120px); }
+      .iiq-cube-face.left   { transform: rotateY(-90deg) translateZ(120px); }
+      .iiq-cube-face.top    { transform: rotateX(90deg)  translateZ(120px); }
+      .iiq-cube-face.bottom { transform: rotateX(-90deg) translateZ(120px); }
+
+      /* Tile variants */
+      .iiq-tile-solid {
+        border-radius: 5px;
+        background: linear-gradient(135deg, #1e2a3a 0%, #111823 100%);
+        border: 1px solid rgba(88,166,255,0.18);
+        box-shadow: inset 0 1px 1px rgba(255,255,255,0.06);
+      }
+      .iiq-tile-accent {
+        border-radius: 5px;
+        background: linear-gradient(135deg, rgba(58,130,200,0.55) 0%, rgba(20,60,110,0.7) 100%);
+        border: 1px solid rgba(88,166,255,0.4);
+        box-shadow: 0 0 8px rgba(58,162,230,0.35), inset 0 1px 1px rgba(255,255,255,0.1);
+      }
+      .iiq-tile-grid {
+        border-radius: 5px;
+        background: linear-gradient(135deg, #16202e 0%, #0d1520 100%);
+        border: 1px solid rgba(88,166,255,0.12);
+        display: grid;
+        grid-template-columns: repeat(3,1fr);
+        grid-template-rows: repeat(3,1fr);
+        gap: 2px;
+        padding: 4px;
+        box-sizing: border-box;
+      }
+      .iiq-tile-grid-dot {
+        border-radius: 2px;
+        background: rgba(88,166,255,0.25);
+      }
+      .iiq-tile-dark {
+        border-radius: 5px;
+        background: #090e16;
+        border: 1px solid rgba(255,255,255,0.04);
+      }
+    `}</style>
+    <div className="iiq-cube-scene">
+      <div className="iiq-cube-wrapper">
+        {["front","back","right","left","top","bottom"].map((face) => (
+          <div key={face} className={`iiq-cube-face ${face}`}>
+            {/* 9 tiles per face with a varied pattern */}
+            {[0,1,2,3,4,5,6,7,8].map((i) => {
+              const accentPositions = { front:[4], back:[0,8], right:[2,6], left:[4], top:[1,7], bottom:[3,5] };
+              const gridPositions  = { front:[0,8], back:[4], right:[0,8], left:[2,6], top:[4], bottom:[0,8] };
+              const darkPositions  = { front:[2,6], back:[2,6], right:[1,7], left:[0,8], top:[0,8], bottom:[1,7] };
+              if (accentPositions[face].includes(i)) return <div key={i} className="iiq-tile-accent" />;
+              if (gridPositions[face].includes(i))  return (
+                <div key={i} className="iiq-tile-grid">
+                  {Array(9).fill(0).map((_,j) => <div key={j} className="iiq-tile-grid-dot" />)}
+                </div>
+              );
+              if (darkPositions[face].includes(i))  return <div key={i} className="iiq-tile-dark" />;
+              return <div key={i} className="iiq-tile-solid" />;
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+// ──────────────────────────────────────────────────────────────────────────────
 
 const DynamicLogo = () => (
   <motion.div
@@ -912,11 +1029,193 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           border-color: rgba(88,166,255,0.5) !important;
           color: #fff !important;
         }
+
+        /* ── AMBIANCE ELEMENTS ───────────────────────────────── */
+
+        /* Dot grid */
+        .iiq-dot-grid {
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(circle, rgba(88,166,255,0.13) 1px, transparent 1px);
+          background-size: 36px 36px;
+          pointer-events: none;
+          mask-image: radial-gradient(ellipse 80% 60% at 50% 50%, black 30%, transparent 100%);
+          z-index: 0;
+        }
+
+        /* Floating particles */
+        @keyframes iiq-particle-rise {
+          0%   { transform: translateY(0px) scale(1);   opacity: 0; }
+          20%  { opacity: 1; }
+          80%  { opacity: 0.6; }
+          100% { transform: translateY(-120px) scale(0.5); opacity: 0; }
+        }
+        .iiq-particle {
+          position: absolute;
+          width: 3px; height: 3px;
+          border-radius: 50%;
+          background: #58a6ff;
+          box-shadow: 0 0 6px #58a6ff;
+          animation: iiq-particle-rise linear infinite;
+          pointer-events: none;
+        }
+
+        /* Cube corner brackets */
+        .iiq-bracket {
+          position: absolute;
+          width: 20px; height: 20px;
+          border-color: rgba(88,166,255,0.5);
+          border-style: solid;
+          pointer-events: none;
+        }
+        .iiq-bracket-tl { top: 8px; left: 8px;  border-width: 2px 0 0 2px; }
+        .iiq-bracket-tr { top: 8px; right: 8px;  border-width: 2px 2px 0 0; }
+        .iiq-bracket-bl { bottom: 8px; left: 8px;  border-width: 0 0 2px 2px; }
+        .iiq-bracket-br { bottom: 8px; right: 8px;  border-width: 0 2px 2px 0; }
+
+        /* Announcement badge */
+        @keyframes iiq-badge-pulse {
+          0%,100% { box-shadow: 0 0 0 0 rgba(88,166,255,0.3); }
+          50%     { box-shadow: 0 0 0 5px rgba(88,166,255,0); }
+        }
+        .iiq-announce-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 5px 14px 5px 6px;
+          background: rgba(88,166,255,0.07);
+          border: 1px solid rgba(88,166,255,0.3);
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #a8d4ff;
+          margin-bottom: 22px;
+          cursor: default;
+          animation: iiq-badge-pulse 2.5s ease-in-out infinite;
+          width: fit-content;
+        }
+        .iiq-announce-badge .iiq-badge-pill {
+          background: linear-gradient(135deg, #58a6ff, #1d528f);
+          color: #fff;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 12px;
+          letter-spacing: 0.4px;
+        }
+
+        /* CTA buttons */
+        .iiq-cta-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 13px 28px;
+          background: #ffffff;
+          color: #0d1117;
+          border: none;
+          border-radius: 14px;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          font-family: 'Inter', sans-serif;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+          box-shadow: 0 0 0 1px rgba(255,255,255,0.2);
+        }
+        .iiq-cta-primary:hover {
+          background: #e8f4ff;
+          box-shadow: 0 0 20px rgba(255,255,255,0.25), 0 8px 24px rgba(0,0,0,0.4);
+          transform: translateY(-1px);
+        }
+        .iiq-cta-secondary {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 13px 28px;
+          background: rgba(88,166,255,0.07);
+          color: #a8d4ff;
+          border: 1px solid rgba(88,166,255,0.3);
+          border-radius: 14px;
+          font-size: 15px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: 'Inter', sans-serif;
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+        }
+        .iiq-cta-secondary:hover {
+          background: rgba(88,166,255,0.14);
+          border-color: rgba(88,166,255,0.6);
+          color: #fff;
+          transform: translateY(-1px);
+        }
+
+        /* Stats row */
+        .iiq-stat-divider {
+          width: 1px;
+          height: 28px;
+          background: rgba(255,255,255,0.08);
+        }
+
+        /* Orbit ring around cube */
+        @keyframes iiq-orbit {
+          from { transform: rotateZ(0deg); }
+          to   { transform: rotateZ(360deg); }
+        }
+        .iiq-orbit-ring {
+          position: absolute;
+          border-radius: 50%;
+          border: 1px solid rgba(88,166,255,0.12);
+          pointer-events: none;
+        }
+        .iiq-orbit-ring-1 {
+          width: 340px; height: 340px;
+          top: 50%; left: 50%;
+          margin: -170px 0 0 -170px;
+          animation: iiq-orbit 18s linear infinite;
+          border-style: dashed;
+        }
+        .iiq-orbit-ring-2 {
+          width: 460px; height: 460px;
+          top: 50%; left: 50%;
+          margin: -230px 0 0 -230px;
+          animation: iiq-orbit 28s linear infinite reverse;
+          border-color: rgba(88,166,255,0.06);
+        }
+        /* Dot on orbit ring */
+        .iiq-orbit-dot {
+          position: absolute;
+          width: 6px; height: 6px;
+          border-radius: 50%;
+          background: #58a6ff;
+          box-shadow: 0 0 8px #58a6ff;
+          top: -3px; left: 50%; margin-left: -3px;
+        }
       `}</style>
 
       {/* Canvas Lights */}
       <motion.div animate={{ x: [-30, 30, -30], y: [0, 60, 0] }} transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }} style={{ ...styles.blob, top: "-15%", right: "-10%" }} />
       <motion.div animate={{ x: [30, -30, 30], y: [0, -60, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }} style={{ ...styles.blob, bottom: "-20%", left: "-10%", background: "radial-gradient(circle, #1f6feb 0%, transparent 70%)", opacity: 0.08 }} />
+
+      {/* Dot grid ambient overlay */}
+      <div className="iiq-dot-grid" />
+
+      {/* Floating particles */}
+      {[
+        { left: "12%",  bottom: "18%", size: "3px", dur: "6s",   delay: "0s"   },
+        { left: "22%",  bottom: "30%", size: "2px", dur: "9s",   delay: "1.5s" },
+        { left: "35%",  bottom: "12%", size: "4px", dur: "7s",   delay: "0.8s" },
+        { left: "60%",  bottom: "22%", size: "2px", dur: "11s",  delay: "2s"   },
+        { left: "75%",  bottom: "35%", size: "3px", dur: "8s",   delay: "0.3s" },
+        { left: "88%",  bottom: "15%", size: "2px", dur: "10s",  delay: "3s"   },
+        { left: "50%",  bottom: "8%",  size: "3px", dur: "7.5s", delay: "1s"   },
+      ].map((p, i) => (
+        <div key={i} className="iiq-particle" style={{
+          left: p.left, bottom: p.bottom,
+          width: p.size, height: p.size,
+          animationDuration: p.dur,
+          animationDelay: p.delay,
+          zIndex: 1,
+        }} />
+      ))}
 
       {/* Toast Banner */}
       <AnimatePresence>
@@ -985,20 +1284,71 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         </div>
       </header>
 
-      {/* Hero Canvas Area */}
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 24px", position: "relative", zIndex: 2 }}>
+      {/* ── HERO — left text + right rotating cube ─────────────────────────── */}
+      <section style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "64px 80px 56px",
+        width: "100%",
+        boxSizing: "border-box",
+        position: "relative",
+        zIndex: 2,
+        gap: "48px",
+        minHeight: "560px",
+      }}>
+        {/* Left: hero text + badge + CTAs + stats */}
+        <motion.div
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          style={{ flex: "1 1 0", minWidth: 0 }}
+        >
         
-        <motion.div initial={{ opacity: 0, y: 25 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }} style={{ textAlign: "center" }}>
-          <h1 style={{ ...styles.titleH1, margin: "0 auto 24px", maxWidth: "800px" }}>
+    
+
+          <h1 style={{ ...styles.titleH1, margin: "0 0 24px 0", textAlign: "left" }}>
             Insight-driven intelligence <br />
             <span style={{ color: "transparent", background: "linear-gradient(90deg, #fff, #8b949e)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>
-              built for intelligent infrastructure.
+              built for smart infrastructure.
             </span>
           </h1>
-          <p style={{ color: theme.subtext, fontSize: "20px", maxWidth: "600px", margin: "0 auto 64px", lineHeight: "1.6", fontWeight: 400 }}>
+
+          <p style={{ color: theme.subtext, fontSize: "16px", maxWidth: "500px", margin: "0 0 36px 0", lineHeight: "1.7", fontWeight: 400, textAlign: "left" }}>
             Transform multi-layered computational operational logs into crisp, beautifully intuitive real-time strategic projections.
           </p>
+
+         
         </motion.div>
+
+        {/* Right: rotating 3D cube with orbit rings + corner brackets */}
+        <motion.div
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1], delay: 0.15 }}
+          style={{ flexShrink: 0, position: "relative", width: "460px", height: "460px", display: "flex", alignItems: "center", justifyContent: "center" }}
+        >
+          {/* Orbit rings */}
+          <div className="iiq-orbit-ring iiq-orbit-ring-1">
+            <div className="iiq-orbit-dot" />
+          </div>
+          <div className="iiq-orbit-ring iiq-orbit-ring-2">
+            <div className="iiq-orbit-dot" style={{ background: "rgba(88,166,255,0.5)", boxShadow: "0 0 6px rgba(88,166,255,0.5)" }} />
+          </div>
+
+          {/* Corner brackets framing the cube */}
+          <div className="iiq-bracket iiq-bracket-tl" />
+          <div className="iiq-bracket iiq-bracket-tr" />
+          <div className="iiq-bracket iiq-bracket-bl" />
+          <div className="iiq-bracket iiq-bracket-br" />
+
+
+          <RotatingCube />
+        </motion.div>
+      </section>
+
+      {/* Rest of main content */}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px 80px", position: "relative", zIndex: 2 }}>
 
         {/* Currency Controls */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "20px", zIndex: 5 }}>
