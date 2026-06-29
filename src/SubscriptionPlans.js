@@ -4,6 +4,7 @@ import PaymentPage from "./components/PaymentPage";
 import PaymentSuccess from "./components/PaymentSuccess";
 import ContactUs from "./components/ContactUs";
 import AboutApp from "./components/AboutApp";
+import Tutorial from "./Tutorial"; // ← NEW IMPORT
 import { auth, db } from "./firebase"; 
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore"; 
@@ -273,7 +274,6 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           position: "relative"
         }}
       >
-        {/* Red glow blob behind icon */}
         <div style={{
           position: "absolute",
           top: "0",
@@ -286,7 +286,6 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           borderRadius: "50%"
         }} />
 
-        {/* Icon */}
         <motion.div
           initial={{ scale: 0.6, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -308,7 +307,6 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           🔒
         </motion.div>
 
-        {/* Title */}
         <motion.h2
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -324,7 +322,6 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           Access Denied
         </motion.h2>
 
-        {/* Subtitle */}
         <motion.p
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
@@ -343,14 +340,12 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           tier. Verify your account and subscription status before retrying.
         </motion.p>
 
-        {/* Divider */}
         <div style={{
           height: "1px",
           background: "linear-gradient(90deg, transparent, rgba(239,68,68,0.25), transparent)",
           margin: "0 0 28px 0"
         }} />
 
-        {/* Error code badge */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -367,12 +362,9 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           }}
         >
           <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#ef4444", display: "inline-block", boxShadow: "0 0 6px #ef4444" }} />
-          <span style={{ fontSize: "11px", fontWeight: "700", color: "#f87171", letterSpacing: "0.5px", fontFamily: "monospace" }}>
-            ERR_AUTH_TIER_MISMATCH
-          </span>
+         
         </motion.div>
 
-        {/* Dismiss button */}
         <motion.button
           whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(239, 68, 68, 0.35)" }}
           whileTap={{ scale: 0.97 }}
@@ -395,7 +387,6 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           Dismiss & Retry
         </motion.button>
 
-        {/* Close X */}
         <button
           onClick={onClose}
           style={{
@@ -569,6 +560,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [showContact, setShowContact] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false); // ← NEW STATE
 
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -578,11 +570,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   const [proPassword, setProPassword] = useState("");
   const [verifyPro, setVerifyPro] = useState(false);
 
-  // Added Funcs State Hooks
   const [billingCycle, setBillingCycle] = useState("monthly");
   const [showFeatureMatrix, setShowFeatureMatrix] = useState(false);
 
-  // 10 NEW FUNCTIONS INTEGRATION STATES
   const [currency, setCurrency] = useState("USD");
   const [faqSearchQuery, setFaqSearchQuery] = useState("");
   const [masterFaqState, setMasterFaqState] = useState({ forceOpen: false, forceClose: false });
@@ -592,11 +582,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
 
-  // ACCESS DENIED MODAL STATE
   const [accessDenied, setAccessDenied] = useState(false);
   const [deniedPlanName, setDeniedPlanName] = useState("");
 
-  // FUNCTION 1: Currency Converter Engine (Configured for PKR and USD Only)
   const handleCurrencyToggle = (selectedCurrency) => {
     handleTrackAnalyticsClick("Currency Switch: " + selectedCurrency);
     setCurrency(selectedCurrency);
@@ -608,7 +596,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     return { symbol: "$", price: rawNumeric };
   };
 
-  // FUNCTION 2: Dynamic FAQ Filter Search Engine
   const handleSearchFaq = (e) => {
     setFaqSearchQuery(e.target.value);
   };
@@ -618,7 +605,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     faq.answer.toLowerCase().includes(faqSearchQuery.toLowerCase())
   );
 
-  // FUNCTION 4: Master Accordion Expand / Collapse Controller
   const handleToggleAllFaqs = (action) => {
     handleTrackAnalyticsClick("FAQ Master Switch: " + action);
     if (action === "expand") {
@@ -629,7 +615,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     setTimeout(() => setMasterFaqState({ forceOpen: false, forceClose: false }), 150);
   };
 
-  // FUNCTION 5: Interactive Link Generation Clipboard Share Pipeline
   const handleSharePlan = (planName) => {
     handleTrackAnalyticsClick("Share Triggered: " + planName);
     const simulatedLink = window.location.origin + "?tier=" + planName.toLowerCase() + "&cycle=" + billingCycle;
@@ -641,7 +626,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     });
   };
 
-  // FUNCTION 6: Newsletter Analytics Release Feed Loop Form Submission
   const handleNewsletterSubmit = (e) => {
     e.preventDefault();
     if (!newsletterEmail || !newsletterEmail.includes("@")) {
@@ -653,7 +637,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     setNewsletterEmail("");
   };
 
-  // FUNCTION 7: Infrastructure Reset Controls Filter Variable Flush
   const handleResetFilters = () => {
     setCurrency("USD");
     setBillingCycle("monthly");
@@ -661,19 +644,16 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     handleTrackAnalyticsClick("System Control Variables Reset Flush");
   };
 
-  // FUNCTION 8: Simulated Analytical Log Pipeline Telemetry Logger
   const handleTrackAnalyticsClick = (interactionName) => {
     console.log("[TELEMETRY STREAM LOG] Ingested user event hook direct mapping metrics: " + interactionName);
   };
 
-  // FUNCTION 9: Core Application Customer Sentiment Feedback Rating Ingest
   const handleFeedbackSubmit = (rating) => {
     setUserRating(rating);
     setFeedbackSubmitted(true);
     handleTrackAnalyticsClick("Satisfaction Rating Score Received: " + rating + " Stars");
   };
 
-  // FUNCTION 10: Downstream Spec Sheet Markdown Generator File Transpiler
   const handleDownloadSpecSheet = () => {
     handleTrackAnalyticsClick("Spec Sheet System Manifest Download Requested");
     const documentContent = "# InsightIQ Structural Matrix Parameters\n\nGenerated: " + new Date().toISOString() + "\n- Current Ingest Frequency: " + currency + "\n- Configured Cycle: " + billingCycle + "\n- Verified Status: Operational Cluster\n";
@@ -734,6 +714,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     }
   }, [paymentComplete, selectedPlan]);
 
+  // ── TUTORIAL PAGE ROUTE ────────────────────────────────────────────────────
+  if (showTutorial) {
+    return <Tutorial onBack={() => setShowTutorial(false)} />;
+  }
+
   // Premium SaaS Enterprise Auth
   if (verifyEnterprise) {
     return (
@@ -763,39 +748,23 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
             />
             <motion.button 
-              whileHover={{ 
-                scale: 1.02, 
-                boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" 
-              }}
+              whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" }}
               whileTap={{ scale: 0.98 }}
               type="submit" 
               style={{ 
-                width: "100%", 
-                padding: "14px", 
+                width: "100%", padding: "14px", 
                 background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-                border: "1px solid rgba(255, 255, 255, 0.1)", 
-                borderRadius: "12px", 
-                fontWeight: "700", 
-                cursor: "pointer", 
-                color: "#ffffff", 
-                fontFamily: "Arial, sans-serif",
-                fontSize: "14px",
-                marginTop: "8px",
-                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
-                transition: "all 0.25s ease"
+                border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px", 
+                fontWeight: "700", cursor: "pointer", color: "#ffffff", 
+                fontFamily: "Arial, sans-serif", fontSize: "14px", marginTop: "8px",
+                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)", transition: "all 0.25s ease"
               }}
             >
               Access Enterprise Plan 
             </motion.button>
           </form>
         </PremiumAuthLayout>
-
-        {accessDenied && (
-          <AccessDeniedModal
-            attemptedPlan={deniedPlanName}
-            onClose={() => setAccessDenied(false)}
-          />
-        )}
+        {accessDenied && <AccessDeniedModal attemptedPlan={deniedPlanName} onClose={() => setAccessDenied(false)} />}
       </>
     );
   }
@@ -829,39 +798,23 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
             />
             <motion.button 
-              whileHover={{ 
-                scale: 1.02, 
-                boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" 
-              }}
+              whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" }}
               whileTap={{ scale: 0.98 }}
               type="submit" 
               style={{ 
-                width: "100%", 
-                padding: "14px", 
+                width: "100%", padding: "14px", 
                 background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-                border: "1px solid rgba(255, 255, 255, 0.1)", 
-                borderRadius: "12px", 
-                fontWeight: "700", 
-                cursor: "pointer", 
-                color: "#ffffff", 
-                fontFamily: "Arial, sans-serif",
-                fontSize: "14px",
-                marginTop: "8px",
-                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
-                transition: "all 0.25s ease"
+                border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px", 
+                fontWeight: "700", cursor: "pointer", color: "#ffffff", 
+                fontFamily: "Arial, sans-serif", fontSize: "14px", marginTop: "8px",
+                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)", transition: "all 0.25s ease"
               }}
             >
                Access Pro Plan
             </motion.button>
           </form>
         </PremiumAuthLayout>
-
-        {accessDenied && (
-          <AccessDeniedModal
-            attemptedPlan={deniedPlanName}
-            onClose={() => setAccessDenied(false)}
-          />
-        )}
+        {accessDenied && <AccessDeniedModal attemptedPlan={deniedPlanName} onClose={() => setAccessDenied(false)} />}
       </>
     );
   }
@@ -876,7 +829,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   return (
     <div style={{ ...styles.pageWrapper, flexDirection: "column" }}>
 
-      {/* ── PRICING CARD KEYFRAMES (ported from second code) ── */}
       <style>{`
         @keyframes iiq-float-a  { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-6px) rotate(.4deg)} }
         @keyframes iiq-float-b  { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-5px) rotate(-.3deg)} }
@@ -892,19 +844,13 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         .iiq-float-card-0 { animation: iiq-float-a 10s ease-in-out infinite; }
         .iiq-float-card-1 { animation: iiq-float-b 12s ease-in-out infinite 1.8s; }
 
-        /* Live badge */
         .iiq-live-badge { display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.25);border-radius:20px;font-size:10px;font-weight:700;color:#34d399;letter-spacing:.4px;margin-bottom:16px;animation:iiq-float-a 4s ease-in-out infinite; }
         .iiq-live-dot   { width:5px;height:5px;border-radius:50%;background:#34d399;box-shadow:0 0 5px #34d399;animation:iiq-blink 1.4s ease-in-out infinite; }
 
-      
-
-        /* Savings chip */
         .iiq-savings-chip { display:inline-flex;align-items:center;gap:4px;padding:3px 10px;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);border-radius:12px;font-size:11px;font-weight:700;color:#34d399;margin-bottom:20px; }
 
-        /* Feature check */
         .iiq-feature-check { display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:rgba(88,166,255,.12);border:1px solid rgba(88,166,255,.25);flex-shrink:0;font-size:10px;color:#58a6ff; }
 
-        /* Beam sweep */
         .iiq-beam-wrap { position:absolute;inset:0;overflow:hidden;border-radius:32px;pointer-events:none; }
         .iiq-beam {
           position: absolute;
@@ -914,7 +860,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           animation: iiq-beam 3.5s ease-in-out infinite;
         }
 
-        /* Top highlight line on cards */
         .iiq-top-line {
           position: absolute;
           top: 0; left: 20%; right: 20%;
@@ -923,7 +868,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           border-radius: 1px;
         }
 
-        /* Enterprise card animated border ring */
         .iiq-ring-border {
           position: absolute;
           inset: -1px;
@@ -936,7 +880,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           padding: 1px;
         }
 
-        /* Subscribe button gradient border wrap */
         .iiq-btn-wrap {
           position: relative;
           display: inline-block;
@@ -950,13 +893,32 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           z-index: 0;
           animation: iiq-spin 4s linear infinite;
         }
+
+        .saas-nav-link:hover {
+          background: rgba(255,255,255,0.05) !important;
+          border-color: rgba(255,255,255,0.2) !important;
+        }
+
+        /* Tutorial button pulse glow */
+        @keyframes tut-btn-glow {
+          0%, 100% { box-shadow: 0 0 8px rgba(88,166,255,0.2); }
+          50% { box-shadow: 0 0 18px rgba(88,166,255,0.45); }
+        }
+        .iiq-tutorial-btn {
+          animation: tut-btn-glow 3s ease-in-out infinite;
+        }
+        .iiq-tutorial-btn:hover {
+          background: rgba(88,166,255,0.12) !important;
+          border-color: rgba(88,166,255,0.5) !important;
+          color: #fff !important;
+        }
       `}</style>
 
       {/* Canvas Lights */}
       <motion.div animate={{ x: [-30, 30, -30], y: [0, 60, 0] }} transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }} style={{ ...styles.blob, top: "-15%", right: "-10%" }} />
       <motion.div animate={{ x: [30, -30, 30], y: [0, -60, 0] }} transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }} style={{ ...styles.blob, bottom: "-20%", left: "-10%", background: "radial-gradient(circle, #1f6feb 0%, transparent 70%)", opacity: 0.08 }} />
 
-      {/* Shared Action Notification Broadcast Banner Row */}
+      {/* Toast Banner */}
       <AnimatePresence>
         {toastMessage && (
           <motion.div 
@@ -972,10 +934,34 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         )}
       </AnimatePresence>
 
-      {/* Header */}
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "32px 64px", zIndex: 10, width: "100%", boxSizing: "border-box" }}>
         <DynamicLogo />
-        <div style={{ display: "flex", gap: "16px" }}>
+        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+
+          {/* ── TUTORIAL BUTTON (new) ── */}
+          <motion.button
+            className="iiq-tutorial-btn saas-nav-link"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => {
+              handleTrackAnalyticsClick("Tutorial Navigation Clicked");
+              setShowTutorial(true);
+            }}
+            style={{
+              ...styles.navButton,
+              borderColor: "rgba(88,166,255,0.35)",
+              background: "rgba(88,166,255,0.06)",
+              color: theme.primary,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            <span style={{ fontSize: "13px" }}></span>
+            Tutorial
+          </motion.button>
+
           <button style={styles.navButton} onClick={() => { handleTrackAnalyticsClick("Our Story Navigation Clicked"); setShowAbout(true); }} className="saas-nav-link">Our Story</button>
           <button style={styles.navButton} onClick={() => { handleTrackAnalyticsClick("Support Navigation Clicked"); setShowContact(true); }} className="saas-nav-link">Support</button>
           
@@ -1014,7 +1000,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           </p>
         </motion.div>
 
-        {/* Dynamic Global Multi-Currency Selection Controls (Configured for USD and PKR Only) */}
+        {/* Currency Controls */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "20px", zIndex: 5 }}>
           {["USD", "PKR"].map((currOption) => (
             <button
@@ -1045,7 +1031,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           )}
         </div>
 
-        {/* FUNC 1: ANNUAL/MONTHLY DYNAMIC BILLING CYCLE TOGGLE ENGINE */}
+        {/* Billing Toggle */}
         <div style={styles.toggleContainer}>
           <button 
             onClick={() => { handleTrackAnalyticsClick("Billing Cycle: Monthly"); setBillingCycle("monthly"); }}
@@ -1069,7 +1055,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           </button>
         </div>
 
-        {/* Pricing Cards Grid Container */}
+        {/* Pricing Cards */}
         <div style={{ display: "flex", gap: "32px", flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: "1100px", position: "relative", zIndex: 2 }}>
           {plans.map((plan, index) => {
             const isEnterprise = plan.name === "Enterprise";
@@ -1119,27 +1105,18 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                     overflow: "hidden"
                   }}
                 >
-                  {/* Beam sweep */}
                   <div className="iiq-beam-wrap"><div className="iiq-beam" /></div>
-                  {/* Top highlight line */}
                   <div className="iiq-top-line" />
-                  {/* Animated spinning border ring (Enterprise only) */}
                   {isEnterprise && <div className="iiq-ring-border" />}
-                  {/* Most popular badge (Enterprise only) */}
-                 
 
                   <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
                     <h3 style={{ fontSize: "32px", fontWeight: "700", color: isEnterprise ? "#7aa2d4" : "#798cb3", margin: "0 0 14px 0", letterSpacing: "-0.5px", fontFamily: "'Inter', sans-serif" }}>
                       {plan.name}
                     </h3>
-
-                    
-                    
                     <p style={{ color: theme.subtext, fontSize: "13px", textAlign: "center", margin: "0 0 24px 0", padding: "0 14px", lineHeight: "1.4" }}>
                       {plan.tagline}
                     </p>
 
-                    {/* Price */}
                     <div style={{ display: "flex", alignItems: "baseline", marginBottom: "10px" }}>
                       <span style={{ fontSize: "28px", fontWeight: "800", color: isEnterprise ? "#58a6ff" : "#3aa2e6", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-1px" }}>
                         {calculatedPrice}
@@ -1149,7 +1126,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                       </span>
                     </div>
 
-                    {/* Savings chip */}
                     {annualSavings ? (
                       <div className="iiq-savings-chip">✦ You save {annualSavings} per year</div>
                     ) : (
@@ -1163,7 +1139,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                       🔗 Share tier route
                     </span>
                     
-                    {/* Feature list */}
                     <ul style={{ listStyle: "none", padding: 0, margin: "0 0 40px 0", display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start", width: "100%" }}>
                       {plan.features.map((feature, i) => (
                         <li key={i} style={{ fontSize: "14px", color: "rgba(255,255,255,0.65)", display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1174,7 +1149,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                     </ul>
                   </div>
 
-                  {/* Subscribe Button */}
                   <div className="iiq-btn-wrap" style={{ position: "relative" }}>
                     <motion.button 
                       whileHover={{ 
@@ -1218,7 +1192,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           })}
         </div>
 
-        {/* FUNC 2: INTERACTIVE FEATURE-MATRIX EXPANDABLE BREAKDOWN CONTROLLER */}
+        {/* Matrix Toggle + Export */}
         <div style={{ marginTop: "40px", zIndex: 3, display: "flex", gap: "24px", alignItems: "center" }}>
           <button 
             onClick={() => { handleTrackAnalyticsClick("Toggle Matrix View"); setShowFeatureMatrix(!showFeatureMatrix); }}
@@ -1246,7 +1220,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           </button>
         </div>
 
-        {/* FUNC 3: ENTERPRISE SLA PRIORITY METRICS TELEMETRY DRAWER */}
+        {/* Feature Matrix Drawer */}
         <AnimatePresence>
           {showFeatureMatrix && (
             <motion.div 
@@ -1283,7 +1257,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           )}
         </AnimatePresence>
 
-        {/* FUNC 4: PROFESSIONAL EXPANDABLE ACCORDION FAQ CONSTRUCT */}
+        {/* FAQ Section */}
         <section style={styles.faqSection}>
           <div style={{ textAlign: "center", marginBottom: "48px" }}>
             <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "36px", fontWeight: 800, letterSpacing: "-1px", marginBottom: "12px" }}>
@@ -1327,7 +1301,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           </div>
         </section>
 
-        {/* Interactive Application Feedback Score Widget */}
+        {/* Feedback Widget */}
         <div style={{ margin: "40px auto 0", textAlign: "center", padding: "24px", background: "rgba(255,255,255,0.01)", border: `1px solid ${theme.border}`, borderRadius: "16px", maxWidth: "400px", width: "100%", zIndex: 2 }}>
           <h4 style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "600" }}>System Environment Optimization Score</h4>
           {!feedbackSubmitted ? (
@@ -1351,7 +1325,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
 
       </main>
 
-      {/* FUNC 5: STRUCTURED ENTERPRISE LEVEL GRID FOOTER */}
+      {/* Footer */}
       <footer style={styles.footerWrapper}>
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "40px", maxWidth: "1200px", margin: "0 auto 48px" }}>
           <div style={{ flex: "1 1 250px" }}>
@@ -1383,6 +1357,16 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 <li><a href="#features" style={{ color: theme.subtext, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = theme.subtext}>Features</a></li>
                 <li><a href="#security" style={{ color: theme.subtext, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = theme.subtext}>Security</a></li>
                 <li><a href="#pricing" style={{ color: theme.subtext, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = theme.subtext}>Pricing</a></li>
+                <li>
+                  <span 
+                    style={{ color: theme.subtext, textDecoration: "none", cursor: "pointer", transition: "color 0.2s" }} 
+                    onMouseEnter={(e) => e.target.style.color = "#fff"} 
+                    onMouseLeave={(e) => e.target.style.color = theme.subtext}
+                    onClick={() => { handleTrackAnalyticsClick("Footer: Tutorial"); setShowTutorial(true); }}
+                  >
+                    Tutorial
+                  </span>
+                </li>
               </ul>
             </div>
             <div>
@@ -1401,7 +1385,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1200px", margin: "0 auto", paddingHeight: "24px", borderTop: `1px solid rgba(255,255,255,0.04)`, fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1200px", margin: "0 auto", borderTop: `1px solid rgba(255,255,255,0.04)`, paddingTop: "24px", fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
           <span>&copy; {new Date().getFullYear()} InsightIQ Inc. All rights reserved.</span>
           <div style={{ display: "flex", gap: "16px" }}>
             <span>System Status: <span style={{ color: "#34d399" }}>● Operational</span></span>

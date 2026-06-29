@@ -157,6 +157,28 @@ const MagneticTilt = ({ children, style, ...props }) => {
 function EnterpriseDashboard({ user, onHome }) {
   const [module, setModule] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const userMenuRef = useRef(null);
+
+  // Derive display label: prefer email, fallback to id, fallback to name
+  const userDisplayLabel = user?.email || user?.id || user?.name || "Enterprise User";
+
+  // Truncate long emails/IDs for display
+  const userDisplayShort =
+    userDisplayLabel.length > 28 ? userDisplayLabel.slice(0, 26) + "…" : userDisplayLabel;
+
+  // Close user menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Isolated localStorage key per specific user email
   const userFileKey = useMemo(() => {
@@ -222,6 +244,9 @@ function EnterpriseDashboard({ user, onHome }) {
       } else if (e.key === "Escape") {
         setPaletteOpen(false);
         setShortcutsOpen(false);
+        setUserMenuOpen(false);
+        setShowLogoutConfirm(false);
+        setShowCancelConfirm(false);
       } else if (e.key === "?" && !paletteOpen) {
         setShortcutsOpen((s) => !s);
       }
@@ -339,6 +364,20 @@ function EnterpriseDashboard({ user, onHome }) {
   };
 
   useEffect(() => () => clearInterval(ingestTimerRef.current), []);
+
+  // -------- logout handler --------
+  const handleLogout = () => {
+    setShowLogoutConfirm(false);
+    setUserMenuOpen(false);
+    if (typeof onHome === "function") onHome();
+  };
+
+  // -------- cancel subscription handler --------
+  const handleCancelSubscription = () => {
+    setShowCancelConfirm(false);
+    setUserMenuOpen(false);
+    pushToast("Subscription cancellation requested. You'll receive a confirmation email.", "info");
+  };
 
   // ============================================================
   // STYLES
@@ -681,20 +720,145 @@ function EnterpriseDashboard({ user, onHome }) {
                 }}
               />
             </motion.div>
-            <div
-              style={{
-                background: "rgba(88, 166, 255, 0.08)",
-                padding: "9px 18px",
-                borderRadius: "12px",
-                border: "1px solid rgba(88, 166, 255, 0.25)",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                fontSize: "0.9rem",
-                fontWeight: 500,
-              }}
-            >
-              <span style={{ fontSize: "1.2rem" }}>👤</span> {user?.name || "Enterprise User"}
+
+            {/* ── USER MENU ── */}
+            <div ref={userMenuRef} style={{ position: "relative" }}>
+              <motion.div
+                whileHover={{ borderColor: "rgba(88,166,255,0.4)" }}
+                onClick={() => setUserMenuOpen((o) => !o)}
+                style={{
+                  background: "rgba(88, 166, 255, 0.08)",
+                  padding: "9px 18px",
+                  borderRadius: "12px",
+                  border: `1px solid ${userMenuOpen ? "rgba(88,166,255,0.4)" : "rgba(88, 166, 255, 0.25)"}`,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  fontSize: "0.9rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  userSelect: "none",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <span style={{ fontSize: "1.2rem" }}>👤</span>
+                <span
+                  style={{
+                    maxWidth: 200,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    fontSize: "0.85rem",
+                    color: "#dfe3ea",
+                  }}
+                  title={userDisplayLabel}
+                >
+                  {userDisplayShort}
+                </span>
+                <motion.span
+                  animate={{ rotate: userMenuOpen ? 180 : 0 }}
+                  transition={{ duration: 0.2 }}
+                  style={{ fontSize: "10px", color: "#5b6472", lineHeight: 1 }}
+                >
+                  ▼
+                </motion.span>
+              </motion.div>
+
+              {/* Dropdown Menu */}
+              <AnimatePresence>
+                {userMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                    style={{
+                      position: "absolute",
+                      top: "calc(100% + 10px)",
+                      right: 0,
+                      minWidth: 230,
+                      background: "rgba(18, 22, 30, 0.96)",
+                      backdropFilter: "blur(32px) saturate(190%)",
+                      WebkitBackdropFilter: "blur(32px) saturate(190%)",
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: 16,
+                      boxShadow: "0 20px 50px -10px rgba(0,0,0,0.8), 0 0 30px -8px rgba(58,162,230,0.2)",
+                      overflow: "hidden",
+                      zIndex: 300,
+                    }}
+                  >
+                    {/* User info header */}
+                    <div
+                      style={{
+                        padding: "14px 18px",
+                        borderBottom: `1px solid ${theme.border}`,
+                        background: "rgba(88,166,255,0.04)",
+                      }}
+                    >
+                      <div style={{ fontSize: 11, color: "#5b6472", marginBottom: 4, textTransform: "uppercase", letterSpacing: "1px", fontWeight: 700 }}>
+                        Signed in as
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12.5,
+                          color: "#dfe3ea",
+                          fontWeight: 500,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
+                        title={userDisplayLabel}
+                      >
+                        {userDisplayLabel}
+                      </div>
+                    </div>
+
+                    {/* Menu Items */}
+                    <div style={{ padding: "8px" }}>
+                      <motion.div
+                        whileHover={{ background: "rgba(248,81,73,0.1)" }}
+                        onClick={() => { setUserMenuOpen(false); setShowCancelConfirm(true); }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          cursor: "pointer",
+                          fontSize: 13.5,
+                          color: "#f0a0a0",
+                          transition: "background 0.15s ease",
+                        }}
+                      >
+                        <span style={{ fontSize: 15 }}>🚫</span>
+                        Cancel Subscription
+                      </motion.div>
+
+                      <div style={{ height: 1, background: theme.border, margin: "6px 0" }} />
+
+                      <motion.div
+                        whileHover={{ background: "rgba(248,81,73,0.12)" }}
+                        onClick={() => { setUserMenuOpen(false); setShowLogoutConfirm(true); }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          cursor: "pointer",
+                          fontSize: 13.5,
+                          color: "#f85149",
+                          fontWeight: 600,
+                          transition: "background 0.15s ease",
+                        }}
+                      >
+                        <span style={{ fontSize: 15 }}>🔓</span>
+                        Log Out
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
@@ -1269,6 +1433,187 @@ function EnterpriseDashboard({ user, onHome }) {
                   </span>
                 </div>
               ))}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── LOGOUT CONFIRMATION MODAL ── */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowLogoutConfirm(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(5, 8, 14, 0.7)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              zIndex: 400,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.93, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 12 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 360,
+                background: "rgba(18, 22, 30, 0.97)",
+                backdropFilter: "blur(32px) saturate(190%)",
+                WebkitBackdropFilter: "blur(32px) saturate(190%)",
+                border: `1px solid rgba(248,81,73,0.25)`,
+                borderRadius: 20,
+                boxShadow: "0 0 60px -10px rgba(248,81,73,0.2), 0 40px 80px -20px rgba(0,0,0,0.9)",
+                padding: "28px 28px 24px",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 36, marginBottom: 14 }}>🔓</div>
+              <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: "'Montserrat', sans-serif" }}>
+                Log Out?
+              </h3>
+              <p style={{ margin: "0 0 24px", fontSize: 13, color: theme.subtext, lineHeight: 1.55 }}>
+                You'll be signed out of your session. Any unsaved work will remain stored.
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <motion.button
+                  whileHover={{ background: "rgba(255,255,255,0.06)" }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setShowLogoutConfirm(false)}
+                  style={{
+                    flex: 1,
+                    padding: "11px 0",
+                    borderRadius: 12,
+                    border: `1px solid ${theme.border}`,
+                    background: "rgba(255,255,255,0.03)",
+                    color: "#8b949e",
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  whileHover={{ background: "rgba(248,81,73,0.85)" }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleLogout}
+                  style={{
+                    flex: 1,
+                    padding: "11px 0",
+                    borderRadius: 12,
+                    border: "1px solid rgba(248,81,73,0.4)",
+                    background: "rgba(248,81,73,0.75)",
+                    color: "#fff",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Log Out
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── CANCEL SUBSCRIPTION CONFIRMATION MODAL ── */}
+      <AnimatePresence>
+        {showCancelConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowCancelConfirm(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(5, 8, 14, 0.7)",
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              zIndex: 400,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.93, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.93, y: 12 }}
+              transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                width: "100%",
+                maxWidth: 400,
+                background: "rgba(18, 22, 30, 0.97)",
+                backdropFilter: "blur(32px) saturate(190%)",
+                WebkitBackdropFilter: "blur(32px) saturate(190%)",
+                border: `1px solid rgba(210,130,30,0.25)`,
+                borderRadius: 20,
+                boxShadow: "0 0 60px -10px rgba(210,130,30,0.18), 0 40px 80px -20px rgba(0,0,0,0.9)",
+                padding: "28px 28px 24px",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 36, marginBottom: 14 }}>🚫</div>
+              <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: "'Montserrat', sans-serif" }}>
+                Cancel Subscription?
+              </h3>
+              <p style={{ margin: "0 0 6px", fontSize: 13, color: theme.subtext, lineHeight: 1.55 }}>
+                You'll lose access to all analytics modules and AI features at the end of your current billing period.
+              </p>
+              <p style={{ margin: "0 0 24px", fontSize: 12, color: "#5b6472", lineHeight: 1.5 }}>
+                A confirmation will be sent to <span style={{ color: "#dfe3ea" }}>{userDisplayLabel}</span>.
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <motion.button
+                  whileHover={{ background: "rgba(255,255,255,0.06)" }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setShowCancelConfirm(false)}
+                  style={{
+                    flex: 1,
+                    padding: "11px 0",
+                    borderRadius: 12,
+                    border: `1px solid ${theme.border}`,
+                    background: "rgba(255,255,255,0.03)",
+                    color: "#8b949e",
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Keep Plan
+                </motion.button>
+                <motion.button
+                  whileHover={{ background: "rgba(210,130,30,0.8)" }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleCancelSubscription}
+                  style={{
+                    flex: 1,
+                    padding: "11px 0",
+                    borderRadius: 12,
+                    border: "1px solid rgba(210,130,30,0.4)",
+                    background: "rgba(210,130,30,0.65)",
+                    color: "#fff",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Yes, Cancel
+                </motion.button>
+              </div>
             </motion.div>
           </motion.div>
         )}
