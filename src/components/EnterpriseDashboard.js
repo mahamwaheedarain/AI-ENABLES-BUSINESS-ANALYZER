@@ -6,6 +6,8 @@ import ChatbotPage from "./ChatbotPage";
 import HRDashboard from "./HRDashboard";
 import OperationsDashboard from "./OperationsDashboard";
 import SalesDashboard from "./SalesDashboard";
+import { auth } from "../firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 
 // ============================================================
 // THEME
@@ -38,6 +40,32 @@ const INGEST_STAGES = [
   { key: "index", label: "Indexing signals" },
   { key: "ready", label: "Ready" },
 ];
+
+// ── Storage key helpers ──────────────────────────────────────────────────
+// Same concept as HRDashboard: files are scoped to the *verified Firebase
+// auth uid*, with a guest fallback bucket, instead of being keyed off
+// whatever the `user` prop happened to be passed down with.
+const guestKey = "insightiq_enterprise_files_guest";
+const userKey = (uid) => `insightiq_enterprise_files_user_${uid}`;
+
+function loadFilesFromStorage(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch (e) {
+    console.error("Failed to parse stored files", e);
+    return [];
+  }
+}
+
+function saveFilesToStorage(key, files) {
+  try {
+    localStorage.setItem(key, JSON.stringify(files));
+  } catch (e) {
+    console.warn("localStorage write failed:", e);
+  }
+}
 
 // ============================================================
 // UTILITIES
@@ -162,8 +190,19 @@ function EnterpriseDashboard({ user, onHome }) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const userMenuRef = useRef(null);
 
-  // Derive display label: prefer email, fallback to id, fallback to name
-  const userDisplayLabel = user?.email || user?.id || user?.name || "Enterprise User";
+  // ── Auth state — sourced from Firebase's auth gateway (onAuthStateChanged),
+  // the same pattern HRDashboard uses, instead of trusting only the `user`
+  // prop passed down from App.js. This is the single source of truth for
+  // "who is logged in" and for which file bucket belongs to them.
+  const [isAuthResolving, setIsAuthResolving] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [storageKey, setStorageKey] = useState(guestKey);
+  const [files, setFiles] = useState([]);
+
+  // Derive display label: prefer the verified Firebase auth email, then
+  // fall back to whatever the parent passed in while the handshake resolves.
+  const userDisplayLabel =
+    currentUser?.email || user?.email || user?.id || user?.name || "Enterprise User";
 
   // Truncate long emails/IDs for display
   const userDisplayShort =
@@ -180,26 +219,27 @@ function EnterpriseDashboard({ user, onHome }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Isolated localStorage key per specific user email
-  const userFileKey = useMemo(() => {
-    const identifier = user?.email || user?.id || "anonymous";
-    return `insightiq_enterprise_files_${identifier}`;
-  }, [user]);
+  // 1. Auth lifecycle — resolves the Firebase user, picks the matching
+  //    per-uid storage bucket, and hydrates files from it.
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const key = userKey(firebaseUser.uid);
+        setCurrentUser(firebaseUser);
+        setStorageKey(key);
+        setFiles(loadFilesFromStorage(key));
+      } else {
+        setCurrentUser(null);
+        setStorageKey(guestKey);
+        setFiles(loadFilesFromStorage(guestKey));
+      }
+      setIsAuthResolving(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // step: "upload" → "dashboard"
   const [step, setStep] = useState("upload");
-
-  // Load files using the dynamic email-specific identifier
-  const [files, setFiles] = useState(() => {
-    try {
-      const identifier = user?.email || user?.id || "anonymous";
-      const persisted = localStorage.getItem(`insightiq_enterprise_files_${identifier}`);
-      return persisted ? JSON.parse(persisted) : [];
-    } catch (e) {
-      console.error("Failed to parse stored files", e);
-      return [];
-    }
-  });
 
   const [loading, setLoading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -214,17 +254,20 @@ function EnterpriseDashboard({ user, onHome }) {
 
   const totalBytes = useMemo(() => files.reduce((s, f) => s + (f.size || 0), 0), [files]);
 
-  // Persist files to user-specific localStorage whenever they change
+  // 2. Persist files to the correct per-uid bucket whenever they change.
+  //    Guarded so we never clobber storage mid auth-handshake.
   useEffect(() => {
-    localStorage.setItem(userFileKey, JSON.stringify(files));
-  }, [files, userFileKey]);
+    if (isAuthResolving) return;
+    saveFilesToStorage(storageKey, files);
+  }, [files, storageKey, isAuthResolving]);
 
-  // On mount: if user-specific records exist, bypass upload phase
+  // On mount / whenever files resolve: if records exist, bypass upload phase
   useEffect(() => {
+    if (isAuthResolving) return;
     if (files && files.length > 0) {
       setStep("dashboard");
     }
-  }, [files]);
+  }, [files, isAuthResolving]);
 
   // -------- toast helper --------
   const pushToast = (message, tone = "info") => {
@@ -345,7 +388,7 @@ function EnterpriseDashboard({ user, onHome }) {
       const response = await fetch("http://localhost:5000/api/upload/upload-multiple", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: fileData, userEmail: user?.email || "anonymous" }),
+        body: JSON.stringify({ files: fileData, userEmail: currentUser?.email || user?.email || "anonymous" }),
       });
       if (response.ok) {
         clearInterval(ingestTimerRef.current);
@@ -366,9 +409,16 @@ function EnterpriseDashboard({ user, onHome }) {
   useEffect(() => () => clearInterval(ingestTimerRef.current), []);
 
   // -------- logout handler --------
-  const handleLogout = () => {
+  // Fully signs out of the Firebase auth gateway (not just navigating away),
+  // so the email shown elsewhere in the app clears correctly too.
+  const handleLogout = async () => {
     setShowLogoutConfirm(false);
     setUserMenuOpen(false);
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Sign out error:", err);
+    }
     if (typeof onHome === "function") onHome();
   };
 
@@ -456,6 +506,40 @@ function EnterpriseDashboard({ user, onHome }) {
     transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
     width: "100%",
   };
+
+  // ─── Auth resolving gate — shown while the Firebase handshake completes ──
+  if (isAuthResolving) {
+    return (
+      <div
+        style={{
+          background: theme.bg,
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          color: theme.text,
+          fontFamily: "'Inter', sans-serif",
+        }}
+      >
+        <style>{`@keyframes ent-spin { to { transform: rotate(360deg); } }`}</style>
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            border: `3px solid ${theme.primary}`,
+            borderTopColor: "transparent",
+            borderRadius: "50%",
+            animation: "ent-spin 0.8s linear infinite",
+          }}
+        />
+        <p style={{ color: theme.subtext, fontSize: 14, fontWeight: 500, letterSpacing: 0.3, margin: 0 }}>
+          Authenticating secure enterprise session...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -721,7 +805,7 @@ function EnterpriseDashboard({ user, onHome }) {
               />
             </motion.div>
 
-            {/* ── USER MENU ── */}
+            {/* ── USER MENU — email sourced from Firebase auth gateway ── */}
             <div ref={userMenuRef} style={{ position: "relative" }}>
               <motion.div
                 whileHover={{ borderColor: "rgba(88,166,255,0.4)" }}
@@ -1156,7 +1240,7 @@ function EnterpriseDashboard({ user, onHome }) {
                       marginBottom: "8px",
                     }}
                   >
-                    System Ready, {user?.name?.split(" ")[0]}
+                    System Ready, {(currentUser?.displayName || user?.name || currentUser?.email || "")?.split(" ")[0]}
                   </h2>
                   <p style={{ color: theme.subtext, fontSize: "14.5px" }}>
                     Select a specialized module below to view real-time insights.

@@ -563,12 +563,51 @@ const DynamicLogo = () => (
 const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
   <div style={{ ...styles.pageWrapper, justifyContent: "center", alignItems: "center", padding: "24px" }}>
     <div style={{ ...styles.blob, top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "600px", height: "600px", background: "radial-gradient(circle, rgba(58, 162, 230, 0.22) 0%, transparent 65%)" }} />
-    
+
+    {/* Giant faint watermark word behind the gateway card */}
+    <div
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -54%)",
+        fontFamily: "'Montserrat', sans-serif",
+        fontWeight: 900,
+        fontSize: "clamp(80px, 16vw, 220px)",
+        letterSpacing: "-6px",
+        color: "transparent",
+        WebkitTextStroke: "1px rgba(255,255,255,0.08)",
+        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0))",
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        whiteSpace: "nowrap",
+        pointerEvents: "none",
+        userSelect: "none",
+        zIndex: 0,
+      }}
+    >
+      InsightIQ
+    </div>
+
     <motion.div 
       initial={{ opacity: 0, scale: 0.96, y: 15 }} 
       animate={{ opacity: 1, scale: 1, y: 0 }} 
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      style={styles.saasLoginCard}
+      style={{
+        background: "rgba(18, 22, 30, 0.35)",
+        borderRadius: "24px",
+        backdropFilter: "blur(40px) saturate(220%)",
+        WebkitBackdropFilter: "blur(40px) saturate(220%)",
+        border: "1px solid rgba(255, 255, 255, 0.1)",
+        boxShadow: "0 0 60px -10px rgba(58, 162, 230, 0.35), 0 30px 60px -15px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255,255,255,0.12)",
+        padding: "48px 40px",
+        width: "100%",
+        maxWidth: "420px",
+        zIndex: 10,
+        fontFamily: "Arial, sans-serif",
+        position: "relative",
+      }}
     >
       <div style={{ textAlign: "center", marginBottom: "36px" }}>
         <h2 style={{ fontSize: "26px", fontWeight: "700", color: "#fff", margin: "0 0 10px 0", letterSpacing: "-0.5px", fontFamily: "Arial, sans-serif" }}>
@@ -1405,141 +1444,184 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           </button>
         </div>
 
-        {/* Pricing Cards */}
-        <div style={{ display: "flex", gap: "32px", flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: "1100px", position: "relative", zIndex: 2 }}>
-          {plans.map((plan, index) => {
-            const isEnterprise = plan.name === "Enterprise";
-            const baseData = getCurrencySymbolAndPrice(plan.price);
-            let rawNumericPrice = baseData.price;
-            
-            if (billingCycle === "annual") {
-              rawNumericPrice = Math.floor(rawNumericPrice * 12 * 0.8);
-            }
+        {/* ── PRICING SECTION WRAPPER (watermark lives here) ────────────────── */}
+        <div
+          style={{
+            position: "relative",
+            width: "100%",
+            maxWidth: "1100px",
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          {/* Giant faint watermark word behind the pricing cards */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              fontFamily: "'Montserrat', sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(70px, 13vw, 200px)",
+              letterSpacing: "-6px",
+              color: "transparent",
+              WebkitTextStroke: "1px rgba(255,255,255,0.06)",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0))",
+              WebkitBackgroundClip: "text",
+              backgroundClip: "text",
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+              userSelect: "none",
+              zIndex: 0,
+            }}
+          >
+            InsightIQ
+          </div>
 
-            const calculatedPrice = baseData.symbol + rawNumericPrice;
-            const calculatedPeriod = billingCycle === "annual" ? "/year" : "/month";
-            const annualSavings = billingCycle === "annual"
-              ? baseData.symbol + Math.floor(baseData.price * 12 * 0.2)
-              : null;
+          {/* Pricing Cards */}
+          <div style={{ display: "flex", gap: "32px", flexWrap: "wrap", justifyContent: "center", width: "100%", position: "relative", zIndex: 2 }}>
+            {plans.map((plan, index) => {
+              const isEnterprise = plan.name === "Enterprise";
+              const baseData = getCurrencySymbolAndPrice(plan.price);
+              let rawNumericPrice = baseData.price;
+              
+              if (billingCycle === "annual") {
+                rawNumericPrice = Math.floor(rawNumericPrice * 12 * 0.8);
+              }
 
-            return (
-              <div
-                key={plan.name}
-                className={`iiq-float-card-${index}`}
-                style={{ width: "100%", maxWidth: "420px", paddingTop: isEnterprise ? "14px" : "0" }}
-              >
-                <MagneticCard
-                  initial={{ opacity: 0, y: 40 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1, type: "spring", stiffness: 90, damping: 20 }}
-                  whileHover={{ 
-                    boxShadow: isEnterprise
-                      ? "0 0 60px -5px rgba(88,166,255,0.5), 0 30px 60px -10px rgba(0,0,0,0.9)"
-                      : "0 0 50px -5px rgba(58, 162, 230, 0.45), 0 30px 60px -10px rgba(0, 0, 0, 0.85)",
-                    borderColor: "rgba(88, 166, 255, 0.4)"
-                  }}
-                  style={{ 
-                    ...styles.card,
-                    ...(isEnterprise ? {
-                      borderColor: "rgba(58, 162, 230, 0.32)",
-                      boxShadow: "0 0 0 1px rgba(58,162,230,0.18), 0 0 40px -10px rgba(58,162,230,0.35), 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.15)"
-                    } : {}),
-                    width: "100%", 
-                    padding: "54px 40px", 
-                    boxSizing: "border-box", 
-                    display: "flex", 
-                    flexDirection: "column", 
-                    alignItems: "center",
-                    justifyContent: "space-between", 
-                    position: "relative",
-                    overflow: "hidden"
-                  }}
+              const calculatedPrice = baseData.symbol + rawNumericPrice;
+              const calculatedPeriod = billingCycle === "annual" ? "/year" : "/month";
+              const annualSavings = billingCycle === "annual"
+                ? baseData.symbol + Math.floor(baseData.price * 12 * 0.2)
+                : null;
+
+              return (
+                <div
+                  key={plan.name}
+                  className={`iiq-float-card-${index}`}
+                  style={{ width: "100%", maxWidth: "420px", paddingTop: isEnterprise ? "14px" : "0" }}
                 >
-                  <div className="iiq-beam-wrap"><div className="iiq-beam" /></div>
-                  <div className="iiq-top-line" />
-                  {isEnterprise && <div className="iiq-ring-border" />}
+                  <MagneticCard
+                    initial={{ opacity: 0, y: 40 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1, type: "spring", stiffness: 90, damping: 20 }}
+                    whileHover={{ 
+                      boxShadow: isEnterprise
+                        ? "0 0 60px -5px rgba(88,166,255,0.5), 0 30px 60px -10px rgba(0,0,0,0.9)"
+                        : "0 0 50px -5px rgba(58, 162, 230, 0.45), 0 30px 60px -10px rgba(0, 0, 0, 0.85)",
+                      borderColor: "rgba(88, 166, 255, 0.4)"
+                    }}
+                    style={{ 
+                      background: "rgba(18, 22, 30, 0.32)",
+                      borderRadius: "32px",
+                      backdropFilter: "blur(36px) saturate(200%)",
+                      WebkitBackdropFilter: "blur(36px) saturate(200%)",
+                      border: `1px solid ${theme.border}`,
+                      boxShadow: "0 0 40px -10px rgba(58, 162, 230, 0.22), 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255,255,255,0.12)",
+                      transition: "box-shadow 0.3s ease, border-color 0.3s ease",
+                      ...(isEnterprise ? {
+                        borderColor: "rgba(58, 162, 230, 0.32)",
+                        boxShadow: "0 0 0 1px rgba(58,162,230,0.16), 0 0 40px -10px rgba(58,162,230,0.3), 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.12)"
+                      } : {}),
+                      width: "100%", 
+                      padding: "54px 40px", 
+                      boxSizing: "border-box", 
+                      display: "flex", 
+                      flexDirection: "column", 
+                      alignItems: "center",
+                      justifyContent: "space-between", 
+                      position: "relative",
+                      overflow: "hidden"
+                    }}
+                  >
+                    <div className="iiq-beam-wrap"><div className="iiq-beam" /></div>
+                    <div className="iiq-top-line" />
+                    {isEnterprise && <div className="iiq-ring-border" />}
 
-                  <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                    <h3 style={{ fontSize: "32px", fontWeight: "700", color: isEnterprise ? "#7aa2d4" : "#798cb3", margin: "0 0 14px 0", letterSpacing: "-0.5px", fontFamily: "'Inter', sans-serif" }}>
-                      {plan.name}
-                    </h3>
-                    <p style={{ color: theme.subtext, fontSize: "13px", textAlign: "center", margin: "0 0 24px 0", padding: "0 14px", lineHeight: "1.4" }}>
-                      {plan.tagline}
-                    </p>
+                    <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                      <h3 style={{ fontSize: "32px", fontWeight: "700", color: isEnterprise ? "#7aa2d4" : "#798cb3", margin: "0 0 14px 0", letterSpacing: "-0.5px", fontFamily: "'Inter', sans-serif" }}>
+                        {plan.name}
+                      </h3>
+                      <p style={{ color: theme.subtext, fontSize: "13px", textAlign: "center", margin: "0 0 24px 0", padding: "0 14px", lineHeight: "1.4" }}>
+                        {plan.tagline}
+                      </p>
 
-                    <div style={{ display: "flex", alignItems: "baseline", marginBottom: "10px" }}>
-                      <span style={{ fontSize: "28px", fontWeight: "800", color: isEnterprise ? "#58a6ff" : "#3aa2e6", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-1px" }}>
-                        {calculatedPrice}
+                      <div style={{ display: "flex", alignItems: "baseline", marginBottom: "10px" }}>
+                        <span style={{ fontSize: "28px", fontWeight: "800", color: isEnterprise ? "#58a6ff" : "#3aa2e6", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-1px" }}>
+                          {calculatedPrice}
+                        </span>
+                        <span style={{ fontSize: "14px", color: theme.subtext, marginLeft: "4px" }}>
+                          {calculatedPeriod}
+                        </span>
+                      </div>
+
+                      {annualSavings ? (
+                        <div className="iiq-savings-chip">✦ You save {annualSavings} per year</div>
+                      ) : (
+                        <div style={{ marginBottom: "20px" }} />
+                      )}
+
+                      <span 
+                        onClick={() => handleSharePlan(plan.name)}
+                        style={{ fontSize: "11px", color: theme.primary, cursor: "pointer", textDecoration: "underline", marginBottom: "28px", opacity: 0.7 }}
+                      >
+                        🔗 Share tier route
                       </span>
-                      <span style={{ fontSize: "14px", color: theme.subtext, marginLeft: "4px" }}>
-                        {calculatedPeriod}
-                      </span>
+                      
+                      <ul style={{ listStyle: "none", padding: 0, margin: "0 0 40px 0", display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start", width: "100%" }}>
+                        {plan.features.map((feature, i) => (
+                          <li key={i} style={{ fontSize: "14px", color: "rgba(255,255,255,0.65)", display: "flex", alignItems: "center", gap: "10px" }}>
+                            <span className="iiq-feature-check">✓</span>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
 
-                    {annualSavings ? (
-                      <div className="iiq-savings-chip">✦ You save {annualSavings} per year</div>
-                    ) : (
-                      <div style={{ marginBottom: "20px" }} />
-                    )}
-
-                    <span 
-                      onClick={() => handleSharePlan(plan.name)}
-                      style={{ fontSize: "11px", color: theme.primary, cursor: "pointer", textDecoration: "underline", marginBottom: "28px", opacity: 0.7 }}
-                    >
-                      🔗 Share tier route
-                    </span>
-                    
-                    <ul style={{ listStyle: "none", padding: 0, margin: "0 0 40px 0", display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start", width: "100%" }}>
-                      {plan.features.map((feature, i) => (
-                        <li key={i} style={{ fontSize: "14px", color: "rgba(255,255,255,0.65)", display: "flex", alignItems: "center", gap: "10px" }}>
-                          <span className="iiq-feature-check">✓</span>
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="iiq-btn-wrap" style={{ position: "relative" }}>
-                    <motion.button 
-                      whileHover={{ 
-                        scale: 1.04,
-                        boxShadow: isEnterprise
-                          ? "0 0 30px rgba(88,166,255,0.65), 0 0 60px rgba(88,166,255,0.3)"
-                          : "0 0 25px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)",
-                      }}
-                      whileTap={{ scale: 0.96 }}
-                      onClick={() => {
-                        handleTrackAnalyticsClick("Checkout Initiated: " + plan.name);
-                        setSelectedPlan({ ...plan, price: calculatedPrice, period: calculatedPeriod });
-                        setGoToPayment(true);
-                      }}
-                      style={{ 
-                        position: "relative",
-                        zIndex: 1,
-                        width: "160px", 
-                        padding: "12px 0", 
-                        borderRadius: "24px", 
-                        fontSize: "14px", 
-                        fontWeight: "700", 
-                        cursor: "pointer", 
-                        border: "1px solid rgba(255, 255, 255, 0.15)",
-                        background: isEnterprise
-                          ? "linear-gradient(135deg, #58a6ff 0%, #1d528f 100%)"
-                          : "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-                        color: "#fff",
-                        boxShadow: isEnterprise
-                          ? "0 0 20px rgba(88,166,255,0.45)"
-                          : "0 0 15px rgba(58, 162, 230, 0.3)",
-                        textAlign: "center",
-                      }}
-                    >
-                      {isEnterprise ? "Get Started" : "Subscribe"}
-                    </motion.button>
-                  </div>
-                </MagneticCard>
-              </div>
-            );
-          })}
+                    <div className="iiq-btn-wrap" style={{ position: "relative" }}>
+                      <motion.button 
+                        whileHover={{ 
+                          scale: 1.04,
+                          boxShadow: isEnterprise
+                            ? "0 0 30px rgba(88,166,255,0.65), 0 0 60px rgba(88,166,255,0.3)"
+                            : "0 0 25px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)",
+                        }}
+                        whileTap={{ scale: 0.96 }}
+                        onClick={() => {
+                          handleTrackAnalyticsClick("Checkout Initiated: " + plan.name);
+                          setSelectedPlan({ ...plan, price: calculatedPrice, period: calculatedPeriod });
+                          setGoToPayment(true);
+                        }}
+                        style={{ 
+                          position: "relative",
+                          zIndex: 1,
+                          width: "160px", 
+                          padding: "12px 0", 
+                          borderRadius: "24px", 
+                          fontSize: "14px", 
+                          fontWeight: "700", 
+                          cursor: "pointer", 
+                          border: "1px solid rgba(255, 255, 255, 0.15)",
+                          background: isEnterprise
+                            ? "linear-gradient(135deg, #58a6ff 0%, #1d528f 100%)"
+                            : "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
+                          color: "#fff",
+                          boxShadow: isEnterprise
+                            ? "0 0 20px rgba(88,166,255,0.45)"
+                            : "0 0 15px rgba(58, 162, 230, 0.3)",
+                          textAlign: "center",
+                        }}
+                      >
+                        {isEnterprise ? "Get Started" : "Subscribe"}
+                      </motion.button>
+                    </div>
+                  </MagneticCard>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Matrix Toggle + Export */}

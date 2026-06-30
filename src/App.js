@@ -10,7 +10,12 @@ import Subscription from "./SubscriptionPlans";
 import ChatbotPage from "./components/ChatbotPage";
 import { Login, Signup } from "./components/Auth";
 import { auth, db } from "./firebase";
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+  signOut,
+} from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 
 // ----------------- YOUR ORIGINAL STYLES (UNTOUCHED) -----------------
@@ -58,6 +63,31 @@ const INGEST_STAGES = [
   { key: "index", label: "Indexing signals" },
   { key: "ready", label: "Ready" },
 ];
+
+// ── Storage key helpers ──────────────────────────────────────────────────
+// Same concept as HRDashboard: files are scoped to the *verified Firebase
+// auth uid*, with a guest fallback bucket, instead of being keyed off
+// whatever the login page happened to set in local state.
+const guestKey = "InsightIQ_Pro_Files_Guest";
+const userKey = (uid) => `InsightIQ_Pro_Files_User_${uid}`;
+
+function loadFilesFromStorage(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+function saveFilesToStorage(key, files) {
+  try {
+    localStorage.setItem(key, JSON.stringify(files));
+  } catch (e) {
+    console.warn("localStorage write failed:", e);
+  }
+}
 
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "";
@@ -172,7 +202,14 @@ function App() {
   const [page, setPage] = useState("login");
   const [module, setModule] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // ── Auth state — now sourced from Firebase's auth gateway (onAuthStateChanged),
+  // not from whatever the Login/Signup form happened to pass up. This is the
+  // same pattern HRDashboard uses, so the email shown anywhere in the Pro
+  // dashboard always reflects the real authenticated session.
   const [user, setUser] = useState(null);
+  const [isAuthResolving, setIsAuthResolving] = useState(true);
+  const [storageKey, setStorageKey] = useState(guestKey);
 
   const [step, setStep] = useState("upload");
   const [loading, setLoading] = useState(false);
@@ -185,16 +222,46 @@ function App() {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const userMenuRef = useRef(null);
 
+  // 1. Auth lifecycle — single source of truth for "who is logged in".
+  //    Mirrors HRDashboard: resolves the Firebase user, picks the matching
+  //    per-uid storage bucket, and hydrates files from it.
   useEffect(() => {
-    if (page !== "proDashboard" || !user?.email) return;
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const resolvedUser = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Pro User",
+        };
+        const key = userKey(firebaseUser.uid);
+        setUser(resolvedUser);
+        setStorageKey(key);
+        setFiles(loadFilesFromStorage(key));
+      } else {
+        setUser(null);
+        setStorageKey(guestKey);
+        setFiles(loadFilesFromStorage(guestKey));
+      }
+      setIsAuthResolving(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
-    // Check LocalStorage first for speed/offline capability using the email scope
-    const localData = localStorage.getItem(`pro_files_${user.email}`);
-    if (localData) {
-      setFiles(JSON.parse(localData));
+  // 2. Persist files to the correct per-uid bucket whenever they change.
+  //    Guarded so we never clobber storage mid auth-handshake.
+  useEffect(() => {
+    if (isAuthResolving) return;
+    saveFilesToStorage(storageKey, files);
+  }, [files, storageKey, isAuthResolving]);
+
+  // 3. Fall back to PostgreSQL if this user's local bucket is empty.
+  useEffect(() => {
+    if (page !== "proDashboard" || isAuthResolving) return;
+    if (files.length > 0) {
       setStep("dashboard");
       return;
     }
+    if (!user?.email) return;
 
     const fetchFilesFromDB = async () => {
       try {
@@ -205,7 +272,6 @@ function App() {
           const data = await response.json();
           if (data.files && data.files.length > 0) {
             setFiles(data.files);
-            localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(data.files));
             setStep("dashboard");
           }
         }
@@ -215,7 +281,7 @@ function App() {
     };
 
     fetchFilesFromDB();
-  }, [page, user]);
+  }, [page, user, isAuthResolving, files.length]);
 
   const [isDragOver, setIsDragOver] = useState(false);
   const [ingestStage, setIngestStage] = useState(0);
@@ -305,20 +371,14 @@ function App() {
         setFiles((prev) => {
           const existingNames = new Set(prev.map((f) => f.name));
           const filteredNew = processedFiles.filter((f) => !existingNames.has(f.name));
-          const updated = [...prev, ...filteredNew];
-          if (user?.email) localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(updated));
-          return updated;
+          return [...prev, ...filteredNew];
         });
       });
     }
   };
 
   const removeFile = (name) => {
-    setFiles((prev) => {
-      const updated = prev.filter((f) => f.name !== name);
-      if (user?.email) localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(updated));
-      return updated;
-    });
+    setFiles((prev) => prev.filter((f) => f.name !== name));
   };
 
   const handleDrop = (e) => {
@@ -340,9 +400,7 @@ function App() {
         setFiles((prev) => {
           const existingNames = new Set(prev.map((f) => f.name));
           const filteredNew = processedFiles.filter((f) => !existingNames.has(f.name));
-          const updated = [...prev, ...filteredNew];
-          if (user?.email) localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(updated));
-          return updated;
+          return [...prev, ...filteredNew];
         });
       });
     }
@@ -370,7 +428,6 @@ function App() {
       if (response.ok) {
         clearInterval(ingestTimerRef.current);
         setIngestStage(INGEST_STAGES.length - 1);
-        localStorage.setItem(`pro_files_${user.email}`, JSON.stringify(files));
         setStep("dashboard");
       } else {
         alert("Failed to save files to the database.");
@@ -388,10 +445,13 @@ function App() {
     return () => clearInterval(ingestTimerRef.current);
   }, []);
 
+  // Login/Signup just authenticate with Firebase and navigate forward.
+  // The onAuthStateChanged listener above is what actually populates
+  // `user` (and therefore every email shown in the UI) — it's the
+  // single "gateway" rather than the login form setting it directly.
   const handleLogin = async (email, password) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      setUser({ email: userCredential.user.email, uid: userCredential.user.uid });
+      await signInWithEmailAndPassword(auth, email, password);
       setPage("subscription");
     } catch (error) { alert(error.message); }
   };
@@ -399,7 +459,6 @@ function App() {
   const handleSignup = async (name, email, password) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      setUser({ name, email: userCredential.user.email, uid: userCredential.user.uid });
       await setDoc(doc(db, "users", userCredential.user.uid), { name, email, uid: userCredential.user.uid });
       setPage("subscription");
     } catch (error) { alert(error.message); }
@@ -415,10 +474,15 @@ function App() {
   };
 
   // User Actions definitions
-  const handleLogoutAction = () => {
+  const handleLogoutAction = async () => {
     setShowLogoutConfirm(false);
     setUserMenuOpen(false);
-    setUser(null);
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Sign out error:", err);
+    }
+    // onAuthStateChanged will clear `user`/storageKey/files automatically.
     setPage("login");
   };
 
@@ -429,6 +493,41 @@ function App() {
   };
 
   if (page === "proDashboard") {
+    // Wait for the Firebase auth handshake to resolve before rendering,
+    // same guard HRDashboard uses, so we never flash a stale/empty email.
+    if (isAuthResolving) {
+      return (
+        <div
+          style={{
+            background: theme.bg,
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 16,
+            color: theme.text,
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          <style>{`@keyframes app-spin { to { transform: rotate(360deg); } }`}</style>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              border: `3px solid ${theme.primary}`,
+              borderTopColor: "transparent",
+              borderRadius: "50%",
+              animation: "app-spin 0.8s linear infinite",
+            }}
+          />
+          <p style={{ color: theme.subtext, fontSize: 14, fontWeight: 500, letterSpacing: 0.3, margin: 0 }}>
+            Authenticating secure session...
+          </p>
+        </div>
+      );
+    }
+
     const sidebarStyle = {
       width: 288,
       background: "rgba(22, 27, 34, 0.55)",
@@ -504,7 +603,9 @@ function App() {
       width: "100%",
     };
 
-    const userDisplayLabel = user?.email || user?.uid || user?.name || "Pro User";
+    // Email now comes straight from the Firebase auth gateway (`user.email`,
+    // set only by onAuthStateChanged) rather than anything the login page set.
+    const userDisplayLabel = user?.email || "Guest User";
     const userDisplayShort = userDisplayLabel.length > 28 ? userDisplayLabel.slice(0, 26) + "…" : userDisplayLabel;
 
     return (
@@ -743,7 +844,7 @@ function App() {
                 />
               </motion.div>
 
-              {/* ── UPDATED USER MENU INTERACTION DROPDOWN MATCHING ENTERPRISE ── */}
+              {/* ── USER MENU — email sourced from Firebase auth gateway (`user.email`) ── */}
               <div ref={userMenuRef} style={{ position: "relative" }}>
                 <motion.div
                   whileHover={{ borderColor: "rgba(88,166,255,0.4)" }}
@@ -1193,7 +1294,7 @@ function App() {
                         marginBottom: "8px",
                       }}
                     >
-                      System Ready, {user?.name?.split(" ")[0]}
+                      System Ready, {user?.name?.split(" ")[0] || "there"}
                     </h2>
                     <p style={{ color: theme.subtext, fontSize: "14.5px" }}>
                       Select a specialized module below to view real-time insights.
