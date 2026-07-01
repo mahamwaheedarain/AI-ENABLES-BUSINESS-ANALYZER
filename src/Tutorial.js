@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
+import SideRays from './components/SideRays';
 const theme = {
   primary: "#58a6ff",
   bg: "#0d1117",
@@ -11,12 +11,14 @@ const theme = {
   accentGlow: "rgba(58, 162, 230, 0.35)"
 };
 
+const FONT_STACK = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
 const styles = {
   pageWrapper: {
     display: "flex",
     minHeight: "100vh",
     background: theme.bg,
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: FONT_STACK,
     overflowX: "hidden",
     position: "relative",
     color: theme.text,
@@ -43,8 +45,26 @@ const styles = {
 };
 
 const DynamicLogo = () => (
-  <motion.div style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: "32px", letterSpacing: "-2px", color: "#fff", display: "flex", alignItems: "center", gap: "6px" }}>
-    <span>Insight</span><span style={{ color: theme.primary, fontStyle: "italic", fontWeight: "700" }}>IQ</span>
+  <motion.div
+    style={{ 
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', 
+      fontWeight: 700, // High-quality bold weight for system fonts
+      fontSize: "32px", 
+      letterSpacing: "-1.5px", // Slightly tuned spacing for the logo text
+      color: "#fff", 
+      display: "flex", 
+      alignItems: "center", 
+      gap: "4px" 
+    }}
+  >
+    <span>Insight</span>
+    <span style={{ 
+      color: theme.primary, 
+      fontStyle: "italic", 
+      fontWeight: "800" // Slightly heavier weight so the italics stay perfectly legible
+    }}>
+      IQ
+    </span>
   </motion.div>
 );
 
@@ -211,7 +231,7 @@ export default function Tutorial({ onBack }) {
       <style>{`
         @keyframes tut-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
         @keyframes tut-pulse { 0%,100%{opacity:1} 50%{opacity:0} }
-        .tut-step-num { font-family:'Montserrat',sans-serif; font-size:48px; font-weight:900; line-height:1; letter-spacing:-3px; }
+        .tut-step-num { font-family:${FONT_STACK}; font-size:48px; font-weight:900; line-height:1; letter-spacing:-3px; }
         .tut-col-row:hover { background: rgba(255,255,255,0.03) !important; }
         .tut-tab:hover { border-color: rgba(255,255,255,0.2) !important; color: #fff !important; }
         .tut-copy-btn:hover { background: rgba(88,166,255,0.2) !important; border-color: rgba(88,166,255,0.5) !important; }
@@ -219,20 +239,58 @@ export default function Tutorial({ onBack }) {
         .tut-nav-link:hover { color: #fff !important; }
       `}</style>
 
+      {/* SideRays now spans the entire page as a fixed background layer,
+          sitting behind every other element (blobs, header, content, footer). */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          zIndex: 0,
+          pointerEvents: "none",
+        }}
+      >
+        <SideRays
+          speed={2.5}
+          rayColor1="#3670d0"
+          rayColor2="#6998cc"
+          intensity={2}
+          spread={2}
+          origin="top-right"
+          tilt={0}
+          saturation={1.5}
+          blend={0.75}
+          falloff={1.6}
+          opacity={1}
+        />
+      </div>
+
       {/* Background blobs */}
-      <div style={{ ...styles.blob, top: "-10%", right: "-5%", animation: "tut-float 20s ease-in-out infinite" }} />
-      <div style={{ ...styles.blob, bottom: "-15%", left: "-8%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 65%)", filter: "blur(120px)" }} />
+      <div style={{ ...styles.blob, top: "-10%", right: "-5%", animation: "tut-float 20s ease-in-out infinite", zIndex: 1 }} />
+      <div style={{ ...styles.blob, bottom: "-15%", left: "-8%", background: "radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 65%)", filter: "blur(120px)", zIndex: 1 }} />
 
       {/* Header */}
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "32px 64px", zIndex: 10, width: "100%", boxSizing: "border-box" }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "32px 64px", zIndex: 10, width: "100%", boxSizing: "border-box", position: "relative" }}>
         <DynamicLogo />
         <button
-          className="tut-back"
-          onClick={onBack}
-          style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${theme.border}`, padding: "10px 20px", borderRadius: "12px", color: theme.subtext, fontSize: "14px", fontWeight: "600", cursor: "pointer", transition: "color 0.2s ease" }}
-        >
-          ← Back to Plans
-        </button>
+  className="tut-back"
+  onClick={onBack}
+  style={{ 
+    background: "rgba(255,255,255,0.02)", 
+    border: `1px solid ${theme.border}`, 
+    padding: "10px 20px", 
+    borderRadius: "12px", 
+    color: "white", 
+    fontSize: "14px", 
+    fontWeight: "600", 
+    cursor: "pointer", 
+    transition: "color 0.2s ease" 
+  }}
+>
+ Back to Plans
+</button>
       </header>
 
       <main style={{ flex: 1, maxWidth: "1100px", width: "100%", margin: "0 auto", padding: "40px 24px 100px", boxSizing: "border-box", position: "relative", zIndex: 2 }}>
@@ -240,11 +298,11 @@ export default function Tutorial({ onBack }) {
         {/* Hero */}
         <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} style={{ textAlign: "center", marginBottom: "80px" }}>
          
-          <h1 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "60px", fontWeight: "900", letterSpacing: "-3px", lineHeight: 1.05, margin: "0 auto 20px", maxWidth: "780px" }}>
-            Prepare your data for{" "}
-            <span style={{ color: "transparent", background: `linear-gradient(90deg, ${theme.primary}, #a78bfa)`, WebkitBackgroundClip: "text", backgroundClip: "text" }}>
-              InsightIQ
-            </span>
+          <h1 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', 
+      fontWeight: 700, // High-quality bold weight for system fonts
+      fontSize: "65px", letterSpacing: "-3px", lineHeight: 1.05, margin: "0 auto 20px", maxWidth: "780px" }}>
+            Prepare your data{" "}
+            
           </h1>
           <p style={{ color: theme.subtext, fontSize: "18px", maxWidth: "580px", margin: "0 auto", lineHeight: "1.65", fontWeight: 400 }}>
             Five CSV schemas power every dashboard, forecast, and anomaly alert. Here's exactly what each one needs — and why each column matters.
@@ -253,7 +311,7 @@ export default function Tutorial({ onBack }) {
 
         {/* HOW IT WORKS — 5 steps */}
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.55 }} style={{ marginBottom: "80px" }}>
-          <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "28px", fontWeight: "800", letterSpacing: "-1px", marginBottom: "32px" }}>
+          <h2 style={{ fontFamily: FONT_STACK, fontSize: "28px", fontWeight: "800", letterSpacing: "-1px", marginBottom: "32px" }}>
             How it works
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "20px" }}>
@@ -277,7 +335,9 @@ export default function Tutorial({ onBack }) {
         {/* DATASET SCHEMA EXPLORER */}
         <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.55 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: "28px", flexWrap: "wrap", gap: "12px" }}>
-            <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "28px", fontWeight: "800", letterSpacing: "-1px", margin: 0 }}>
+            <h2 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', 
+      fontWeight: 700, // High-quality bold weight for system fonts
+      fontSize: "32px", letterSpacing: "-1px", margin: 0 }}>
               CSV Schema Reference
             </h2>
             <span style={{ fontSize: "12px", color: theme.subtext }}>Select a dataset type to explore its columns</span>
@@ -325,7 +385,7 @@ export default function Tutorial({ onBack }) {
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
                       <span style={{ fontSize: "28px" }}>{activeDataset.icon}</span>
-                      <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "22px", fontWeight: "800", margin: 0, letterSpacing: "-0.5px" }}>{activeDataset.label}</h3>
+                      <h3 style={{ fontFamily: FONT_STACK, fontSize: "22px", fontWeight: "800", margin: 0, letterSpacing: "-0.5px" }}>{activeDataset.label}</h3>
                     </div>
                     <p style={{ color: theme.subtext, fontSize: "14px", lineHeight: "1.6", margin: "0 0 16px 0", maxWidth: "560px" }}>{activeDataset.description}</p>
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -421,7 +481,7 @@ export default function Tutorial({ onBack }) {
           <div style={{ ...styles.card, padding: "40px 36px", borderColor: "rgba(52,211,153,0.2)", boxShadow: "0 0 40px -10px rgba(52,211,153,0.1)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "28px" }}>
               <span style={{ fontSize: "22px" }}>⚡</span>
-              <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "20px", fontWeight: "800", margin: 0, letterSpacing: "-0.5px" }}>Tips for best results</h3>
+              <h3 style={{ fontFamily: FONT_STACK, fontSize: "20px", fontWeight: "800", margin: 0, letterSpacing: "-0.5px" }}>Tips for best results</h3>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
               {[
@@ -449,7 +509,7 @@ export default function Tutorial({ onBack }) {
       {/* Footer strip */}
       <div style={{ borderTop: `1px solid ${theme.border}`, padding: "28px 64px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", color: "rgba(255,255,255,0.25)", zIndex: 10, position: "relative", boxSizing: "border-box" }}>
         <span>&copy; {new Date().getFullYear()} InsightIQ Inc. All rights reserved.</span>
-        <span>System Status: <span style={{ color: "#34d399" }}>● Operational</span></span>
+        
       </div>
     </div>
   );

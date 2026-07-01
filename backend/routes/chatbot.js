@@ -7,15 +7,19 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 router.post("/chat", async (req, res) => {
-  const { message } = req.body;
+  const { message, email } = req.body;
+  const userEmail = email || "guest";
 
   try {
-    // Pull context so the general chatbot also knows about the company
-    const dbData = await pool.query("SELECT content FROM business_files");
+    // Pull context ONLY for this specific user's uploaded files
+    const dbData = await pool.query(
+      "SELECT content FROM business_files WHERE user_email = $1",
+      [userEmail]
+    );
     const context = dbData.rows.map(row => row.content).join("\n\n");
 
     const prompt = `
-      Analyst Role: Academic Attire Co.
+     
       Business Context: ${context || "No documents uploaded yet."}
       User Question: ${message}
     `;
@@ -23,10 +27,10 @@ router.post("/chat", async (req, res) => {
     const result = await model.generateContent(prompt);
     const aiReply = result.response.text();
 
-    // Save to PostgreSQL chat_history
+    // Save to PostgreSQL chat_history, tagged with the user
     await pool.query(
-      "INSERT INTO chat_history (user_message, ai_response) VALUES ($1, $2)",
-      [message, aiReply]
+      "INSERT INTO chat_history (user_message, ai_response, user_email) VALUES ($1, $2, $3)",
+      [message, aiReply, userEmail]
     );
 
     res.json({ reply: aiReply });

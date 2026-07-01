@@ -4,7 +4,7 @@ import { db } from "../firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion"; // Essential for hardware-accelerated animations
 import "../Subscription.css";
-
+import Aurora from './Aurora';
 // ---------- High-Clarity Unified Elite Theme ----------
 const theme = {
   primary: "#58a6ff",
@@ -89,6 +89,16 @@ export default function ContactUs({ onBack }) {
         overflowX: "hidden"
       }}
     >
+      {/* Aurora background layer — pinned behind all content */}
+      <div style={{ position: "absolute", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
+        <Aurora
+          colorStops={["#6792ff", "#517fcb", "#0f2952"]}
+          blend={0.5}
+          amplitude={1.0}
+          speed={1}
+        />
+      </div>
+
       {/* Decorative Grid Mesh Background */}
       <div style={{ position: "absolute", inset: 0, overflow: "hidden", zIndex: 0, pointerEvents: "none" }}>
         <div style={{
@@ -112,14 +122,21 @@ export default function ContactUs({ onBack }) {
            
           </motion.div>
           <motion.button 
-            variants={itemVariants} 
-            whileHover={{ scale: 1.03, background: "rgba(255, 255, 255, 0.05)", borderColor: "rgba(88, 166, 255, 0.4)" }}
-            whileTap={{ scale: 0.97 }}
-            onClick={onBack} 
-            style={actionButtonStyle}
-          >
-            Return to Dashboard
-          </motion.button>
+  variants={itemVariants} 
+  whileHover={{ 
+    scale: 1.03, 
+    background: "rgba(255, 255, 255, 0.05)", 
+    borderColor: "#fff" 
+  }}
+  whileTap={{ scale: 0.97 }}
+  onClick={onBack} 
+  style={{ 
+    ...actionButtonStyle, 
+    color: "white" 
+  }}
+>
+  Back to Plans
+</motion.button>
         </header>
 
         {/* Main Content Layout */}

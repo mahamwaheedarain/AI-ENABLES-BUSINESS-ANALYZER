@@ -12,6 +12,12 @@ import { onAuthStateChanged, signOut } from "firebase/auth";
 // ============================================================
 // THEME
 // ============================================================
+// Unified Vercel-style type system — this is the single source of truth
+// for fonts across the whole dashboard (sidebar, topbar, headings, modals,
+// toasts, everything). Matches the clean geometric sans used across the
+// Vercel dashboard in the reference screenshot.
+const FONT = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+
 const theme = {
   primary: "#58a6ff",
   primaryDeep: "#1d528f",
@@ -21,15 +27,69 @@ const theme = {
   subtext: "#8b949e",
   border: "rgba(255, 255, 255, 0.08)",
   accentGlow: "rgba(58, 162, 230, 0.35)",
+  font: FONT,
+};
+
+// ============================================================
+// ICONS — thin-stroke monochrome line icons (Vercel-dashboard style):
+// currentColor stroke, ~1.7px weight, rounded caps, 24x24 viewBox.
+// Replaces every emoji in the UI so the whole app reads like one system.
+// ============================================================
+const Icon = ({ children, size = 18, strokeWidth = 1.75, style, ...props }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ display: "block", flexShrink: 0, ...style }}
+    {...props}
+  >
+    {children}
+  </svg>
+);
+
+const Icons = {
+  Home: (p) => <Icon {...p}><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9a1 1 0 0 0 1 1H9.5v-6h5v6h3a1 1 0 0 0 1-1v-9" /></Icon>,
+  Folder: (p) => <Icon {...p}><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z" /></Icon>,
+  Search: (p) => <Icon {...p}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Icon>,
+  Bell: (p) => <Icon {...p}><path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6Z" /><path d="M10 19a2 2 0 0 0 4 0" /></Icon>,
+  User: (p) => <Icon {...p}><circle cx="12" cy="8" r="3.5" /><path d="M4.5 20c1.2-3.8 4-5.5 7.5-5.5s6.3 1.7 7.5 5.5" /></Icon>,
+  Chevron: (p) => <Icon {...p}><path d="m6 9 6 6 6-6" /></Icon>,
+  LogOut: (p) => <Icon {...p}><path d="M9 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h4" /><path d="m16 8 4 4-4 4" /><path d="M20 12H9" /></Icon>,
+  Ban: (p) => <Icon {...p}><circle cx="12" cy="12" r="8" /><path d="m6.5 6.5 11 11" /></Icon>,
+  Menu: (p) => <Icon {...p}><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></Icon>,
+  Zap: (p) => <Icon {...p}><path d="M12 2 4 14h7l-1 8 9-13h-7l1-7Z" /></Icon>,
+  Check: (p) => <Icon {...p}><path d="M5 12.5 10 17l9-10" /></Icon>,
+  Package: (p) => <Icon {...p}><path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5v-9Z" /><path d="M3.5 7.5 12 12l8.5-4.5" /><path d="M12 12v9" /></Icon>,
+  Brain: (p) => <Icon {...p}><path d="M9 4.5a2.5 2.5 0 0 0-2.5 2.5v.3A3 3 0 0 0 5 10v.5A2.5 2.5 0 0 0 5.5 15a3 3 0 0 0 3 3.5H10V4.5H9Z" /><path d="M15 4.5a2.5 2.5 0 0 1 2.5 2.5v.3A3 3 0 0 1 19 10v.5A2.5 2.5 0 0 1 18.5 15a3 3 0 0 1-3 3.5H14V4.5h1Z" /></Icon>,
+  Loader: (p) => <Icon {...p}><path d="M12 3v3" /><path d="m18.4 5.6-2.1 2.1" /><path d="M21 12h-3" /><path d="m18.4 18.4-2.1-2.1" /><path d="M12 18v3" /><path d="m5.6 18.4 2.1-2.1" /><path d="M3 12h3" /><path d="m5.6 5.6 2.1 2.1" /></Icon>,
+  Upload: (p) => <Icon {...p}><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></Icon>,
+  File: (p) => <Icon {...p}><path d="M7 3h7l4 4v14H7Z" /><path d="M14 3v4h4" /></Icon>,
+  X: (p) => <Icon {...p}><path d="m6 6 12 12" /><path d="m18 6-12 12" /></Icon>,
+  BarChart: (p) => <Icon {...p}><path d="M4 20V10" /><path d="M11 20V4" /><path d="M18 20v-7" /></Icon>,
+  Lock: (p) => <Icon {...p}><rect x="5" y="10.5" width="14" height="9" rx="2" /><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5" /></Icon>,
+  InfoCircle: (p) => <Icon {...p}><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5" /><path d="M12 8v.01" /></Icon>,
+  CheckCircle: (p) => <Icon {...p}><circle cx="12" cy="12" r="8.5" /><path d="m8.5 12.5 2.3 2.3 4.7-5.1" /></Icon>,
+  Grid: (p) => <Icon {...p}><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></Icon>,
+  DollarSign: (p) => <Icon {...p}><path d="M12 3v18" /><path d="M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3c0 4 9 2 9 6 0 1.7-2 3-4.5 3s-4.5-1.3-4.5-3" /></Icon>,
+  Users: (p) => <Icon {...p}><circle cx="9" cy="8" r="3" /><path d="M3 19c.8-3.2 3-5 6-5s5.2 1.8 6 5" /><circle cx="17.5" cy="9" r="2.2" /><path d="M15.8 14.2c2.3.3 3.9 1.9 4.5 4.3" /></Icon>,
+  Radio: (p) => <Icon {...p}><circle cx="12" cy="12" r="2.2" /><path d="M8.2 8.2a5.4 5.4 0 0 0 0 7.6" /><path d="M15.8 8.2a5.4 5.4 0 0 1 0 7.6" /><path d="M5.3 5.3a9.8 9.8 0 0 0 0 13.4" /><path d="M18.7 5.3a9.8 9.8 0 0 1 0 13.4" /></Icon>,
+  Settings: (p) => <Icon {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.6 1H20a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z" /></Icon>,
+  Target: (p) => <Icon {...p}><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r="1" /></Icon>,
+  MessageCircle: (p) => <Icon {...p}><path d="M4 12a8 8 0 1 1 3.5 6.6L4 20l1.2-3.6A7.9 7.9 0 0 1 4 12Z" /></Icon>,
 };
 
 const MODULE_META = {
-  finance: { icon: "💠", label: "Finance", blurb: "Revenue, margins & cash flow" },
-  hr: { icon: "🧬", label: "HR", blurb: "Headcount, retention & sentiment" },
-  marketing: { icon: "📡", label: "Marketing", blurb: "Funnel, spend & attribution" },
-  operations: { icon: "⚙️", label: "Operations", blurb: "Throughput & SLA health" },
-  sales: { icon: "🎯", label: "Sales", blurb: "Pipeline & win-rate trends" },
-  chatbot: { icon: "🜂", label: "Chatbot", blurb: "Conversational AI assistant" },
+  finance: { icon: Icons.DollarSign, label: "Finance", blurb: "Revenue, margins & cash flow" },
+  hr: { icon: Icons.Users, label: "HR", blurb: "Headcount, retention & sentiment" },
+  marketing: { icon: Icons.Radio, label: "Marketing", blurb: "Funnel, spend & attribution" },
+  operations: { icon: Icons.Settings, label: "Operations", blurb: "Throughput & SLA health" },
+  sales: { icon: Icons.Target, label: "Sales", blurb: "Pipeline & win-rate trends" },
+  chatbot: { icon: Icons.MessageCircle, label: "Chatbot", blurb: "Conversational AI assistant" },
 };
 
 const MODULES = ["Finance", "HR", "Marketing", "Operations", "Sales", "Chatbot"];
@@ -301,11 +361,11 @@ function EnterpriseDashboard({ user, onHome }) {
   // -------- palette actions --------
   const paletteActions = useMemo(
     () => [
-      { id: "home", label: "Go to Home", action: () => onHome() },
+      { id: "home", label: "Go to Home", icon: Icons.Home, action: () => onHome() },
       {
         id: "manage-files",
         label: "Manage / Upload Files",
-        icon: "📁",
+        icon: Icons.Folder,
         action: () => { setStep("upload"); setModule(null); },
       },
       ...MODULES.map((m) => ({
@@ -318,7 +378,7 @@ function EnterpriseDashboard({ user, onHome }) {
       {
         id: "toggle-sidebar",
         label: sidebarOpen ? "Collapse sidebar" : "Expand sidebar",
-        icon: "▤",
+        icon: Icons.Grid,
         action: () => setSidebarOpen((s) => !s),
       },
     ],
@@ -444,6 +504,7 @@ function EnterpriseDashboard({ user, onHome }) {
     borderRight: `1px solid ${theme.border}`,
     position: "relative",
     zIndex: 5,
+    fontFamily: FONT,
   };
 
   const navItemStyle = (isActive, isDisabled) => ({
@@ -454,7 +515,8 @@ function EnterpriseDashboard({ user, onHome }) {
     background: isActive ? "rgba(88, 166, 255, 0.1)" : "transparent",
     transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
     fontSize: "0.92rem",
-    fontWeight: isActive ? "600" : "400",
+    fontWeight: isActive ? "600" : "500",
+    fontFamily: FONT,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -473,6 +535,7 @@ function EnterpriseDashboard({ user, onHome }) {
     borderBottom: `1px solid ${theme.border}`,
     position: "relative",
     zIndex: 5,
+    fontFamily: FONT,
   };
 
   const uploadCardStyle = {
@@ -502,6 +565,7 @@ function EnterpriseDashboard({ user, onHome }) {
     cursor: loading ? "wait" : "pointer",
     fontWeight: "700",
     fontSize: "14px",
+    fontFamily: FONT,
     boxShadow: loading ? "none" : "0 0 18px rgba(58, 162, 230, 0.35), 0 4px 12px rgba(0,0,0,0.4)",
     transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
     width: "100%",
@@ -520,7 +584,7 @@ function EnterpriseDashboard({ user, onHome }) {
           justifyContent: "center",
           gap: 16,
           color: theme.text,
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: FONT,
         }}
       >
         <style>{`@keyframes ent-spin { to { transform: rotate(360deg); } }`}</style>
@@ -534,7 +598,7 @@ function EnterpriseDashboard({ user, onHome }) {
             animation: "ent-spin 0.8s linear infinite",
           }}
         />
-        <p style={{ color: theme.subtext, fontSize: 14, fontWeight: 500, letterSpacing: 0.3, margin: 0 }}>
+        <p style={{ color: theme.subtext, fontSize: 14, fontWeight: 500, letterSpacing: 0.3, margin: 0, fontFamily: FONT }}>
           Authenticating secure enterprise session...
         </p>
       </div>
@@ -548,7 +612,7 @@ function EnterpriseDashboard({ user, onHome }) {
         height: "100vh",
         background: theme.bg,
         color: "#e0e0e0",
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: FONT,
         position: "relative",
         overflow: "hidden",
       }}
@@ -565,26 +629,27 @@ function EnterpriseDashboard({ user, onHome }) {
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             style={sidebarStyle}
           >
-            {/* Logo */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
-              <h2
-                style={{
-                  color: "#fff",
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: 900,
-                  fontSize: "1.5rem",
-                  letterSpacing: "-1px",
-                  margin: "10px 0 22px",
-                }}
-              >
-                Insight
-                <span style={{ color: theme.primary, fontStyle: "italic", fontWeight: 700 }}>IQ</span>
-              </h2>
-            </div>
+           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+  <h2
+    style={{
+      color: "#fff",
+      fontFamily: FONT,
+      fontWeight: 700, // Tuned to 700 to match the clean Vercel-style aesthetic
+      fontSize: "1.5rem",
+      letterSpacing: "-0.04em", // Relative tight tracking matches the Vercel look perfectly
+      margin: "10px 0 22px",
+    }}
+  >
+    Insight
+    <span style={{ color: theme.primary, fontStyle: "italic", fontWeight: 800 }}>IQ</span>
+  </h2>
+</div>
 
             {/* Home */}
             <motion.div whileHover={{ x: 2 }} style={navItemStyle(false, false)} onClick={onHome}>
-              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>🏠 Home</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Icons.Home size={16} strokeWidth={1.8} /> Home
+              </span>
             </motion.div>
 
             {/* ── MANAGE FILES ── */}
@@ -593,11 +658,14 @@ function EnterpriseDashboard({ user, onHome }) {
               style={navItemStyle(step === "upload", false)}
               onClick={() => { setStep("upload"); setModule(null); }}
             >
-              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>📁 Manage Files</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <Icons.Folder size={16} strokeWidth={1.8} /> Manage Files
+              </span>
               {files.length > 0 && (
                 <span
                   style={{
                     fontSize: "0.65rem",
+                    fontFamily: FONT,
                     background: "rgba(88,166,255,0.15)",
                     border: "1px solid rgba(88,166,255,0.3)",
                     color: theme.primary,
@@ -618,6 +686,7 @@ function EnterpriseDashboard({ user, onHome }) {
               <p
                 style={{
                   fontSize: "0.68rem",
+                  fontFamily: FONT,
                   color: "#5b6472",
                   textTransform: "uppercase",
                   letterSpacing: "2px",
@@ -630,6 +699,7 @@ function EnterpriseDashboard({ user, onHome }) {
               <span
                 style={{
                   fontSize: "0.62rem",
+                  fontFamily: FONT,
                   color: step === "dashboard" ? "#3fb950" : "#5b6472",
                   fontWeight: 700,
                   display: "flex",
@@ -648,7 +718,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     display: "inline-block",
                   }}
                 />
-                {step === "dashboard" ? "LIVE" : "IDLE"}
+          
               </span>
             </div>
 
@@ -666,7 +736,7 @@ function EnterpriseDashboard({ user, onHome }) {
                   onClick={() => !isDisabled && setModule(key)}
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: "1rem" }}>{meta.icon}</span>
+                    <meta.icon size={16} strokeWidth={1.8} />
                     {m}
                   </span>
                   {isCurrent && (
@@ -687,19 +757,7 @@ function EnterpriseDashboard({ user, onHome }) {
 
             <div style={{ flex: 1 }} />
 
-            <div
-              style={{
-                margin: "10px 4px 0",
-                padding: "14px 16px",
-                borderRadius: "16px",
-                background: "linear-gradient(135deg, rgba(88,166,255,0.1), rgba(163,113,247,0.08))",
-                border: "1px solid rgba(88,166,255,0.18)",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "0.7rem", color: theme.subtext, lineHeight: 1.5 }}>
-                ⚡ Engine status: <span style={{ color: "#3fb950", fontWeight: 700 }}>Operational</span>
-              </p>
-            </div>
+            
           </motion.div>
         )}
       </AnimatePresence>
@@ -720,13 +778,15 @@ function EnterpriseDashboard({ user, onHome }) {
               width: "38px",
               height: "38px",
               color: "#fff",
-              fontSize: "18px",
               cursor: "pointer",
               opacity: 0.85,
               boxSizing: "border-box",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            ☰
+            <Icons.Menu size={18} strokeWidth={1.8} />
           </motion.button>
 
           <div style={{ flex: 1, margin: "0 40px", position: "relative" }}>
@@ -745,6 +805,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 color: "#fff",
                 outline: "none",
                 fontSize: "14px",
+                fontFamily: FONT,
                 cursor: "pointer",
                 boxShadow: searchFocused ? "0 0 0 4px rgba(88,166,255,0.08)" : "none",
                 transition: "all 0.2s ease",
@@ -759,6 +820,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 top: "50%",
                 transform: "translateY(-50%)",
                 fontSize: "11px",
+                fontFamily: FONT,
                 color: "#5b6472",
                 border: `1px solid ${theme.border}`,
                 borderRadius: 6,
@@ -783,14 +845,15 @@ function EnterpriseDashboard({ user, onHome }) {
                 padding: "7px 11px",
                 color: "#8b949e",
                 fontSize: 11,
+                fontFamily: FONT,
                 cursor: "pointer",
                 fontWeight: 600,
               }}
             >
               ?
             </motion.button>
-            <motion.div whileHover={{ scale: 1.1 }} style={{ fontSize: "1.2rem", cursor: "pointer", opacity: 0.75, position: "relative" }}>
-              🔔
+            <motion.div whileHover={{ scale: 1.1 }} style={{ cursor: "pointer", opacity: 0.75, position: "relative", display: "flex" }}>
+              <Icons.Bell size={19} strokeWidth={1.7} />
               <span
                 style={{
                   position: "absolute",
@@ -820,12 +883,13 @@ function EnterpriseDashboard({ user, onHome }) {
                   gap: "10px",
                   fontSize: "0.9rem",
                   fontWeight: 500,
+                  fontFamily: FONT,
                   cursor: "pointer",
                   userSelect: "none",
                   transition: "all 0.2s ease",
                 }}
               >
-                <span style={{ fontSize: "1.2rem" }}>👤</span>
+                <Icons.User size={16} strokeWidth={1.8} />
                 <span
                   style={{
                     maxWidth: 200,
@@ -833,6 +897,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
                     fontSize: "0.85rem",
+                    fontFamily: FONT,
                     color: "#dfe3ea",
                   }}
                   title={userDisplayLabel}
@@ -842,9 +907,9 @@ function EnterpriseDashboard({ user, onHome }) {
                 <motion.span
                   animate={{ rotate: userMenuOpen ? 180 : 0 }}
                   transition={{ duration: 0.2 }}
-                  style={{ fontSize: "10px", color: "#5b6472", lineHeight: 1 }}
+                  style={{ color: "#5b6472", lineHeight: 1, display: "flex" }}
                 >
-                  ▼
+                  <Icons.Chevron size={12} strokeWidth={2} />
                 </motion.span>
               </motion.div>
 
@@ -869,6 +934,7 @@ function EnterpriseDashboard({ user, onHome }) {
                       boxShadow: "0 20px 50px -10px rgba(0,0,0,0.8), 0 0 30px -8px rgba(58,162,230,0.2)",
                       overflow: "hidden",
                       zIndex: 300,
+                      fontFamily: FONT,
                     }}
                   >
                     {/* User info header */}
@@ -914,7 +980,7 @@ function EnterpriseDashboard({ user, onHome }) {
                           transition: "background 0.15s ease",
                         }}
                       >
-                        <span style={{ fontSize: 15 }}>🚫</span>
+                        <Icons.Ban size={15} strokeWidth={1.8} />
                         Cancel Subscription
                       </motion.div>
 
@@ -936,7 +1002,7 @@ function EnterpriseDashboard({ user, onHome }) {
                           transition: "background 0.15s ease",
                         }}
                       >
-                        <span style={{ fontSize: 15 }}>🔓</span>
+                        <Icons.LogOut size={15} strokeWidth={1.8} />
                         Log Out
                       </motion.div>
                     </div>
@@ -963,15 +1029,18 @@ function EnterpriseDashboard({ user, onHome }) {
                   padding: "6px 16px",
                   borderRadius: "100px",
                   fontSize: "11px",
+                  fontFamily: FONT,
                   fontWeight: 700,
                   color: theme.primary,
                   letterSpacing: "1px",
                   textTransform: "uppercase",
-                  display: "inline-block",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
                   marginBottom: "26px",
                 }}
               >
-                ⚡ Secure Ingestion Pipeline
+                <Icons.Zap size={12} strokeWidth={2} /> Secure Ingestion Pipeline
               </div>
 
               {/* Animated Orb */}
@@ -1001,10 +1070,22 @@ function EnterpriseDashboard({ user, onHome }) {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "26px",
+                    color: "#fff",
                   }}
                 >
-                  {loading ? "⏳" : files.length > 0 ? "📦" : "🧠"}
+                  {loading ? (
+                    <motion.span
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                      style={{ display: "flex" }}
+                    >
+                      <Icons.Loader size={26} strokeWidth={1.6} />
+                    </motion.span>
+                  ) : files.length > 0 ? (
+                    <Icons.Package size={26} strokeWidth={1.5} />
+                  ) : (
+                    <Icons.Brain size={26} strokeWidth={1.5} />
+                  )}
                 </motion.div>
                 {loading &&
                   [0, 1, 2].map((i) => (
@@ -1033,16 +1114,16 @@ function EnterpriseDashboard({ user, onHome }) {
               <h2
                 style={{
                   fontSize: "2rem",
-                  fontFamily: "'Montserrat', sans-serif",
-                  fontWeight: "300",
-                  letterSpacing: "-0.5px",
+                  fontFamily: FONT,
+                  fontWeight: "700",
+                  letterSpacing: "-0.03em",
                   marginBottom: "10px",
                   color: "#fff",
                 }}
               >
                 {loading ? "Engine Processing..." : files.length > 0 ? "Manage Your Files" : "Initialize AI Engine"}
               </h2>
-              <p style={{ color: theme.subtext, marginBottom: "32px", lineHeight: "1.6", fontSize: "15px" }}>
+              <p style={{ color: theme.subtext, marginBottom: "32px", lineHeight: "1.6", fontSize: "15px", fontFamily: FONT }}>
                 Upload your financial records, HR logs, or sales data.
                 <br />
                 Our AI will process these to generate your executive dashboards.
@@ -1068,13 +1149,14 @@ function EnterpriseDashboard({ user, onHome }) {
                             justifyContent: "center",
                             fontSize: 12,
                             fontWeight: 700,
+                            fontFamily: FONT,
                             color: i <= ingestStage ? "#06121f" : "#5b6472",
                             boxShadow: i === ingestStage ? "0 0 16px rgba(88,166,255,0.6)" : "none",
                           }}
                         >
-                          {i < ingestStage ? "✓" : i + 1}
+                          {i < ingestStage ? <Icons.Check size={14} strokeWidth={2.4} /> : i + 1}
                         </motion.div>
-                        <span style={{ fontSize: 10.5, color: i <= ingestStage ? "#dfe3ea" : "#444c5e", textAlign: "center" }}>
+                        <span style={{ fontSize: 10.5, fontFamily: FONT, color: i <= ingestStage ? "#dfe3ea" : "#444c5e", textAlign: "center" }}>
                           {s.label}
                         </span>
                       </div>
@@ -1113,8 +1195,10 @@ function EnterpriseDashboard({ user, onHome }) {
                     }}
                   >
                     <input type="file" multiple onChange={handleFileUpload} style={{ display: "none" }} />
-                    <div style={{ fontSize: "1.6rem", marginBottom: 8 }}>{isDragOver ? "📥" : "📁"}</div>
-                    <span style={{ color: "#aaa", fontSize: "14px" }}>
+                    <div style={{ marginBottom: 8, display: "flex", justifyContent: "center", color: theme.primary }}>
+                      {isDragOver ? <Icons.Upload size={26} strokeWidth={1.5} /> : <Icons.Folder size={26} strokeWidth={1.5} />}
+                    </div>
+                    <span style={{ color: "#aaa", fontSize: "14px", fontFamily: FONT }}>
                       {files.length > 0
                         ? `${files.length} file${files.length > 1 ? "s" : ""} active · ${formatBytes(totalBytes)}`
                         : "Drop files here, or click to browse"}
@@ -1153,10 +1237,11 @@ function EnterpriseDashboard({ user, onHome }) {
                               background: "rgba(88,166,255,0.08)",
                               border: "1px solid rgba(88,166,255,0.22)",
                               fontSize: 12.5,
+                              fontFamily: FONT,
                               color: "#dfe3ea",
                             }}
                           >
-                            <span>📄</span>
+                            <Icons.File size={13} strokeWidth={1.8} style={{ color: theme.primary }} />
                             <span style={{ maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {f.name}
                             </span>
@@ -1171,12 +1256,13 @@ function EnterpriseDashboard({ user, onHome }) {
                                 height: 18,
                                 color: "#9aa4b2",
                                 cursor: "pointer",
-                                fontSize: 11,
-                                lineHeight: "18px",
                                 padding: 0,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
                               }}
                             >
-                              ✕
+                              <Icons.X size={9} strokeWidth={2.2} />
                             </button>
                           </motion.div>
                         ))}
@@ -1196,8 +1282,8 @@ function EnterpriseDashboard({ user, onHome }) {
                 {loading ? `${INGEST_STAGES[ingestStage].label}...` : "Analyze Data & Continue"}
               </motion.button>
 
-              <p style={{ marginTop: 18, fontSize: 11.5, color: "#4d5562", letterSpacing: 0.3 }}>
-                🔒 Encrypted in transit · Stored in PostgreSQL · SOC 2-aligned handling
+              <p style={{ marginTop: 18, fontSize: 11.5, fontFamily: FONT, color: "#4d5562", letterSpacing: 0.3, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+                <Icons.Lock size={11} strokeWidth={2} /> Encrypted in transit · Stored in PostgreSQL · SOC 2-aligned handling
               </p>
             </motion.div>
           </div>
@@ -1223,26 +1309,28 @@ function EnterpriseDashboard({ user, onHome }) {
                 <div style={{ textAlign: "center", marginBottom: 48, marginTop: 28 }}>
                   <div
                     style={{
-                      fontSize: "3.2rem",
+                      display: "flex",
+                      justifyContent: "center",
                       marginBottom: "20px",
+                      color: theme.primary,
                       filter: "drop-shadow(0 0 28px rgba(88, 166, 255, 0.4))",
                     }}
                   >
-                    📊
+                    <Icons.BarChart size={52} strokeWidth={1.3} />
                   </div>
                   <h2
                     style={{
-                      fontFamily: "'Montserrat', sans-serif",
-                      fontWeight: "300",
+                      fontFamily: FONT,
+                      fontWeight: "700",
                       fontSize: "2rem",
-                      letterSpacing: "-0.5px",
+                      letterSpacing: "-0.03em",
                       color: "#fff",
                       marginBottom: "8px",
                     }}
                   >
                     System Ready, {(currentUser?.displayName || user?.name || currentUser?.email || "")?.split(" ")[0]}
                   </h2>
-                  <p style={{ color: theme.subtext, fontSize: "14.5px" }}>
+                  <p style={{ color: theme.subtext, fontSize: "14.5px", fontFamily: FONT }}>
                     Select a specialized module below to view real-time insights.
                   </p>
                 </div>
@@ -1272,10 +1360,10 @@ function EnterpriseDashboard({ user, onHome }) {
                         boxShadow: "0 20px 40px -20px rgba(0,0,0,0.6)",
                       }}
                     >
-                      <div style={{ fontSize: 26, fontWeight: 700, color: "#fff", fontFamily: "'Montserrat', sans-serif" }}>
+                      <div style={{ fontSize: 26, fontWeight: 700, color: "#fff", fontFamily: FONT, letterSpacing: "-0.02em" }}>
                         <CountUp value={stat.value} suffix={stat.suffix} />
                       </div>
-                      <div style={{ fontSize: 12, color: theme.subtext, marginTop: 4 }}>{stat.label}</div>
+                      <div style={{ fontSize: 12, fontFamily: FONT, color: theme.subtext, marginTop: 4 }}>{stat.label}</div>
                     </div>
                   ))}
                 </div>
@@ -1311,14 +1399,14 @@ function EnterpriseDashboard({ user, onHome }) {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: 20,
+                            color: theme.primary,
                             marginBottom: 16,
                           }}
                         >
-                          {meta.icon}
+                          <meta.icon size={20} strokeWidth={1.6} />
                         </div>
-                        <div style={{ fontSize: 16, fontWeight: 600, color: "#fff", marginBottom: 4 }}>{meta.label}</div>
-                        <div style={{ fontSize: 12.5, color: theme.subtext }}>{meta.blurb}</div>
+                        <div style={{ fontSize: 16, fontWeight: 600, fontFamily: FONT, color: "#fff", marginBottom: 4 }}>{meta.label}</div>
+                        <div style={{ fontSize: 12.5, fontFamily: FONT, color: theme.subtext }}>{meta.blurb}</div>
                       </MagneticTilt>
                     );
                   })}
@@ -1389,16 +1477,17 @@ function EnterpriseDashboard({ user, onHome }) {
                 borderRadius: 20,
                 boxShadow: "0 0 60px -10px rgba(58,162,230,0.35), 0 40px 80px -20px rgba(0,0,0,0.85)",
                 overflow: "hidden",
+                fontFamily: FONT,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: `1px solid ${theme.border}` }}>
-                <span style={{ opacity: 0.6 }}>🔍</span>
+                <Icons.Search size={16} strokeWidth={1.8} style={{ opacity: 0.6 }} />
                 <input
                   autoFocus
                   value={paletteQuery}
                   onChange={(e) => setPaletteQuery(e.target.value)}
                   placeholder="Type a command or search..."
-                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#fff", fontSize: 15 }}
+                  style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#fff", fontSize: 15, fontFamily: FONT }}
                 />
                 <span style={{ fontSize: 11, color: "#5b6472", border: `1px solid ${theme.border}`, borderRadius: 6, padding: "3px 7px" }}>
                   ESC
@@ -1429,7 +1518,7 @@ function EnterpriseDashboard({ user, onHome }) {
                       fontSize: 13.5,
                     }}
                   >
-                    <span>{a.icon}</span>
+                    {a.icon && <a.icon size={15} strokeWidth={1.8} />}
                     <span style={{ flex: 1 }}>{a.label}</span>
                     {a.disabled && <span style={{ fontSize: 10.5, color: "#444c5e" }}>Locked</span>}
                   </motion.div>
@@ -1475,14 +1564,15 @@ function EnterpriseDashboard({ user, onHome }) {
                 borderRadius: 20,
                 boxShadow: "0 0 60px -10px rgba(58,162,230,0.3), 0 40px 80px -20px rgba(0,0,0,0.85)",
                 padding: "24px 26px",
+                fontFamily: FONT,
               }}
             >
-              <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: "#fff", fontFamily: "'Montserrat', sans-serif" }}>
+              <h3 style={{ margin: "0 0 16px", fontSize: 15, fontWeight: 700, color: "#fff", fontFamily: FONT }}>
                 Keyboard Shortcuts
               </h3>
               {[
                 { keys: ["⌘", "K"], label: "Open command palette" },
-                { keys: ["☰"], label: "Toggle sidebar" },
+                { keys: ["Menu"], label: "Toggle sidebar" },
                 { keys: ["Esc"], label: "Close any overlay" },
                 { keys: ["?"], label: "Toggle this panel" },
               ].map((row) => (
@@ -1559,10 +1649,13 @@ function EnterpriseDashboard({ user, onHome }) {
                 boxShadow: "0 0 60px -10px rgba(248,81,73,0.2), 0 40px 80px -20px rgba(0,0,0,0.9)",
                 padding: "28px 28px 24px",
                 textAlign: "center",
+                fontFamily: FONT,
               }}
             >
-              <div style={{ fontSize: 36, marginBottom: 14 }}>🔓</div>
-              <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: "'Montserrat', sans-serif" }}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 14, color: "#f85149" }}>
+                <Icons.LogOut size={34} strokeWidth={1.5} />
+              </div>
+              <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: FONT }}>
                 Log Out?
               </h3>
               <p style={{ margin: "0 0 24px", fontSize: 13, color: theme.subtext, lineHeight: 1.55 }}>
@@ -1582,6 +1675,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     color: "#8b949e",
                     fontSize: 13.5,
                     fontWeight: 600,
+                    fontFamily: FONT,
                     cursor: "pointer",
                   }}
                 >
@@ -1600,6 +1694,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     color: "#fff",
                     fontSize: 13.5,
                     fontWeight: 700,
+                    fontFamily: FONT,
                     cursor: "pointer",
                   }}
                 >
@@ -1648,10 +1743,13 @@ function EnterpriseDashboard({ user, onHome }) {
                 boxShadow: "0 0 60px -10px rgba(210,130,30,0.18), 0 40px 80px -20px rgba(0,0,0,0.9)",
                 padding: "28px 28px 24px",
                 textAlign: "center",
+                fontFamily: FONT,
               }}
             >
-              <div style={{ fontSize: 36, marginBottom: 14 }}>🚫</div>
-              <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: "'Montserrat', sans-serif" }}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 14, color: "#d2821e" }}>
+                <Icons.Ban size={34} strokeWidth={1.5} />
+              </div>
+              <h3 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: FONT }}>
                 Cancel Subscription?
               </h3>
               <p style={{ margin: "0 0 6px", fontSize: 13, color: theme.subtext, lineHeight: 1.55 }}>
@@ -1674,6 +1772,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     color: "#8b949e",
                     fontSize: 13.5,
                     fontWeight: 600,
+                    fontFamily: FONT,
                     cursor: "pointer",
                   }}
                 >
@@ -1692,6 +1791,7 @@ function EnterpriseDashboard({ user, onHome }) {
                     color: "#fff",
                     fontSize: 13.5,
                     fontWeight: 700,
+                    fontFamily: FONT,
                     cursor: "pointer",
                   }}
                 >
@@ -1726,10 +1826,15 @@ function EnterpriseDashboard({ user, onHome }) {
                 border: `1px solid ${t.tone === "success" ? "rgba(63,185,80,0.35)" : theme.border}`,
                 boxShadow: "0 20px 40px -15px rgba(0,0,0,0.7)",
                 fontSize: 13,
+                fontFamily: FONT,
                 color: "#dfe3ea",
               }}
             >
-              <span>{t.tone === "success" ? "✅" : "ℹ️"}</span>
+              {t.tone === "success" ? (
+                <Icons.CheckCircle size={16} strokeWidth={1.8} style={{ color: "#3fb950" }} />
+              ) : (
+                <Icons.InfoCircle size={16} strokeWidth={1.8} style={{ color: theme.primary }} />
+              )}
               <span style={{ flex: 1 }}>{t.message}</span>
             </motion.div>
           ))}

@@ -6,32 +6,33 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 /**
  * GEMINI AI CONFIGURATION
  * Uses the Gemini 1.5 Flash model to process fiscal, HR, Marketing, Sales, and Operations data 
- * retrieved from the PostgreSQL 'business_files' table.
+ * retrieved from the PostgreSQL 'business_files' table, scoped per-user.
  */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 // Using 1.5-flash for high-speed multi-modal business analysis
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
 router.post("/analyze", async (req, res) => {
-  const { message } = req.body;
+  const { message, email } = req.body;
+  const userEmail = email || "guest";
 
   try {
-    // 1. Fetch data from your PostgreSQL 'business_files' table
-    // This allows the AI to access actual user data stored previously across all modules
-    const dbData = await pool.query("SELECT filename, content FROM business_files");
-    
+    // 1. Fetch data from your PostgreSQL 'business_files' table — only this user's rows
+    const dbData = await pool.query(
+      "SELECT filename, content FROM business_files WHERE user_email = $1",
+      [userEmail]
+    );
+
     if (dbData.rows.length === 0) {
       return res.json({ reply: "No business intelligence files found in the database. Please upload your Finance, HR, Marketing, or Sales data first." });
     }
 
-    // 2. Prepare the context from all stored files
-    // Maps the 'content' column to a string context for the AI prompt
+    // 2. Prepare the context from all stored files belonging to this user
     const context = dbData.rows
       .map(row => `FILE NAME: ${row.filename}\nCONTENT:\n${row.content}`)
       .join("\n\n---\n\n");
 
     // 3. Structured Prompt to prevent "generic" AI behavior
-    // Instructs the model to act as a Professional Lead Analyst with specific domain expertise
     const prompt = `
       You are the Professional Lead Analyst for Academic Attire Co.
       
@@ -62,11 +63,10 @@ router.post("/analyze", async (req, res) => {
     const result = await model.generateContent(prompt);
     const aiResponse = result.response.text();
 
-    // 4. Save the generated response to 'chat_history' table
-    // Ensures persistence of insights for your unified business dashboard
+    // 4. Save the generated response to 'chat_history' table, tagged with the user
     await pool.query(
-      "INSERT INTO chat_history (user_message, ai_response) VALUES ($1, $2)",
-      [message, aiResponse]
+      "INSERT INTO chat_history (user_message, ai_response, user_email) VALUES ($1, $2, $3)",
+      [message, aiResponse, userEmail]
     );
 
     res.json({ reply: aiResponse });

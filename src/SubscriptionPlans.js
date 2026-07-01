@@ -5,6 +5,7 @@ import PaymentSuccess from "./components/PaymentSuccess";
 import ContactUs from "./components/ContactUs";
 import AboutApp from "./components/AboutApp";
 import Tutorial from "./Tutorial"; // ← NEW IMPORT
+import Prism from "./Prism"; // 
 import { auth, db } from "./firebase"; 
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore"; 
@@ -116,10 +117,10 @@ const styles = {
   },
   titleH1: {
     fontSize: "66px",
-    fontWeight: "900",
-    fontFamily: "'Montserrat', sans-serif",
-    lineHeight: "1.05",
-    letterSpacing: "-2.3px",
+    fontWeight: "600", // Resend uses a clean semi-bold/bold, not ultra-chunky 900
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    lineHeight: "1.1", // Tight tracking like the image
+    letterSpacing: "-0.04em", // Relative tight spacing matches the image perfectly at 66px
   },
   saasLoginCard: {
     background: "rgba(18, 22, 30, 0.7)",
@@ -132,7 +133,7 @@ const styles = {
     width: "100%",
     maxWidth: "420px",
     zIndex: 10,
-    fontFamily: "Arial, sans-serif"
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
   },
   saasInputField: {
     width: "100%",
@@ -432,6 +433,7 @@ const MagneticCard = ({ children, style, ...props }) => {
     >
       {children}
     </motion.div>
+    
   );
 };
 
@@ -554,9 +556,25 @@ const RotatingCube = () => (
 
 const DynamicLogo = () => (
   <motion.div
-    style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 900, fontSize: "32px", letterSpacing: "-2px", color: "#fff", display: "flex", alignItems: "center", gap: "6px" }}
+    style={{ 
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', 
+      fontWeight: 700, // High-quality bold weight for system fonts
+      fontSize: "32px", 
+      letterSpacing: "-1.5px", // Slightly tuned spacing for the logo text
+      color: "#fff", 
+      display: "flex", 
+      alignItems: "center", 
+      gap: "4px" 
+    }}
   >
-    <span>Insight</span><span style={{ color: theme.primary, fontStyle: "italic", fontWeight: "700" }}>IQ</span>
+    <span>Insight</span>
+    <span style={{ 
+      color: theme.primary, 
+      fontStyle: "italic", 
+      fontWeight: "800" // Slightly heavier weight so the italics stay perfectly legible
+    }}>
+      IQ
+    </span>
   </motion.div>
 );
 
@@ -564,31 +582,7 @@ const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
   <div style={{ ...styles.pageWrapper, justifyContent: "center", alignItems: "center", padding: "24px" }}>
     <div style={{ ...styles.blob, top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "600px", height: "600px", background: "radial-gradient(circle, rgba(58, 162, 230, 0.22) 0%, transparent 65%)" }} />
 
-    {/* Giant faint watermark word behind the gateway card */}
-    <div
-      aria-hidden="true"
-      style={{
-        position: "absolute",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -54%)",
-        fontFamily: "'Montserrat', sans-serif",
-        fontWeight: 900,
-        fontSize: "clamp(80px, 16vw, 220px)",
-        letterSpacing: "-6px",
-        color: "transparent",
-        WebkitTextStroke: "1px rgba(255,255,255,0.08)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0))",
-        WebkitBackgroundClip: "text",
-        backgroundClip: "text",
-        whiteSpace: "nowrap",
-        pointerEvents: "none",
-        userSelect: "none",
-        zIndex: 0,
-      }}
-    >
-      InsightIQ
-    </div>
+   
 
     <motion.div 
       initial={{ opacity: 0, scale: 0.96, y: 15 }} 
@@ -985,6 +979,39 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   return (
     <div style={{ ...styles.pageWrapper, flexDirection: "column" }}>
 
+
+
+
+{/* INTEGRATED PRISM BACKGROUND COMPONENT */}
+
+<div style={{
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100vw",
+  height: "100vh",
+  zIndex: 0,
+  pointerEvents: "none",
+  opacity: 0.45 
+}}>
+  <Prism 
+    height={4.2}
+    baseWidth={6.5}
+    animationType="rotate"
+    glow={0.7}
+    noise={0.3}
+    transparent={true}
+    scale={3.6}
+    hueShift={205}
+    timeScale={0.35}
+    tintColor={[0.35, 0.65, 0.9]}
+  />
+</div>
+
+
+
+
+
       <style>{`
         @keyframes iiq-float-a  { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-6px) rotate(.4deg)} }
         @keyframes iiq-float-b  { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-5px) rotate(-.3deg)} }
@@ -1345,13 +1372,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         >
         
     
-
-          <h1 style={{ ...styles.titleH1, margin: "0 0 24px 0", textAlign: "left" }}>
-            Insight-driven intelligence <br />
-            <span style={{ color: "transparent", background: "linear-gradient(90deg, #fff, #8b949e)", WebkitBackgroundClip: "text", backgroundClip: "text" }}>
-              built for smart infrastructure.
-            </span>
-          </h1>
+        <motion.h1 initial={{ opacity: 0, y: 35 }} animate={{ opacity: 1, y: 0 }} style={styles.titleH1}>
+        Data-driven <br /> <span style={styles.titleH1.span}>intelligence</span> <br />for smart systems.
+      </motion.h1>
 
           <p style={{ color: theme.subtext, fontSize: "16px", maxWidth: "500px", margin: "0 0 36px 0", lineHeight: "1.7", fontWeight: 400, textAlign: "left" }}>
             Transform multi-layered computational operational logs into crisp, beautifully intuitive real-time strategic projections.
@@ -1462,9 +1485,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               top: "50%",
               left: "50%",
               transform: "translate(-50%, -50%)",
-              fontFamily: "'Montserrat', sans-serif",
-              fontWeight: 900,
-              fontSize: "clamp(70px, 13vw, 200px)",
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+              fontSize: "32px", // Vercel uses highly controlled sizes
+              fontWeight: "700",
               letterSpacing: "-6px",
               color: "transparent",
               WebkitTextStroke: "1px rgba(255,255,255,0.06)",
@@ -1477,152 +1500,82 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               zIndex: 0,
             }}
           >
-            InsightIQ
+           
           </div>
 
-          {/* Pricing Cards */}
-          <div style={{ display: "flex", gap: "32px", flexWrap: "wrap", justifyContent: "center", width: "100%", position: "relative", zIndex: 2 }}>
-            {plans.map((plan, index) => {
-              const isEnterprise = plan.name === "Enterprise";
-              const baseData = getCurrencySymbolAndPrice(plan.price);
-              let rawNumericPrice = baseData.price;
-              
-              if (billingCycle === "annual") {
-                rawNumericPrice = Math.floor(rawNumericPrice * 12 * 0.8);
-              }
+{/* CARDS REGION */}
+<section style={{ width: "100%", maxWidth: "1040px", margin: "80px auto 0", padding: "0 40px", display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "40px", boxSizing: "border-box", zIndex: 2 }}>
+      {plans.map((plan) => {
+        const isEnterprise = plan.name === "Enterprise";
+        const { symbol, price } = getCurrencySymbolAndPrice(plan.price);
+        const computedFinPrice = billingCycle === "annual" ? Math.round(price * 0.8) : price;
 
-              const calculatedPrice = baseData.symbol + rawNumericPrice;
-              const calculatedPeriod = billingCycle === "annual" ? "/year" : "/month";
-              const annualSavings = billingCycle === "annual"
-                ? baseData.symbol + Math.floor(baseData.price * 12 * 0.2)
-                : null;
-
-              return (
-                <div
-                  key={plan.name}
-                  className={`iiq-float-card-${index}`}
-                  style={{ width: "100%", maxWidth: "420px", paddingTop: isEnterprise ? "14px" : "0" }}
-                >
-                  <MagneticCard
-                    initial={{ opacity: 0, y: 40 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1, type: "spring", stiffness: 90, damping: 20 }}
-                    whileHover={{ 
-                      boxShadow: isEnterprise
-                        ? "0 0 60px -5px rgba(88,166,255,0.5), 0 30px 60px -10px rgba(0,0,0,0.9)"
-                        : "0 0 50px -5px rgba(58, 162, 230, 0.45), 0 30px 60px -10px rgba(0, 0, 0, 0.85)",
-                      borderColor: "rgba(88, 166, 255, 0.4)"
-                    }}
-                    style={{ 
-                      background: "rgba(18, 22, 30, 0.32)",
-                      borderRadius: "32px",
-                      backdropFilter: "blur(36px) saturate(200%)",
-                      WebkitBackdropFilter: "blur(36px) saturate(200%)",
-                      border: `1px solid ${theme.border}`,
-                      boxShadow: "0 0 40px -10px rgba(58, 162, 230, 0.22), 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255,255,255,0.12)",
-                      transition: "box-shadow 0.3s ease, border-color 0.3s ease",
-                      ...(isEnterprise ? {
-                        borderColor: "rgba(58, 162, 230, 0.32)",
-                        boxShadow: "0 0 0 1px rgba(58,162,230,0.16), 0 0 40px -10px rgba(58,162,230,0.3), 0 25px 50px -12px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.12)"
-                      } : {}),
-                      width: "100%", 
-                      padding: "54px 40px", 
-                      boxSizing: "border-box", 
-                      display: "flex", 
-                      flexDirection: "column", 
-                      alignItems: "center",
-                      justifyContent: "space-between", 
-                      position: "relative",
-                      overflow: "hidden"
-                    }}
-                  >
-                    <div className="iiq-beam-wrap"><div className="iiq-beam" /></div>
-                    <div className="iiq-top-line" />
-                    {isEnterprise && <div className="iiq-ring-border" />}
-
-                    <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-                      <h3 style={{ fontSize: "32px", fontWeight: "700", color: isEnterprise ? "#7aa2d4" : "#798cb3", margin: "0 0 14px 0", letterSpacing: "-0.5px", fontFamily: "'Inter', sans-serif" }}>
-                        {plan.name}
-                      </h3>
-                      <p style={{ color: theme.subtext, fontSize: "13px", textAlign: "center", margin: "0 0 24px 0", padding: "0 14px", lineHeight: "1.4" }}>
-                        {plan.tagline}
-                      </p>
-
-                      <div style={{ display: "flex", alignItems: "baseline", marginBottom: "10px" }}>
-                        <span style={{ fontSize: "28px", fontWeight: "800", color: isEnterprise ? "#58a6ff" : "#3aa2e6", fontFamily: "'Montserrat', sans-serif", letterSpacing: "-1px" }}>
-                          {calculatedPrice}
-                        </span>
-                        <span style={{ fontSize: "14px", color: theme.subtext, marginLeft: "4px" }}>
-                          {calculatedPeriod}
-                        </span>
-                      </div>
-
-                      {annualSavings ? (
-                        <div className="iiq-savings-chip">✦ You save {annualSavings} per year</div>
-                      ) : (
-                        <div style={{ marginBottom: "20px" }} />
-                      )}
-
-                      <span 
-                        onClick={() => handleSharePlan(plan.name)}
-                        style={{ fontSize: "11px", color: theme.primary, cursor: "pointer", textDecoration: "underline", marginBottom: "28px", opacity: 0.7 }}
-                      >
-                        🔗 Share tier route
-                      </span>
-                      
-                      <ul style={{ listStyle: "none", padding: 0, margin: "0 0 40px 0", display: "flex", flexDirection: "column", gap: "12px", alignItems: "flex-start", width: "100%" }}>
-                        {plan.features.map((feature, i) => (
-                          <li key={i} style={{ fontSize: "14px", color: "rgba(255,255,255,0.65)", display: "flex", alignItems: "center", gap: "10px" }}>
-                            <span className="iiq-feature-check">✓</span>
-                            <span>{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="iiq-btn-wrap" style={{ position: "relative" }}>
-                      <motion.button 
-                        whileHover={{ 
-                          scale: 1.04,
-                          boxShadow: isEnterprise
-                            ? "0 0 30px rgba(88,166,255,0.65), 0 0 60px rgba(88,166,255,0.3)"
-                            : "0 0 25px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)",
-                        }}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={() => {
-                          handleTrackAnalyticsClick("Checkout Initiated: " + plan.name);
-                          setSelectedPlan({ ...plan, price: calculatedPrice, period: calculatedPeriod });
-                          setGoToPayment(true);
-                        }}
-                        style={{ 
-                          position: "relative",
-                          zIndex: 1,
-                          width: "160px", 
-                          padding: "12px 0", 
-                          borderRadius: "24px", 
-                          fontSize: "14px", 
-                          fontWeight: "700", 
-                          cursor: "pointer", 
-                          border: "1px solid rgba(255, 255, 255, 0.15)",
-                          background: isEnterprise
-                            ? "linear-gradient(135deg, #58a6ff 0%, #1d528f 100%)"
-                            : "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-                          color: "#fff",
-                          boxShadow: isEnterprise
-                            ? "0 0 20px rgba(88,166,255,0.45)"
-                            : "0 0 15px rgba(58, 162, 230, 0.3)",
-                          textAlign: "center",
-                        }}
-                      >
-                        {isEnterprise ? "Get Started" : "Subscribe"}
-                      </motion.button>
-                    </div>
-                  </MagneticCard>
+        return (
+          <MagneticCard
+            key={plan.name}
+            style={styles.card}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "rgba(58, 162, 230, 0.35)";
+              e.currentTarget.style.boxShadow = "0 0 50px -5px rgba(58, 162, 230, 0.35), 0 30px 60px -10px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255,255,255,0.2)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = theme.border;
+              e.currentTarget.style.boxShadow = "0 0 40px -10px rgba(58, 162, 230, 0.25), 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255,255,255,0.15)";
+            }}
+          >
+            <div style={{ padding: "48px 48px 40px 48px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+                  <h3 style={{ fontSize: "24px", fontWeight: "600", margin: 0 }}>{plan.name} Cluster</h3>
+                  <button onClick={() => handleSharePlan(plan.name)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "16px", padding: "4px" }} title="Share Environment Parameters">🔗</button>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "32px" }}>
+                  <span style={{ fontSize: "52px", fontWeight: "700", letterSpacing: "-2px" }}>{symbol}{computedFinPrice}</span>
+                  <span style={{ color: theme.subtext, fontSize: "15px" }}>{billingCycle === "annual" ? "/mo, billed annually" : plan.period}</span>
+                </div>
+                <div style={{ height: "1px", background: "linear-gradient(90deg, rgba(255,255,255,0.08), transparent)", marginBottom: "36px" }} />
+                <ul style={{ padding: 0, margin: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "18px" }}>
+                  {plan.features.map((feature, fIdx) => (
+                    <li key={fIdx} style={{ display: "flex", alignItems: "start", gap: "14px", fontSize: "14px", color: theme.subtext, lineHeight: "1.5" }}>
+                      <span style={{ color: theme.primary, fontWeight: "bold", marginTop: "1px" }}>✓</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.015 }}
+                whileTap={{ scale: 0.985 }}
+                onClick={() => {
+                  handleTrackAnalyticsClick("Initiating Core Pipeline Allocation Stream: " + plan.name);
+                  setSelectedPlan({ ...plan, computedPrice: symbol + computedFinPrice, activeInterval: billingCycle });
+                  setGoToPayment(true);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "16px",
+                  marginTop: "48px",
+                  borderRadius: "16px",
+                  border: isEnterprise ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${theme.border}`,
+                  background: isEnterprise ? "linear-gradient(135deg, #1f6feb 0%, #11449e 100%)" : "rgba(255,255,255,0.03)",
+                  color: "#fff",
+                  fontSize: "15px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  boxShadow: isEnterprise ? "0 4px 20px rgba(31,111,235,0.4)" : "none",
+                  transition: "background 0.2s ease"
+                }}
+                onMouseEnter={(e) => { if(!isEnterprise) e.target.style.background = "rgba(255,255,255,0.07)"; }}
+                onMouseLeave={(e) => { if(!isEnterprise) e.target.style.background = "rgba(255,255,255,0.03)"; }}
+              >
+                Initialize {plan.name} Plan
+              </motion.button>
+            </div>
+          </MagneticCard>
+        );
+      })}
+    </section>
+</div>
 
         {/* Matrix Toggle + Export */}
         <div style={{ marginTop: "40px", zIndex: 3, display: "flex", gap: "24px", alignItems: "center" }}>
@@ -1692,7 +1645,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         {/* FAQ Section */}
         <section style={styles.faqSection}>
           <div style={{ textAlign: "center", marginBottom: "48px" }}>
-            <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: "36px", fontWeight: 800, letterSpacing: "-1px", marginBottom: "12px" }}>
+            <h2 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  fontSize: "42px", // Vercel uses highly controlled sizes
+  fontWeight: "700", letterSpacing: "-1px", marginBottom: "12px" }}>
               Frequently Asked Questions
             </h2>
             <p style={{ color: theme.subtext, fontSize: "15px", marginBottom: "24px" }}>

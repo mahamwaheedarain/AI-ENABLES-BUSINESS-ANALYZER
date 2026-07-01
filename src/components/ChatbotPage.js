@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "../firebase"; 
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+import FileManagerPanel from "./FileManagerPanel";
 
 // ---------- High-Clarity Unified Theme ----------
 const theme = {
@@ -218,6 +219,7 @@ export default function ChatbotPage({ onSignOut }) {
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editingMsgIdx, setEditingMsgIdx] = useState(null);
   const [editBuffer, setEditBuffer] = useState("");
+  const [showFilePanel, setShowFilePanel] = useState(false);
   const chatEndRef = useRef(null);
 
   // 1. Core Auth Lifecycle Listener & Email-specific Data Hydration Pipe
@@ -298,12 +300,17 @@ export default function ChatbotPage({ onSignOut }) {
   const capitalizeFirst = (str) => str.charAt(0).toUpperCase() + str.slice(1);
 
   // ---------- PostgreSQL Connected Query Handler ----------
+  // NOTE: sends the logged-in user's email so the backend only pulls
+  // context from THAT user's uploaded files (not everyone's).
   const fetchBotResponse = async (userMessage) => {
     try {
       const response = await fetch("http://localhost:5000/api/chatbot/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({
+          message: userMessage,
+          email: currentUser?.email || "guest",
+        }),
       });
       
       if (!response.ok) throw new Error("Network execution error");
@@ -431,9 +438,27 @@ export default function ChatbotPage({ onSignOut }) {
       {/* Dynamic Sidebar Module with ChatGPT / Gemini Inspired Sidebar Layout */}
       <aside style={sidebarStyle}>
         <div style={{ marginBottom: "25px", padding: "0 8px" }}>
-          <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "800", color: theme.primary, letterSpacing: "-0.5px" }}>
-            Insight<span style={{ color: "#ffffff", fontStyle: "italic" }}>IQ</span>
-          </h2>
+        <motion.div
+    style={{ 
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', 
+      fontWeight: 700, // High-quality bold weight for system fonts
+      fontSize: "25px", 
+      letterSpacing: "-1.5px", // Slightly tuned spacing for the logo text
+      color: "#fff", 
+      display: "flex", 
+      alignItems: "center", 
+      gap: "4px" 
+    }}
+  >
+    <span>Insight</span>
+    <span style={{ 
+      color: theme.primary, 
+      fontStyle: "italic", 
+      fontWeight: "800" // Slightly heavier weight so the italics stay perfectly legible
+    }}>
+      IQ
+    </span>
+  </motion.div>
           <p style={{ margin: "5px 0 0", fontSize: "11px", color: theme.subtext, textTransform: "uppercase", letterSpacing: "1px" }}>
             {userPlan} Workspace
           </p>
@@ -522,12 +547,15 @@ export default function ChatbotPage({ onSignOut }) {
             <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600" }}>{activeSession?.name || "New Analysis"}</h3>
          
           </div>
-          {isLoading && (
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: theme.primary }}>
-              <div style={{ width: "12px", height: "12px", border: `2px solid ${theme.primary}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
-              Processing Metrics...
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            {isLoading && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: theme.primary }}>
+                <div style={{ width: "12px", height: "12px", border: `2px solid ${theme.primary}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+                Processing Metrics...
+              </div>
+            )}
+          
+          </div>
         </header>
 
         <div style={chatWindowStyle}>
@@ -564,7 +592,7 @@ export default function ChatbotPage({ onSignOut }) {
         <footer style={inputContainerStyle}>
           <input 
             type="text" 
-            placeholder="Ask a question regarding operational analytics..." 
+            placeholder="Ask a question regarding analytics..." 
             style={inputStyle} 
             value={input} 
             onChange={(e) => setInput(e.target.value)} 
@@ -579,6 +607,13 @@ export default function ChatbotPage({ onSignOut }) {
             Send
           </button>
         </footer>
+
+        {showFilePanel && (
+          <FileManagerPanel
+            userEmail={currentUser?.email}
+            onClose={() => setShowFilePanel(false)}
+          />
+        )}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { db, auth } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import Confetti from "react-confetti";
+import LightRays from './LightRays';
 
 function PaymentPage({ plan, onSuccess, onBack }) {
   const [loading, setLoading] = useState(false);
@@ -70,18 +71,40 @@ function PaymentPage({ plan, onSuccess, onBack }) {
     setLoading(false);
   };
 
+  // Shared background layer used behind every view
+  const BackgroundRays = () => (
+    <div style={raysWrapperStyle}>
+      <LightRays
+        raysOrigin="top-center"
+        raysColor="#376dc6"
+        raysSpeed={1}
+        lightSpread={0.5}
+        rayLength={3}
+        followMouse={true}
+        mouseInfluence={0.1}
+        noiseAmount={0}
+        distortion={0}
+        className="custom-rays"
+        pulsating={false}
+        fadeDistance={1}
+        saturation={1}
+      />
+    </div>
+  );
+
   // ---------------- SUCCESS VIEW ----------------
   if (paymentComplete) {
     return (
       <div style={containerStyle}>
+        <BackgroundRays />
         <Confetti width={windowSize.width} height={windowSize.height} recycle={false} numberOfPieces={400} gravity={0.1} colors={['#4ac6ff', '#2a2f4a', '#ffffff', '#1a1a2e']} />
-        <div style={{ ...cardStyle, maxWidth: "500px", textAlign: "center", animation: "fadeIn 0.8s ease-out" }}>
+        <div style={{ ...cardStyle, maxWidth: "500px", textAlign: "center", animation: "fadeIn 0.8s ease-out", position: "relative", zIndex: 2 }}>
           <div style={{ fontSize: "4rem", marginBottom: "20px" }}>✨</div>
           <h1 style={{ fontSize: "2.2rem", fontWeight: "300", marginBottom: "10px", letterSpacing: "1px" }}>Access Granted</h1>
           <p style={{ color: "#aaa", marginBottom: "30px" }}>
             Your <strong>{plan.name}</strong> subscription is now active.
           </p>
-          
+
           <div style={{ background: "rgba(0,0,0,0.2)", padding: "20px", borderRadius: "15px", border: "1px solid rgba(74, 198, 255, 0.2)", marginBottom: "30px", textAlign: "left" }}>
             <h4 style={{ margin: "0 0 10px 0", color: "#4ac6ff", textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "2px" }}>Plan Details</h4>
             <div style={{ fontSize: "1.2rem", fontWeight: "600" }}>{plan.name} Analyzer</div>
@@ -100,7 +123,8 @@ function PaymentPage({ plan, onSuccess, onBack }) {
   if (!method) {
     return (
       <div style={containerStyle}>
-        <div style={{ ...cardStyle, maxWidth: "400px", textAlign: "center" }}>
+        <BackgroundRays />
+        <div style={{ ...cardStyle, maxWidth: "400px", textAlign: "center", position: "relative", zIndex: 2 }}>
           <h2 style={{ marginBottom: "20px", fontWeight: "300", letterSpacing: "1px" }}>Secure Checkout</h2>
           <p style={{ color: "#888", marginBottom: "30px", fontSize: "0.9rem" }}>Choose a payment method for <strong>{plan.name}</strong>.</p>
           <button onClick={() => setMethod("card")} style={primaryBtnStyle}>Pay with Card</button>
@@ -113,7 +137,8 @@ function PaymentPage({ plan, onSuccess, onBack }) {
   // ---------------- CHECKOUT FORM (BUSINESS DETAILS) ----------------
   return (
     <div style={containerStyle}>
-      <div style={{ ...cardStyle, display: "flex", gap: "40px", maxWidth: "900px" }}>
+      <BackgroundRays />
+      <div style={{ ...cardStyle, display: "flex", gap: "40px", maxWidth: "900px", position: "relative", zIndex: 2 }}>
         <div style={{ flex: 1, borderRight: "1px solid rgba(255,255,255,0.1)", paddingRight: "20px" }}>
           <span style={{ color: "#4ac6ff", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "2px" }}>Selected Plan</span>
           <h2 style={{ fontSize: "2.5rem", margin: "10px 0", fontWeight: "600" }}>{plan.name}</h2>
@@ -153,11 +178,12 @@ function PaymentPage({ plan, onSuccess, onBack }) {
 }
 
 // Updated Styles for a "Quiet Luxury" Tech aesthetic
-const containerStyle = { minHeight: "100vh", background: "#08080c", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" };
+const containerStyle = { minHeight: "100vh", background: "#08080c", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", position: "relative", overflow: "hidden" };
+const raysWrapperStyle = { position: "absolute", top: 0, left: 0, width: "100%", height: "100%", zIndex: 0, pointerEvents: "none" };
 const cardStyle = { background: "rgba(26, 26, 46, 0.4)", backdropFilter: "blur(10px)", padding: "40px", borderRadius: "24px", color: "#fff", width: "100%", border: "1px solid rgba(255, 255, 255, 0.08)", boxShadow: "0 20px 40px rgba(0,0,0,0.4)" };
 const inputStyle = { width: "100%", padding: "14px", marginBottom: "12px", background: "rgba(0, 0, 0, 0.2)", color: "#fff", border: "1px solid #2a2a3a", borderRadius: "12px", outline: "none", fontSize: "0.9rem" };
 const rowStyle = { display: "flex", gap: "12px" };
 const primaryBtnStyle = { width: "100%", padding: "14px", borderRadius: "12px", background: "linear-gradient(135deg, #4ac6ff 0%, #2a2f4a 100%)", color: "#fff", border: "none", fontWeight: "600", cursor: "pointer", boxShadow: "0 4px 15px rgba(74, 198, 255, 0.2)" };
-const linkBtnStyle = { background: "none", border: "none", color: "#666", marginTop: "15px", cursor: "pointer", fontSize: "0.85rem", textDecoration: "underline" };
+const linkBtnStyle = { background: "none", border: "none", color: "#999", marginTop: "15px", cursor: "pointer", fontSize: "0.85rem", textDecoration: "underline" };
 
 export default PaymentPage;

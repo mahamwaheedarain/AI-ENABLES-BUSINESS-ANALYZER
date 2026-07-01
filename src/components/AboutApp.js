@@ -1,6 +1,7 @@
 // src/components/AboutApp.js
 import React from "react";
 import { motion } from "framer-motion";
+import Plasma from './Plasma';
 
 // ---------- Premium Cyber Theme ----------
 const theme = {
@@ -25,6 +26,16 @@ const containerStyle = {
   boxSizing: "border-box",
   position: "relative",
   overflowX: "hidden",
+};
+
+// Plasma now sits fixed behind everything, covering the whole viewport
+const plasmaBackdropStyle = {
+  position: "fixed",
+  inset: 0,
+  width: "100%",
+  height: "100%",
+  zIndex: 0,
+  pointerEvents: "none",
 };
 
 const backBtnStyle = {
@@ -101,22 +112,9 @@ const cardItemStyle = {
   transition: "all 0.25s ease",
 };
 
-// ---------- Ambient Mesh Background ----------
+// ---------- Ambient Mesh Background (subtle grid overlay on top of Plasma) ----------
 const MeshBackdrop = () => (
-  <div style={{ position: "absolute", inset: 0, overflow: "hidden", zIndex: 0, pointerEvents: "none" }}>
-    <div
-      style={{
-        position: "absolute",
-        width: 600,
-        height: 600,
-        top: "-10%",
-        right: "-5%",
-        borderRadius: "50%",
-        filter: "blur(140px)",
-        background: `radial-gradient(circle, ${theme.primary} 0%, rgba(31,111,235,0.15) 60%, transparent 100%)`,
-        opacity: 0.12,
-      }}
-    />
+  <div style={{ position: "fixed", inset: 0, overflow: "hidden", zIndex: 1, pointerEvents: "none" }}>
     <div
       style={{
         position: "absolute",
@@ -134,19 +132,42 @@ const MeshBackdrop = () => (
 export default function AboutApp({ onBack }) {
   return (
     <div style={containerStyle}>
+      {/* Plasma fills the entire viewport as the base layer */}
+      <div style={plasmaBackdropStyle}>
+        <Plasma
+          color="#B497CF"
+          speed={1}
+          direction="forward"
+          scale={1}
+          opacity={1}
+          mouseInteractive={false}
+        />
+      </div>
+
       <MeshBackdrop />
 
       <div style={{ position: "relative", zIndex: 2, maxWidth: "880px", margin: "0 auto" }}>
         {/* Back Button */}
         <motion.button 
-          whileHover={{ scale: 1.03, background: "rgba(255, 255, 255, 0.06)", borderColor: "rgba(88, 166, 255, 0.4)" }}
-          whileTap={{ scale: 0.97 }}
-          className="back-btn" 
-          onClick={onBack}
-          style={backBtnStyle}
-        >
-          ← Back to Plans
-        </motion.button>
+  whileHover={{ 
+    scale: 1.03, 
+    background: "rgba(255, 255, 255, 0.06)", 
+    borderColor: "rgba(88, 166, 255, 0.4)" 
+  }}
+
+  whileTap={{ scale: 0.97 }}
+
+  className="back-btn" 
+
+  onClick={onBack}
+
+  style={{ 
+    ...backBtnStyle, 
+    color: "white" 
+  }}
+>
+  Back to Plans
+</motion.button>
 
         {/* About Section */}
         <motion.section 
