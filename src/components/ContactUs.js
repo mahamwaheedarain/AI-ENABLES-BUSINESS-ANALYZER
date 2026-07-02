@@ -182,7 +182,7 @@ export default function ContactUs({ onBack }) {
                 type="submit" 
                 style={submitButtonStyle}
               >
-                {status === "sending" ? "Sending..." : "Initialize Transmission"}
+                {status === "sending" ? "Sending..." : "Send a message"}
               </motion.button>
 
               <AnimatePresence>
@@ -215,7 +215,7 @@ export default function ContactUs({ onBack }) {
             </div>
 
             <div style={auditNote}>
-              <p style={{ fontSize: '11.5px', color: theme.subtext, lineHeight: '1.6', margin: 0 }}>
+              <p style={{ fontSize: '11.5px', color: "white", lineHeight: '1.6', margin: 0 }}>
                 All inquiries are processed through our encrypted data stream to ensure total privacy.
               </p>
             </div>
@@ -224,12 +224,12 @@ export default function ContactUs({ onBack }) {
 
         {/* Analysts Ticker Style */}
         <section style={{ marginTop: '32px' }}>
-          <motion.div variants={itemVariants} style={{ ...cardHeader, marginBottom: '20px' }}>Analytics Team</motion.div>
+          <motion.div variants={itemVariants} style={{ ...cardHeader, marginBottom: '20px' }}> Team</motion.div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
             {[
               { name: "Maham Waheed", role: "Project Lead", icon: "👩‍💼" },
               { name: "Adeena Sheikh", role: "Team Member", icon: "👩‍💻" },
-              { name: "InsightIQ AI", role: "Neural Engine", icon: "🤖" }
+             
             ].map((analyst, index) => (
               <motion.div 
                 key={analyst.name}
@@ -263,7 +263,7 @@ const cardStyle = {
 
 const cardHeader = { 
   fontSize: '11px', 
-  color: theme.subtext, 
+  color: "#fff", 
   marginBottom: '24px', 
   fontWeight: '700', 
   letterSpacing: '1.5px', 

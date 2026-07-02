@@ -363,15 +363,18 @@ export default function SalesDashboard() {
     const config = {
       "Revenue": { 
         accent: theme.primary, title: "Revenue Forecast Matrix",
-        kpis: ["Data Volume", "Net Forecast", "Inventory Health"] 
+        kpis: ["Inventory", "Net Forecast", "Inventory Health"],
+        columns: ["Product Name", "Monthly Revenue", "Accuracy", "Trend"]
       },
       "Marketing ROI": { 
         accent: theme.accent, title: "Capital Efficiency Logs",
-        kpis: ["Spend Volume", "Net Attribution", "Channel Efficiency"] 
+        kpis: ["Spend Volume", "Net Attribution", "Channel Efficiency"],
+        columns: ["Marketing Channel", "Return on Ad Spend", "Accuracy", "Trend"]
       },
       "Customer Churn": { 
         accent: theme.danger, title: "Risk Probability Dashboard",
-        kpis: ["At-Risk Entities", "LTV Impact", "Churn Velocity"] 
+        kpis: ["At-Risk Entities", "LTV Impact", "Churn Velocity"],
+        columns: ["Customer Segment", "Churn Rate", "Accuracy", "Trend"]
       }
     }[activeFunc];
 
@@ -412,7 +415,7 @@ export default function SalesDashboard() {
           </div>
 
           <div style={{ ...cardStyle, borderLeft: `4px solid ${config.accent}` }}>
-            <div style={{...cardHeader, color: config.accent}}>Sales Intelligence</div>
+            <div style={{...cardHeader, color: config.accent}}>Sales Insights</div>
             <p style={{ fontSize: '14px', lineHeight: '1.6', color: theme.text }}>
               Revenue streams indicate {data.accuracy > 0.8 ? "high" : "moderate"} reliability. 
             </p>
@@ -422,18 +425,18 @@ export default function SalesDashboard() {
         <div style={cardStyle}>
           <div style={{ ...cardHeader, display: 'flex', justifyContent: 'space-between', marginBottom: '25px' }}>
             <span style={{ color: theme.text }}>{activeFunc} Audit Ledger</span>
-            <span style={{ color: config.accent, fontWeight: '800' }}>Predictive Analytics Active</span>
+           
           </div>
           <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
             <table style={tableStyle}>
-              <thead>
-                <tr style={thStyle}>
-                  <th style={{padding: '15px'}}>Metric Entity</th>
-                  <th>Forecasted Yield</th>
-                  <th>Confidence</th>
-                  <th>Trajectory</th>
-                </tr>
-              </thead>
+            <thead>
+  <tr style={thStyle}>
+    <th style={{padding: '15px'}}>{config.columns[0]}</th>
+    <th>{config.columns[1]}</th>
+    <th>{config.columns[2]}</th>
+    <th>{config.columns[3]}</th>
+  </tr>
+</thead>
               <tbody>
                 {data.insights.map((insight, idx) => (
                   <tr key={idx} style={trStyle}>

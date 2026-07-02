@@ -220,8 +220,8 @@ export default function OperationsDashboard() {
           benefit: totalProfit,
           ledger: combinedLedger,
           distribution: [
-            { name: 'SLA Compliant', value: total - flagged },
-            { name: 'SLA Breach', value: flagged }
+            { name: 'Compliant', value: total - flagged },
+            { name: 'Breach', value: flagged }
           ],
           history: combinedLedger.slice(0, 15).map((d, i) => ({ x: i, y: d.profit })),
           insights: key === "Risk Management"
@@ -338,13 +338,13 @@ export default function OperationsDashboard() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
           <KPICard title="Throughput Units" value={data.total} color={theme.text} delay={0.1} />
-          <KPICard title="SLA Breach Flags" value={data.flagged} color={theme.danger} delay={0.2} />
+          <KPICard title="Breach Flags" value={data.flagged} color={theme.danger} delay={0.2} />
           <KPICard title="EBITDA Impact" value={`$${data.benefit.toLocaleString()}`} color={theme.success} delay={0.3} />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 0.8fr', gap: '25px', marginBottom: '30px' }}>
           <div style={cardStyle}>
-            <div style={cardHeader}>SLA Compliance Ratio</div>
+            <div style={cardHeader}>Compliance Ratio</div>
             <ResponsiveContainer width="100%" height={180}>
               <PieChart>
                 <Pie data={data.distribution} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
@@ -372,7 +372,7 @@ export default function OperationsDashboard() {
           </div>
 
           <div style={{ ...cardStyle, borderLeft: `4px solid ${config.accent}` }}>
-            <div style={{...cardHeader, color: config.accent}}>Operational Summary</div>
+            <div style={{...cardHeader, color: config.accent}}>Operational Insights</div>
             <p style={{ fontSize: '14px', lineHeight: '1.6', color: theme.text }}>
               Verified {data.total} units. 
               {activeFunc === "Risk Management" ? " Financial integrity is optimized for gross margin defense." : " Transit flow tracked for OTIF compliance across all geo-nodes."}
@@ -386,7 +386,7 @@ export default function OperationsDashboard() {
             <thead>
               <tr style={thStyle}>
                 <th style={{padding: '15px'}}>Log ID</th>
-                <th>SLA Status</th>
+                <th>Status</th>
                 <th>Gross Margin</th>
               </tr>
             </thead>

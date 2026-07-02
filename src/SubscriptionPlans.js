@@ -163,7 +163,7 @@ const styles = {
     padding: "10px 24px",
     background: "transparent",
     border: "none",
-    color: theme.subtext,
+    color: "white",
     fontSize: "14px",
     fontWeight: "600",
     borderRadius: "24px",
@@ -171,6 +171,7 @@ const styles = {
     transition: "color 0.2s ease"
   },
   faqSection: {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     width: "100%",
     maxWidth: "840px",
     margin: "120px auto 40px",
@@ -179,6 +180,7 @@ const styles = {
     position: "relative"
   },
   faqItem: {
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     background: "rgba(22, 27, 34, 0.2)",
     border: `1px solid ${theme.border}`,
     borderRadius: "16px",
@@ -787,12 +789,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     setNewsletterEmail("");
   };
 
-  const handleResetFilters = () => {
-    setCurrency("USD");
-    setBillingCycle("monthly");
-    setFaqSearchQuery("");
-    handleTrackAnalyticsClick("System Control Variables Reset Flush");
-  };
+
 
   const handleTrackAnalyticsClick = (interactionName) => {
     console.log("[TELEMETRY STREAM LOG] Ingested user event hook direct mapping metrics: " + interactionName);
@@ -1433,14 +1430,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               {currOption}
             </button>
           ))}
-          {(currency !== "USD" || billingCycle !== "monthly" || faqSearchQuery !== "") && (
-            <button
-              onClick={handleResetFilters}
-              style={{ padding: "6px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: "600", cursor: "pointer", border: "1px dashed rgba(239, 68, 68, 0.4)", background: "rgba(239, 68, 68, 0.05)", color: "#f87171" }}
-            >
-              Reset Filters ↺
-            </button>
-          )}
+         
         </div>
 
         {/* Billing Toggle */}
@@ -1526,17 +1516,17 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             <div style={{ padding: "48px 48px 40px 48px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-                  <h3 style={{ fontSize: "24px", fontWeight: "600", margin: 0 }}>{plan.name} Cluster</h3>
+                  <h3 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',fontSize: "27px", fontWeight: "500", margin: 0 }}>{plan.name}</h3>
                   <button onClick={() => handleSharePlan(plan.name)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "16px", padding: "4px" }} title="Share Environment Parameters">🔗</button>
                 </div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "32px" }}>
-                  <span style={{ fontSize: "52px", fontWeight: "700", letterSpacing: "-2px" }}>{symbol}{computedFinPrice}</span>
-                  <span style={{ color: theme.subtext, fontSize: "15px" }}>{billingCycle === "annual" ? "/mo, billed annually" : plan.period}</span>
+                  <span style={{ fontSize: "46px", fontWeight: "700", letterSpacing: "-2px" }}>{symbol}{computedFinPrice}</span>
+                  <span style={{ color: "#fff", fontSize: "15px" }}>{billingCycle === "annual" ? "/mo, billed annually" : plan.period}</span>
                 </div>
                 <div style={{ height: "1px", background: "linear-gradient(90deg, rgba(255,255,255,0.08), transparent)", marginBottom: "36px" }} />
                 <ul style={{ padding: 0, margin: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "18px" }}>
                   {plan.features.map((feature, fIdx) => (
-                    <li key={fIdx} style={{ display: "flex", alignItems: "start", gap: "14px", fontSize: "14px", color: theme.subtext, lineHeight: "1.5" }}>
+                    <li key={fIdx} style={{ display: "flex", alignItems: "start", gap: "14px", fontSize: "14px", color: "#fff", lineHeight: "1.5" }}>
                       <span style={{ color: theme.primary, fontWeight: "bold", marginTop: "1px" }}>✓</span>
                       <span>{feature}</span>
                     </li>
@@ -1554,7 +1544,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 style={{
                   width: "100%",
                   padding: "16px",
-                  marginTop: "48px",
+                  marginTop: "22px",
                   borderRadius: "16px",
                   border: isEnterprise ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${theme.border}`,
                   background: isEnterprise ? "linear-gradient(135deg, #1f6feb 0%, #11449e 100%)" : "rgba(255,255,255,0.03)",
@@ -1568,7 +1558,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 onMouseEnter={(e) => { if(!isEnterprise) e.target.style.background = "rgba(255,255,255,0.07)"; }}
                 onMouseLeave={(e) => { if(!isEnterprise) e.target.style.background = "rgba(255,255,255,0.03)"; }}
               >
-                Initialize {plan.name} Plan
+                Choose Plan
               </motion.button>
             </div>
           </MagneticCard>
@@ -1615,7 +1605,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
               style={styles.matrixSection}
             >
-              <h3 style={{ fontSize: "20px", fontWeight: "700", marginBottom: "24px", textAlign: "center", letterSpacing: "-0.5px" }}>
+              <h3 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',fontSize: "20px", fontWeight: "700", marginBottom: "24px", textAlign: "center", letterSpacing: "-0.5px" }}>
                 Deep Architecture Verification Primitives
               </h3>
               <div style={{ width: "100%", overflowX: "auto" }}>
@@ -1623,7 +1613,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${theme.border}`, color: "#fff" }}>
                       <th style={{ padding: "12px 16px", fontWeight: "600" }}>System Capability Framework</th>
-                      <th style={{ padding: "12px 16px", fontWeight: "600" }}>Pro Cluster</th>
+                      <th style={{ padding: "12px 16px", fontWeight: "600" }}>Pro</th>
                       <th style={{ padding: "12px 16px", fontWeight: "600", color: theme.primary }}>Enterprise Stack</th>
                     </tr>
                   </thead>
@@ -1739,8 +1729,8 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           
           <div style={{ display: "flex", gap: "64px", flexWrap: "wrap" }}>
             <div>
-              <h4 style={{ color: "#fff", fontSize: "14px", fontWeight: "600", marginBottom: "16px" }}>Product</h4>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
+              <h4 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',color: "#fff", fontSize: "14px", fontWeight: "600", marginBottom: "16px" }}>Product</h4>
+              <ul style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
                 <li><a href="#features" style={{ color: theme.subtext, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = theme.subtext}>Features</a></li>
                 <li><a href="#security" style={{ color: theme.subtext, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = theme.subtext}>Security</a></li>
                 <li><a href="#pricing" style={{ color: theme.subtext, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = theme.subtext}>Pricing</a></li>
@@ -1772,10 +1762,10 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: "1200px", margin: "0 auto", borderTop: `1px solid rgba(255,255,255,0.04)`, paddingTop: "24px", fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
+        <div style={{ display: "flex", color:"white",justifyContent: "space-between", alignItems: "center", maxWidth: "1200px", margin: "0 auto", borderTop: `1px solid rgba(255,255,255,0.04)`, paddingTop: "24px", fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
           <span>&copy; {new Date().getFullYear()} InsightIQ Inc. All rights reserved.</span>
-          <div style={{ display: "flex", gap: "16px" }}>
-            <span>System Status: <span style={{ color: "#34d399" }}>● Operational</span></span>
+          <div style={{ display: "flex", gap: "16px",color:"white"}}>
+        
           </div>
         </div>
       </footer>

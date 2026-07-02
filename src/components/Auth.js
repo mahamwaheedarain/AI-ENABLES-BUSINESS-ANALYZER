@@ -11,6 +11,9 @@ const theme = {
   text: "#ffffff",
   subtext: "#8b949e",
   border: "rgba(255, 255, 255, 0.08)",
+  danger: "#f85149",
+  warning: "#d29922",
+  success: "#3fb950",
 };
 
 const styles = {
@@ -90,7 +93,7 @@ const styles = {
   passwordInput: {
     width: "100%",
     padding: "18px 48px 18px 22px", // extra right padding for the icon
-    marginBottom: "18px",
+    marginBottom: "8px",
     background: "rgba(0,0,0,0.4)",
     border: `1px solid rgba(255, 255, 255, 0.1)`,
     borderRadius: "18px",
@@ -114,6 +117,48 @@ const styles = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+  },
+  // New: strength meter styles
+  strengthWrapper: {
+    width: "100%",
+    marginBottom: "18px",
+  },
+  strengthTrack: {
+    width: "100%",
+    height: "5px",
+    borderRadius: "3px",
+    background: "rgba(255,255,255,0.08)",
+    overflow: "hidden",
+    display: "flex",
+    gap: "4px",
+  },
+  strengthSegment: {
+    flex: 1,
+    height: "100%",
+    borderRadius: "3px",
+    background: "rgba(255,255,255,0.08)",
+    transition: "background 0.25s ease",
+  },
+  strengthLabel: {
+    fontSize: "12px",
+    fontWeight: "600",
+    marginTop: "6px",
+    letterSpacing: "0.2px",
+  },
+  errorText: {
+    fontSize: "12px",
+    fontWeight: "600",
+    color: theme.danger,
+    marginTop: "-10px",
+    marginBottom: "16px",
+    letterSpacing: "0.2px",
+  },
+  matchHint: {
+    fontSize: "12px",
+    fontWeight: "600",
+    marginTop: "-2px",
+    marginBottom: "16px",
+    letterSpacing: "0.2px",
   },
   titleH1: {
     fontSize: "73px",
@@ -148,15 +193,56 @@ const EyeOffIcon = () => (
   </svg>
 );
 
+const CheckIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const XIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+// --- Password strength helper -------------------------------------------
+// Returns a score 0-4 and a label/color to describe it.
+const getPasswordStrength = (password) => {
+  if (!password) {
+    return { score: 0, label: "", color: "transparent" };
+  }
+
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
+  if (/\d/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+
+  // Cap at 4 buckets: Weak, Fair, Good, Strong
+  const capped = Math.min(score, 4);
+
+  const map = {
+    0: { label: "Too weak", color: theme.danger },
+    1: { label: "Weak", color: theme.danger },
+    2: { label: "Fair", color: theme.warning },
+    3: { label: "Good", color: theme.primary },
+    4: { label: "Strong", color: theme.success },
+  };
+
+  return { score: capped, ...map[capped] };
+};
+
 // Reusable password input with a show/hide toggle
-const PasswordInput = ({ placeholder, value, onChange }) => {
+const PasswordInput = ({ placeholder, value, onChange, style }) => {
   const [visible, setVisible] = useState(false);
   return (
     <div style={styles.passwordWrapper}>
       <input
         type={visible ? "text" : "password"}
         placeholder={placeholder}
-        style={styles.passwordInput}
+        style={{ ...styles.passwordInput, ...style }}
         value={value}
         onChange={onChange}
       />
@@ -169,6 +255,49 @@ const PasswordInput = ({ placeholder, value, onChange }) => {
       >
         {visible ? <EyeOffIcon /> : <EyeIcon />}
       </button>
+    </div>
+  );
+};
+
+// New: visual strength meter shown under the signup password field
+const PasswordStrengthMeter = ({ password }) => {
+  const { score, label, color } = getPasswordStrength(password);
+  if (!password) return null;
+
+  return (
+    <div style={styles.strengthWrapper}>
+      <div style={styles.strengthTrack}>
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            style={{
+              ...styles.strengthSegment,
+              background: i < score ? color : "rgba(255,255,255,0.08)",
+            }}
+          />
+        ))}
+      </div>
+      <div style={{ ...styles.strengthLabel, color }}>{label}</div>
+    </div>
+  );
+};
+
+// New: little match/no-match hint under the confirm password field
+const PasswordMatchHint = ({ password, confirmPassword }) => {
+  if (!confirmPassword) return null;
+  const matches = password === confirmPassword;
+  return (
+    <div
+      style={{
+        ...styles.matchHint,
+        color: matches ? theme.success : theme.danger,
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+      }}
+    >
+      {matches ? <CheckIcon /> : <XIcon />}
+      {matches ? "Passwords match" : "Passwords do not match"}
     </div>
   );
 };
@@ -267,7 +396,7 @@ export const Login = ({ onLogin, switchToSignup }) => {
     <AuthLayout title="Welcome Back">
       <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password); }}>
         <input placeholder="Email" style={styles.input} value={email} onChange={(e) => setEmail(e.target.value)} />
-        <PasswordInput placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <PasswordInput placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ marginBottom: "18px" }} />
         <button type="submit" style={{ ...styles.input, background: theme.primary, border: "none", fontWeight: "800", cursor: "pointer", marginTop: "12px", color: "#fff", boxShadow: `0 8px 25px rgba(88,166,255, 0.4)` }}>Sign In</button>
       </form>
       <p style={{ textAlign: "center", color: theme.subtext, fontSize: "14px", marginTop: "24px", letterSpacing: '0.2px' }}>
@@ -281,12 +410,54 @@ export const Signup = ({ onSignup, switchToLogin }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const MIN_STRENGTH_SCORE = 2; // require at least "Fair"
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError("");
+
+    const { score, label } = getPasswordStrength(password);
+
+    if (score < MIN_STRENGTH_SCORE) {
+      setError(
+        `Password is too weak${label ? ` (${label})` : ""}. Use at least 8 characters, mixing upper/lowercase, numbers, or symbols.`
+      );
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    onSignup(name, email, password);
+  };
+
   return (
     <AuthLayout title="Get Started">
-      <form onSubmit={(e) => { e.preventDefault(); onSignup(name, email, password); }}>
+      <form onSubmit={handleSubmit}>
         <input placeholder="Full Name" style={styles.input} value={name} onChange={(e) => setName(e.target.value)} />
         <input placeholder="Email" style={styles.input} value={email} onChange={(e) => setEmail(e.target.value)} />
-        <PasswordInput placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+
+        <PasswordInput
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <PasswordStrengthMeter password={password} />
+
+        <PasswordInput
+          placeholder="Confirm Password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+        />
+        <PasswordMatchHint password={password} confirmPassword={confirmPassword} />
+
+        {error && <div style={styles.errorText}>{error}</div>}
+
         <button type="submit" style={{ ...styles.input, background: theme.primary, border: "none", fontWeight: "800", cursor: "pointer", marginTop: "12px", color: "#fff", boxShadow: `0 8px 25px rgba(88,166,255, 0.4)` }}>Get Started</button>
       </form>
       <p style={{ textAlign: "center", color: theme.subtext, fontSize: "14px", marginTop: "24px", letterSpacing: '0.2px' }}>

@@ -419,7 +419,7 @@ export default function MarketingDashboard() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 0.8fr", gap: "25px", marginBottom: "30px" }}>
           <div style={cardStyle}>
-            <div style={cardHeader}>Metric Correlation Matrix</div>
+            <div style={cardHeader}>Spend-Engagement Matrix</div>
             <ResponsiveContainer width="100%" height={180}>
               <ScatterChart>
                 <XAxis type="number" dataKey="spent"      name="Spend"      stroke={theme.subtext} fontSize={10} hide />
@@ -459,21 +459,19 @@ export default function MarketingDashboard() {
           </div>
 
           <div style={{ ...cardStyle, borderLeft: `4px solid ${config.accent}` }}>
-            <div style={{ ...cardHeader, color: config.accent }}>Marketing Intelligence</div>
+            <div style={{ ...cardHeader, color: config.accent }}>Marketing Insights</div>
             <p style={{ fontSize: "14px", lineHeight: "1.6", color: theme.text, margin: 0 }}>
               Analyzed {data.total} consumer profiles.
               Engagement patterns indicate a highly unified architecture across primary acquisition and verification channels.
             </p>
-            <div style={{ marginTop: "25px", paddingTop: "20px", borderTop: `1px solid ${theme.border}` }}>
-              <span style={{ fontSize: "11px", color: theme.subtext, fontWeight: "800" }}>PRODUCTION STREAM: LIVE</span>
-            </div>
+           
           </div>
         </div>
 
         <div style={{ ...cardStyle, marginBottom: "30px" }}>
           <div style={{ ...cardHeader, display: "flex", justifyContent: "space-between" }}>
-            <span>{activeFunc} Intelligence Matrix</span>
-            <span style={{ color: theme.primary }}>Predictive Points Active</span>
+            <span>{activeFunc}  </span>
+       
           </div>
           <div style={{ maxHeight: "250px", overflowY: "auto" }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
@@ -494,7 +492,7 @@ export default function MarketingDashboard() {
         <div style={cardStyle}>
           <div style={{ ...cardHeader, display: "flex", justifyContent: "space-between" }}>
             <span>{activeFunc} Operational Ledger</span>
-            <span style={{ color: theme.primary }}>Verified Database Records</span>
+            <span style={{ color: theme.primary }}>Records</span>
           </div>
           <table style={tableStyle}>
             <thead>
@@ -502,7 +500,7 @@ export default function MarketingDashboard() {
                 <th style={{ padding: "15px" }}>ID Identifier</th>
                 <th>Capital Investment</th>
                 <th>{metricConfig.label}</th>
-                <th>Status Flags</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>

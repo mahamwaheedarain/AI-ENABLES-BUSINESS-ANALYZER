@@ -353,7 +353,7 @@ export default function HRDashboard() {
     const data    = { ...raw, ledger, flagged };
 
     const config = {
-      "Salary Distribution": { kpi1: "Headcount",    kpi2: "Avg Salary",    kpi3: "Total Payroll",   color: theme.primary, chartKey: "salary"   },
+      "Salary Distribution": { kpi1: "Total Employees",    kpi2: "Avg Salary",    kpi3: "Total Payroll",   color: theme.primary, chartKey: "salary"   },
       "Attrition Analysis":  { kpi1: "Risk Flags",   kpi2: "Avg Overtime",  kpi3: "Retention Index", color: theme.danger,  chartKey: "overtime" },
       "Training Impact":     { kpi1: "Avg Training", kpi2: "Skill Upgrades",kpi3: "Efficiency Gain", color: theme.accent,  chartKey: "training" },
     }[activeFunc];
@@ -390,7 +390,7 @@ export default function HRDashboard() {
 
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "25px", marginBottom: "30px" }}>
           <div style={cardStyle}>
-            <div style={cardHeader}>{activeFunc} Distribution Matrix</div>
+            <div style={cardHeader}>{activeFunc} Matrix</div>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={data.ledger.slice(0, 25)}>
                 <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
@@ -410,23 +410,21 @@ export default function HRDashboard() {
           </div>
 
           <div style={{ ...cardStyle, borderLeft: `4px solid ${config.color}` }}>
-            <div style={{ ...cardHeader, color: config.color }}>HR Intelligence</div>
+            <div style={{ ...cardHeader, color: config.color }}>HR Insights</div>
             <p style={{ fontSize: "14px", lineHeight: "1.7", color: theme.text, margin: 0 }}>
               Live processing validation for database streams.
               {activeFunc === "Attrition Analysis"
                 ? ` System has tracked ${data.flagged} critical risk anomalies based on extreme overtime records.`
                 : " Core performance trends are rendering cleanly against training track timelines."}
             </p>
-            <div style={{ marginTop: "25px", paddingTop: "20px", borderTop: `1px solid ${theme.border}` }}>
-              <span style={{ fontSize: "11px", color: theme.subtext, fontWeight: "800" }}>PRODUCTION STREAM: LIVE</span>
-            </div>
+            
           </div>
         </div>
 
         <div style={cardStyle}>
           <div style={{ ...cardHeader, display: "flex", justifyContent: "space-between" }}>
             <span>{activeFunc} System Ledger</span>
-            <span style={{ color: theme.primary }}>Verified Database Records</span>
+            <span style={{ color: theme.primary }}>Records</span>
           </div>
           <table style={tableStyle}>
             <thead>

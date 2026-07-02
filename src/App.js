@@ -3,7 +3,7 @@ import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "
 import FinanceDashboard from "./components/FinanceDashboard";
 import HRDashboard from "./components/HRDashboard";
 import MarketingDashboard from "./components/MarketingDashboard";
-
+import Prism from "./Prism"; // 
 import EnterpriseDashboard from "./components/EnterpriseDashboard";
 import Subscription from "./SubscriptionPlans";
 import ChatbotPage from "./components/ChatbotPage";

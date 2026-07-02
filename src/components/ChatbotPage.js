@@ -426,7 +426,7 @@ export default function ChatbotPage({ onSignOut }) {
     return (
       <div style={{ ...containerStyle, justifyContent: "center", alignItems: "center", flexDirection: "column", gap: "16px" }}>
         <div style={{ width: "32px", height: "32px", border: `3px solid ${theme.primary}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        <p style={{ color: theme.subtext, fontSize: "14px", fontWeight: "500", letterSpacing: "0.3px" }}>Authenticating secure metric profile runtime...</p>
+        <p style={{ color: theme.subtext, fontSize: "14px", fontWeight: "500", letterSpacing: "0.3px" }}>Loading responses</p>
       </div>
     );
   }
