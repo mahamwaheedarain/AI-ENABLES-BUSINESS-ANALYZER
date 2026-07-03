@@ -442,7 +442,7 @@ export default function ChatbotPage({ onSignOut }) {
     style={{ 
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', 
       fontWeight: 700, // High-quality bold weight for system fonts
-      fontSize: "25px", 
+      fontSize: "23px", 
       letterSpacing: "-1.5px", // Slightly tuned spacing for the logo text
       color: "#fff", 
       display: "flex", 
@@ -459,9 +459,7 @@ export default function ChatbotPage({ onSignOut }) {
       IQ
     </span>
   </motion.div>
-          <p style={{ margin: "5px 0 0", fontSize: "11px", color: theme.subtext, textTransform: "uppercase", letterSpacing: "1px" }}>
-            {userPlan} Workspace
-          </p>
+          
         </div>
 
         <button 
@@ -489,8 +487,8 @@ export default function ChatbotPage({ onSignOut }) {
           <span style={{ fontSize: "18px", fontWeight: "300" }}>+</span> New chat
         </button>
 
-        <div style={{ color: theme.subtext, fontSize: '11px', fontWeight: '700', marginBottom: '10px', padding: "0 8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-          Recent Logs
+        <div style={{ color: "white", fontSize: '11px', fontWeight: '700', marginBottom: '10px', padding: "0 8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          Recent Chats
         </div>
         
         <div style={{ flex: 1, overflowY: "auto", padding: "0 4px" }}>
@@ -529,15 +527,7 @@ export default function ChatbotPage({ onSignOut }) {
         </div>
 
         {/* Secure Workspace Infrastructure Termination Control */}
-        <div style={{ borderTop: `1px solid ${theme.border}`, paddingTop: "16px", paddingBottom: "8px", display: "flex", flexDirection: "column", gap: "10px" }}>
-          {currentUser && (
-            <div style={{ fontSize: "12px", color: theme.textMuted, wordBreak: "break-all", padding: "0 8px" }}>
-              Logged in as: <span style={{ color: theme.primary }}>{currentUser.email}</span>
-            </div>
-          )}
-          
-          
-        </div>
+        
       </aside>
 
       {/* Primary Communication Terminal Shell */}

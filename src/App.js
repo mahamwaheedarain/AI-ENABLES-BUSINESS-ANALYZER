@@ -17,6 +17,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 
+
 // ----------------- YOUR ORIGINAL STYLES (UNTOUCHED) -----------------
 const styles = {
   app: { display: "flex", height: "100vh", background: "#0d0d14", color: "#e0e0e0", fontFamily: "Arial, sans-serif" },
@@ -742,10 +743,9 @@ function App() {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 10px" }}>
                 <p
                   style={{
-                    fontSize: "0.68rem",
-                    fontFamily: FONT,
+                    fontSize: "13px",
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                     color: "#5b6472",
-                    textTransform: "uppercase",
                     letterSpacing: "2px",
                     fontWeight: 700,
                     margin: 0,
@@ -756,7 +756,7 @@ function App() {
                 <span
                   style={{
                     fontSize: "0.62rem",
-                    fontFamily: FONT,
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                     color: step === "dashboard" ? "#3fb950" : "#5b6472",
                     fontWeight: 700,
                     display: "flex",
@@ -905,21 +905,7 @@ function App() {
               >
                 ?
               </motion.button>
-              <motion.div whileHover={{ scale: 1.1 }} style={{ cursor: "pointer", opacity: 0.75, position: "relative", display: "flex" }}>
-                <Icons.Bell size={19} strokeWidth={1.7} />
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -2,
-                    right: -2,
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: "#f85149",
-                    border: "2px solid #0d1117",
-                  }}
-                />
-              </motion.div>
+             
 
               {/* ── USER MENU — email sourced from Firebase auth gateway (`user.email`) ── */}
               <div ref={userMenuRef} style={{ position: "relative" }}>

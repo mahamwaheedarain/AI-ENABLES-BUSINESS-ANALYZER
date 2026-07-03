@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import  Orb from "./Orb"; // Updated to local folder import with named wrapper to prevent crashes
-
+import BorderGlow from '../BorderGlow';
 // RETAINED EXACT THEME COLORS
 const theme = {
   primary: "#58a6ff",

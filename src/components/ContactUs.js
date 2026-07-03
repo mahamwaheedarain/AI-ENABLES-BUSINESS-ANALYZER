@@ -51,7 +51,7 @@ export default function ContactUs({ onBack }) {
     outline: "none",
     width: "100%",
     marginBottom: "24px",
-    fontFamily: theme.fontMain,
+     fontMain: "'Inter', -apple-system, system-ui, sans-serif", 
     boxSizing: "border-box",
     transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)" 
   };
@@ -83,7 +83,7 @@ export default function ContactUs({ onBack }) {
         color: theme.text, 
         minHeight: '100vh', 
         padding: '50px 60px', 
-        fontFamily: theme.fontMain, 
+        fontFamily: "'Inter', -apple-system, system-ui, sans-serif",
         boxSizing: "border-box",
         position: "relative",
         overflowX: "hidden"
@@ -116,8 +116,8 @@ export default function ContactUs({ onBack }) {
         {/* Header - Aligned with Business Analyzer Dashboards */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '48px' }}>
           <motion.div variants={itemVariants}>
-            <h1 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '32px', fontWeight: '300', margin: 0, letterSpacing: '-0.5px' }}>
-              Inquiry <span style={{ color: theme.primary, fontWeight: 800, fontStyle: "italic" }}>Portal</span>
+            <h1 style={{   fontMain: "'Inter', -apple-system, system-ui, sans-serif",  fontSize: '32px', fontWeight: '300', margin: 0, letterSpacing: '-0.5px' }}>
+              Inquiry <span style={{ color: theme.primary, fontWeight: 800, fontStyle: "italic",  fontMain: "'Inter', -apple-system, system-ui, sans-serif"}}>Portal</span>
             </h1>
            
           </motion.div>
@@ -148,7 +148,7 @@ export default function ContactUs({ onBack }) {
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 <motion.input 
-                  whileFocus={{ borderColor: "rgba(88, 166, 255, 0.45)", boxShadow: "0 0 0 3px rgba(88, 166, 255, 0.1)" }}
+                  whileFocus={{ fontMain: "'Inter', -apple-system, system-ui, sans-serif",borderColor: "rgba(88, 166, 255, 0.45)", boxShadow: "0 0 0 3px rgba(88, 166, 255, 0.1)" }}
                   type="text" 
                   placeholder="Full Name" 
                   required 
@@ -157,7 +157,7 @@ export default function ContactUs({ onBack }) {
                   onChange={(e) => setFormData({...formData, name: e.target.value})}
                 />
                 <motion.input 
-                  whileFocus={{ borderColor: "rgba(88, 166, 255, 0.45)", boxShadow: "0 0 0 3px rgba(88, 166, 255, 0.1)" }}
+                  whileFocus={{ fonttMain: "'Inter', -apple-system, system-ui, sans-serif",borderColor: "rgba(88, 166, 255, 0.45)", boxShadow: "0 0 0 3px rgba(88, 166, 255, 0.1)" }}
                   type="email" 
                   placeholder="Email Address" 
                   required 
@@ -167,7 +167,7 @@ export default function ContactUs({ onBack }) {
                 />
               </div>
               <motion.textarea 
-                whileFocus={{ borderColor: "rgba(88, 166, 255, 0.45)", boxShadow: "0 0 0 3px rgba(88, 166, 255, 0.1)" }}
+                whileFocus={{ fontMain: "'Inter', -apple-system, system-ui, sans-serif",borderColor: "rgba(88, 166, 255, 0.45)", boxShadow: "0 0 0 3px rgba(88, 166, 255, 0.1)" }}
                 placeholder="Your Message" 
                 rows="8" 
                 required 
@@ -179,6 +179,7 @@ export default function ContactUs({ onBack }) {
               <motion.button 
                 whileHover={{ scale: 1.02, boxShadow: `0 0 20px ${theme.accentGlow}` }}
                 whileTap={{ scale: 0.98 }}
+                
                 type="submit" 
                 style={submitButtonStyle}
               >
@@ -187,7 +188,7 @@ export default function ContactUs({ onBack }) {
 
               <AnimatePresence>
                 {status === "success" && (
-                  <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ color: theme.success, marginTop: "20px", fontSize: "13px", fontWeight: "600" }}>
+                  <motion.p initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{fontMain: "'Inter', -apple-system, system-ui, sans-serif", color: theme.success, marginTop: "20px", fontSize: "13px", fontWeight: "600" }}>
                     ✓ Transmission successful. Your message has been securely logged.
                   </motion.p>
                 )}
@@ -197,7 +198,7 @@ export default function ContactUs({ onBack }) {
 
           {/* Support Information Section */}
           <motion.section variants={itemVariants} style={{ ...cardStyle, borderLeft: `3px solid ${theme.primary}`, boxShadow: `0 0 30px -10px ${theme.accentGlow}, 0 20px 40px -15px rgba(0,0,0,0.5)` }}>
-            <div style={{ ...cardHeader, color: theme.primary, marginBottom: '32px' }}>Access Points</div>
+
             
             <div style={infoBox}>
               <div style={label}>Support Email</div>
@@ -215,7 +216,7 @@ export default function ContactUs({ onBack }) {
             </div>
 
             <div style={auditNote}>
-              <p style={{ fontSize: '11.5px', color: "white", lineHeight: '1.6', margin: 0 }}>
+              <p style={{   fontMain: "'Inter', -apple-system, system-ui, sans-serif", fontSize: '11.5px', color: "white", lineHeight: '1.6', margin: 0 }}>
                 All inquiries are processed through our encrypted data stream to ensure total privacy.
               </p>
             </div>
@@ -223,8 +224,8 @@ export default function ContactUs({ onBack }) {
         </div>
 
         {/* Analysts Ticker Style */}
-        <section style={{ marginTop: '32px' }}>
-          <motion.div variants={itemVariants} style={{ ...cardHeader, marginBottom: '20px' }}> Team</motion.div>
+        <section style={{   fontMain: "'Inter', -apple-system, system-ui, sans-serif", marginTop: '32px' }}>
+          <motion.div variants={itemVariants} style={{fontFamily: "'Inter', -apple-system, system-ui, sans-serif", ...cardHeader, marginBottom: '20px' }}> Team</motion.div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
             {[
               { name: "Maham Waheed", role: "Project Lead", icon: "👩‍💼" },
@@ -237,9 +238,9 @@ export default function ContactUs({ onBack }) {
                 whileHover={{ y: -4, backgroundColor: "rgba(255,255,255,0.03)", borderColor: "rgba(88, 166, 255, 0.3)" }}
                 style={cardStyle}
               >
-                <div style={{ fontSize: '24px', marginBottom: '16px', filter: `drop-shadow(0 0 6px ${theme.primary})` }}>{analyst.icon}</div>
-                <div style={{ fontSize: '10px', color: '#5b6472', fontWeight: '800', letterSpacing: '1.2px', textTransform: 'uppercase' }}>{analyst.role}</div>
-                <div style={{ fontSize: '18px', fontWeight: '800', marginTop: '6px', letterSpacing: '-0.3px', color: '#fff' }}>{analyst.name}</div>
+                <div style={{  fontMain: "'Inter', -apple-system, system-ui, sans-serif",  fontSize: '24px', marginBottom: '16px', filter: `drop-shadow(0 0 6px ${theme.primary})` }}>{analyst.icon}</div>
+                <div style={{  fontMain: "'Inter', -apple-system, system-ui, sans-serif",  fontSize: '10px', color: '#5b6472', fontWeight: '800', letterSpacing: '1.2px', textTransform: 'uppercase' }}>{analyst.role}</div>
+                <div style={{   fontMain: "'Inter', -apple-system, system-ui, sans-serif", fontSize: '18px', fontWeight: '800', marginTop: '6px', letterSpacing: '-0.3px', color: '#fff' }}>{analyst.name}</div>
               </motion.div>
             ))}
           </div>
@@ -255,13 +256,15 @@ const cardStyle = {
   backdropFilter: "blur(24px) saturate(180%)",
   WebkitBackdropFilter: "blur(24px) saturate(180%)",
   padding: '36px', 
-  borderRadius: '20px', 
+  borderRadius: '20px',
+  fontFamily: "'Inter', -apple-system, system-ui, sans-serif", 
   border: `1px solid ${theme.border}`, 
   boxSizing: 'border-box',
   transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)" 
 };
 
 const cardHeader = { 
+  fontMain: "'Inter', -apple-system, system-ui, sans-serif", 
   fontSize: '11px', 
   color: "#fff", 
   marginBottom: '24px', 
@@ -271,6 +274,7 @@ const cardHeader = {
 };
 
 const actionButtonStyle = { 
+  fontMain: "'Inter', -apple-system, system-ui, sans-serif", 
   padding: '10px 22px', 
   background: 'rgba(255, 255, 255, 0.02)', 
   color: theme.primary, 
@@ -283,17 +287,21 @@ const actionButtonStyle = {
 };
 
 const submitButtonStyle = { 
-  padding: '14px 24px', 
-  background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-  color: '#fff', 
-  fontSize: '13.5px', 
-  fontWeight: '700', 
-  cursor: 'pointer', 
-  borderRadius: '12px', 
-  border: '1px solid rgba(255, 255, 255, 0.1)', 
-  width: '100%', 
-  boxShadow: `0 0 16px ${theme.accentGlow}`,
-  transition: 'all 0.25s ease' 
+  width: "23%",
+  display: "block",
+  padding: "14px",
+  background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)",
+  border: "1px solid rgba(255, 255, 255, 0.1)",
+  borderRadius: "12px",
+  fontWeight: "700",
+  cursor: "pointer",
+  color: "#ffffff",
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  fontSize: "14px",
+  margin: "8px auto 0",
+  boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
+  transition: "all 0.25s ease" 
+
 };
 
 const infoBox = { 
@@ -303,6 +311,7 @@ const infoBox = {
 };
 
 const label = { 
+  fontMain: "'Inter', -apple-system, system-ui, sans-serif", 
   fontSize: '10.5px', 
   color: theme.subtext, 
   fontWeight: '700', 
@@ -311,7 +320,8 @@ const label = {
   letterSpacing: '0.5px'
 };
 
-const val = { 
+const val = {
+  fontMain: "'Inter', -apple-system, system-ui, sans-serif",  
   fontSize: '14.5px', 
   fontWeight: '500', 
   color: '#dfe3ea' 

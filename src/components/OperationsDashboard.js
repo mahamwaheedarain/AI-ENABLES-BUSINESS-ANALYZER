@@ -454,12 +454,7 @@ export default function OperationsDashboard() {
           <h1 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>
             Business Analyzer | <span style={{ color: theme.primary }}>Operations Dashboard</span>
           </h1>
-          <p style={{ margin: "4px 0 0", fontSize: "12px", color: theme.subtext }}>
-            {currentUser
-              ? <>Workspace: <span style={{ color: theme.primary }}>{currentUser.email}</span></>
-              : <span style={{ color: theme.subtext }}>Guest workspace</span>}
-            {files.length > 0 && ` · ${files.length} file${files.length > 1 ? "s" : ""} indexed · ${formatBytes(totalBytes)} · auto-saved`}
-          </p>
+          
         </div>
         
         {/* ── Manage Files toggle ── */}

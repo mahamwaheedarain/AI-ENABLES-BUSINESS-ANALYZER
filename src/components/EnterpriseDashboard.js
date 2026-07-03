@@ -683,30 +683,29 @@ function EnterpriseDashboard({ user, onHome }) {
 
             {/* Section Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px 10px" }}>
-              <p
-                style={{
-                  fontSize: "0.68rem",
-                  fontFamily: FONT,
-                  color: "#5b6472",
-                  textTransform: "uppercase",
-                  letterSpacing: "2px",
-                  fontWeight: 700,
-                  margin: 0,
-                }}
-              >
-                Analytics Dashboards
-              </p>
-              <span
-                style={{
-                  fontSize: "0.62rem",
-                  fontFamily: FONT,
-                  color: step === "dashboard" ? "#3fb950" : "#5b6472",
-                  fontWeight: 700,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
+            <p
+                  style={{
+                    fontSize: "13px",
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                    color: "#5b6472",
+                    letterSpacing: "2px",
+                    fontWeight: 700,
+                    margin: 0,
+                  }}
+                >
+                  Analytics Dashboards
+                </p>
+                <span
+                  style={{
+                    fontSize: "0.62rem",
+                    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                    color: step === "dashboard" ? "#3fb950" : "#5b6472",
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                  }}
+                >
                 <motion.span
                   animate={step === "dashboard" ? { opacity: [1, 0.3, 1] } : {}}
                   transition={{ duration: 1.6, repeat: Infinity }}
@@ -758,6 +757,7 @@ function EnterpriseDashboard({ user, onHome }) {
             <div style={{ flex: 1 }} />
 
             
+
           </motion.div>
         )}
       </AnimatePresence>
@@ -852,22 +852,7 @@ function EnterpriseDashboard({ user, onHome }) {
             >
               ?
             </motion.button>
-            <motion.div whileHover={{ scale: 1.1 }} style={{ cursor: "pointer", opacity: 0.75, position: "relative", display: "flex" }}>
-              <Icons.Bell size={19} strokeWidth={1.7} />
-              <span
-                style={{
-                  position: "absolute",
-                  top: -2,
-                  right: -2,
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: "#f85149",
-                  border: "2px solid #0d1117",
-                }}
-              />
-            </motion.div>
-
+          
             {/* ── USER MENU — email sourced from Firebase auth gateway ── */}
             <div ref={userMenuRef} style={{ position: "relative" }}>
               <motion.div

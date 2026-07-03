@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import PaymentPage from "./components/PaymentPage";
-import PaymentSuccess from "./components/PaymentSuccess";
+import Grainient from './Grainient';
 import ContactUs from "./components/ContactUs";
 import AboutApp from "./components/AboutApp";
 import Tutorial from "./Tutorial"; // ← NEW IMPORT
 import Prism from "./Prism"; // 
+import BorderGlow from './BorderGlow';
 import { auth, db } from "./firebase"; 
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore"; 
@@ -67,7 +68,7 @@ const styles = {
     display: "flex",
     minHeight: "100vh",
     background: theme.bg,
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     overflowX: "hidden",
     position: "relative",
     color: theme.text,
@@ -84,6 +85,7 @@ const styles = {
   },
   navButton: {
     padding: "10px 20px",
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     borderRadius: "12px",
     fontSize: "14px",
     fontWeight: "600",
@@ -144,7 +146,7 @@ const styles = {
     borderRadius: "12px",
     color: "#ffffff",
     fontSize: "14px",
-    fontFamily: "Arial, sans-serif",
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     outline: "none",
     boxSizing: "border-box",
     transition: "all 0.25s ease"
@@ -226,7 +228,7 @@ const styles = {
     color: theme.text,
     fontSize: "14px",
     fontWeight: "500",
-    fontFamily: "'Inter', sans-serif",
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     boxShadow: "0 10px 40px -10px rgba(0, 0, 0, 0.5), 0 0 30px -5px rgba(58, 162, 230, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.1)",
     display: "flex",
     alignItems: "center",
@@ -273,7 +275,7 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           width: "100%",
           maxWidth: "420px",
           textAlign: "center",
-          fontFamily: "Arial, sans-serif",
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
           position: "relative"
         }}
       >
@@ -382,7 +384,7 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
             fontSize: "14px",
             fontWeight: "700",
             cursor: "pointer",
-            fontFamily: "Arial, sans-serif",
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
             boxShadow: "0 0 15px rgba(239, 68, 68, 0.2), 0 4px 10px rgba(0,0,0,0.4)",
             transition: "all 0.25s ease"
           }}
@@ -580,12 +582,53 @@ const DynamicLogo = () => (
   </motion.div>
 );
 
+// ─── PREMIUM AUTH LAYOUT (used by both Pro & Enterprise terminal gateways) ────
+// Grainient now renders as an animated full-viewport background behind the
+// glass auth card on BOTH terminal screens.
 const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
   <div style={{ ...styles.pageWrapper, justifyContent: "center", alignItems: "center", padding: "24px" }}>
+
+    {/* ── GRAINIENT BACKGROUND (shared by Pro Terminal + Enterprise Terminal) ── */}
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      width: "100vw",
+      height: "100vh",
+      zIndex: 0,
+      pointerEvents: "none",
+      overflow: "hidden",
+      
+    }}>
+      <Grainient
+          color1="#040c18"
+          color2="#000000"
+          color3="#3f66a4"
+        timeSpeed={5}
+        colorBalance={0}
+        warpStrength={1}
+        warpFrequency={5}
+        warpSpeed={2}
+        warpAmplitude={50}
+        blendAngle={0}
+        blendSoftness={0.21}
+        rotationAmount={500}
+        noiseScale={0}
+        grainAmount={0}
+        grainScale={2}
+        grainAnimated
+        contrast={1.25}
+        gamma={1}
+        saturation={1}
+        centerX={0}
+        centerY={0}
+        zoom={0.9}
+      />
+    </div>
+
     <div style={{ ...styles.blob, top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "600px", height: "600px", background: "radial-gradient(circle, rgba(58, 162, 230, 0.22) 0%, transparent 65%)" }} />
 
-   
-
+  
     <motion.div 
       initial={{ opacity: 0, scale: 0.96, y: 15 }} 
       animate={{ opacity: 1, scale: 1, y: 0 }} 
@@ -601,15 +644,15 @@ const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
         width: "100%",
         maxWidth: "420px",
         zIndex: 10,
-        fontFamily: "Arial, sans-serif",
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
         position: "relative",
       }}
     >
       <div style={{ textAlign: "center", marginBottom: "36px" }}>
-        <h2 style={{ fontSize: "26px", fontWeight: "700", color: "#fff", margin: "0 0 10px 0", letterSpacing: "-0.5px", fontFamily: "Arial, sans-serif" }}>
+        <h2 style={{ fontSize: "26px", fontWeight: "700", color: "#fff", margin: "0 0 10px 0", letterSpacing: "-0.5px",     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'}}>
           {title}
         </h2>
-        <p style={{ color: theme.subtext, fontSize: "13px", margin: 0, lineHeight: "1.4", fontFamily: "Arial, sans-serif" }}>
+        <p style={{ color: theme.subtext, fontSize: "13px", margin: 0, lineHeight: "1.4",     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}>
           {subtitle}
         </p>
       </div>
@@ -627,7 +670,7 @@ const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
           fontSize: "13px", 
           width: "100%", 
           textAlign: "center",
-          fontFamily: "Arial, sans-serif",
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
           transition: "color 0.2s ease"
         }}
         onMouseEnter={(e) => e.target.style.color = "#fff"}
@@ -869,7 +912,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   // Premium SaaS Enterprise Auth
   if (verifyEnterprise) {
     return (
+      
       <>
+      
         <PremiumAuthLayout 
           title="Enterprise Terminal Gateway" 
           subtitle="Log into your interactive metrics tracking runtime environment."
@@ -878,7 +923,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           <form onSubmit={(e) => { e.preventDefault(); handleBusinessAuth(authEmail, authPassword, "enterprise"); }}>
             <input 
               type="email" 
-              placeholder="name@company.com" 
+              placeholder="name@gmail.com" 
               style={styles.saasInputField} 
               value={authEmail} 
               onChange={(e) => setAuthEmail(e.target.value)}
@@ -899,12 +944,20 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               whileTap={{ scale: 0.98 }}
               type="submit" 
               style={{ 
-                width: "100%", padding: "14px", 
-                background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-                border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px", 
-                fontWeight: "700", cursor: "pointer", color: "#ffffff", 
-                fontFamily: "Arial, sans-serif", fontSize: "14px", marginTop: "8px",
-                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)", transition: "all 0.25s ease"
+                width: "48%",
+                display: "block",
+                padding: "14px",
+                background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: "12px",
+                fontWeight: "700",
+                cursor: "pointer",
+                color: "#ffffff",
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                fontSize: "14px",
+                margin: "8px auto 0",
+                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
+                transition: "all 0.25s ease"
               }}
             >
               Access Enterprise Plan 
@@ -949,12 +1002,20 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               whileTap={{ scale: 0.98 }}
               type="submit" 
               style={{ 
-                width: "100%", padding: "14px", 
-                background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)", 
-                border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px", 
-                fontWeight: "700", cursor: "pointer", color: "#ffffff", 
-                fontFamily: "Arial, sans-serif", fontSize: "14px", marginTop: "8px",
-                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)", transition: "all 0.25s ease"
+                width: "38%",
+                display: "block",
+                padding: "14px",
+                background: "linear-gradient(135deg, #42b3ff 0%, #1d528f 100%)",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                borderRadius: "12px",
+                fontWeight: "700",
+                cursor: "pointer",
+                color: "#ffffff",
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                fontSize: "14px",
+                margin: "8px auto 0",
+                boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
+                transition: "all 0.25s ease"
               }}
             >
                Access Pro Plan
@@ -1320,7 +1381,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               gap: "6px",
             }}
           >
-            <span style={{ fontSize: "13px" }}></span>
+            <span style={{ fontSize: "13px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'}}></span>
             Tutorial
           </motion.button>
 
@@ -1410,7 +1471,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
       <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px 80px", position: "relative", zIndex: 2 }}>
 
         {/* Currency Controls */}
-        <div style={{ display: "flex", gap: "8px", marginBottom: "20px", zIndex: 5 }}>
+        <div style={{     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',display: "flex", gap: "8px", marginBottom: "20px", zIndex: 5 }}>
           {["USD", "PKR"].map((currOption) => (
             <button
               key={currOption}
@@ -1421,6 +1482,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 fontSize: "12px",
                 fontWeight: "600",
                 cursor: "pointer",
+                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                 border: `1px solid ${currency === currOption ? theme.primary : theme.border}`,
                 background: currency === currOption ? "rgba(88, 166, 255, 0.15)" : "rgba(255, 255, 255, 0.02)",
                 color: currency === currOption ? "#fff" : theme.subtext,
@@ -1440,6 +1502,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             style={{ 
               ...styles.toggleButton, 
               color: billingCycle === "monthly" ? "#fff" : theme.subtext,
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
               background: billingCycle === "monthly" ? "rgba(255, 255, 255, 0.08)" : "transparent"
             }}
           >
@@ -1450,10 +1513,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             style={{ 
               ...styles.toggleButton, 
               color: billingCycle === "annual" ? theme.primary : theme.subtext,
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
               background: billingCycle === "annual" ? "rgba(88, 166, 255, 0.15)" : "transparent"
             }}
           >
-            Annual Plan <span style={{ fontSize: "11px", marginLeft: "4px", padding: "2px 6px", borderRadius: "8px", background: theme.primary, color: "#000", fontWeight: "bold" }}>Save 20%</span>
+            Annual Plan <span style={{     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',fontSize: "11px", marginLeft: "4px", padding: "2px 6px", borderRadius: "8px", background: theme.primary, color: "#000", fontWeight: "bold" }}>Save 20%</span>
           </button>
         </div>
 
@@ -1492,7 +1556,6 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           >
            
           </div>
-
 {/* CARDS REGION */}
 <section style={{ width: "100%", maxWidth: "1040px", margin: "80px auto 0", padding: "0 40px", display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "40px", boxSizing: "border-box", zIndex: 2 }}>
       {plans.map((plan) => {
@@ -1500,10 +1563,17 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         const { symbol, price } = getCurrencySymbolAndPrice(plan.price);
         const computedFinPrice = billingCycle === "annual" ? Math.round(price * 0.8) : price;
 
+        // --- BorderGlow-derived corner glow params (kept local, nothing else touched) ---
+        const glowColors = ['#7dd3fc', '#38bdf8', '#0c4a6e'];
+        const glowRadius = 40;
+        const glowIntensity = 1.0;
+        const fillOpacity = 0.5;
+        const cornerPositions = ["0% 0%", "100% 0%", "0% 100%", "100% 100%"];
+
         return (
           <MagneticCard
             key={plan.name}
-            style={styles.card}
+            style={{ ...styles.card, position: "relative", overflow: "hidden" }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = "rgba(58, 162, 230, 0.35)";
               e.currentTarget.style.boxShadow = "0 0 50px -5px rgba(58, 162, 230, 0.35), 0 30px 60px -10px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255,255,255,0.2)";
@@ -1513,7 +1583,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               e.currentTarget.style.boxShadow = "0 0 40px -10px rgba(58, 162, 230, 0.25), 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255,255,255,0.15)";
             }}
           >
-            <div style={{ padding: "48px 48px 40px 48px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box" }}>
+           
+
+            <div style={{ padding: "48px 48px 40px 48px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box", position: "relative", zIndex: 1 }}>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
                   <h3 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',fontSize: "27px", fontWeight: "500", margin: 0 }}>{plan.name}</h3>
@@ -1526,7 +1598,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 <div style={{ height: "1px", background: "linear-gradient(90deg, rgba(255,255,255,0.08), transparent)", marginBottom: "36px" }} />
                 <ul style={{ padding: 0, margin: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "18px" }}>
                   {plan.features.map((feature, fIdx) => (
-                    <li key={fIdx} style={{ display: "flex", alignItems: "start", gap: "14px", fontSize: "14px", color: "#fff", lineHeight: "1.5" }}>
+                    <li key={fIdx} style={{ display: "flex", alignItems: "start", gap: "14px", fontSize: "15px", color: "#fff", lineHeight: "1.5" }}>
                       <span style={{ color: theme.primary, fontWeight: "bold", marginTop: "1px" }}>✓</span>
                       <span>{feature}</span>
                     </li>
@@ -1537,14 +1609,16 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 whileHover={{ scale: 1.015 }}
                 whileTap={{ scale: 0.985 }}
                 onClick={() => {
-                  handleTrackAnalyticsClick("Initiating Core Pipeline Allocation Stream: " + plan.name);
+                  handleTrackAnalyticsClick("Initiating: " + plan.name);
                   setSelectedPlan({ ...plan, computedPrice: symbol + computedFinPrice, activeInterval: billingCycle });
                   setGoToPayment(true);
                 }}
                 style={{
-                  width: "100%",
-                  padding: "16px",
-                  marginTop: "22px",
+                  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+                  width: "45%",
+                  display: "block",
+                  padding: "15px",
+                  margin: "24px auto 0",
                   borderRadius: "16px",
                   border: isEnterprise ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${theme.border}`,
                   background: isEnterprise ? "linear-gradient(135deg, #1f6feb 0%, #11449e 100%)" : "rgba(255,255,255,0.03)",
@@ -1564,8 +1638,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           </MagneticCard>
         );
       })}
-    </section>
-</div>
+    </section></div>
 
         {/* Matrix Toggle + Export */}
         <div style={{ marginTop: "40px", zIndex: 3, display: "flex", gap: "24px", alignItems: "center" }}>
@@ -1573,6 +1646,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             onClick={() => { handleTrackAnalyticsClick("Toggle Matrix View"); setShowFeatureMatrix(!showFeatureMatrix); }}
             style={{
               background: "transparent",
+              fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
               border: "none",
               color: theme.primary,
               fontSize: "14px",
@@ -1582,6 +1656,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               alignItems: "center",
               gap: "6px",
               textDecoration: "underline"
+
             }}
           >
             {showFeatureMatrix ? "Hide Detailed Infrastructure Matrix ↑" : "Compare Detailed Infrastructure Primitives ↓"}
@@ -1747,10 +1822,10 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               </ul>
             </div>
             <div>
-              <h4 style={{ color: "#fff", fontSize: "14px", fontWeight: "600", marginBottom: "16px" }}>Company</h4>
+              <h4 style={{ color: "#fff", fontSize: "14px", fontWeight: "700", marginBottom: "16px" }}>Company</h4>
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
-                <li><span style={{ color: theme.subtext, cursor: "pointer" }} onClick={() => { handleTrackAnalyticsClick("Footer: About Us"); setShowAbout(true); }}>Our Story</span></li>
-                <li><span style={{ color: theme.subtext, cursor: "pointer" }} onClick={() => { handleTrackAnalyticsClick("Footer: Contact Us"); setShowContact(true); }}>Support</span></li>
+                <li><span style={{  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',color: theme.subtext, cursor: "pointer" }} onClick={() => { handleTrackAnalyticsClick("Footer: About Us"); setShowAbout(true); }}>Our Story</span></li>
+                <li><span style={{  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',color: theme.subtext, cursor: "pointer" }} onClick={() => { handleTrackAnalyticsClick("Footer: Contact Us"); setShowContact(true); }}>Support</span></li>
               </ul>
             </div>
             <div>
@@ -1760,6 +1835,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 <li><a href="#terms" style={{ color: theme.subtext, textDecoration: "none" }}>Terms of Service</a></li>
               </ul>
             </div>
+
+
+
           </div>
         </div>
         <div style={{ display: "flex", color:"white",justifyContent: "space-between", alignItems: "center", maxWidth: "1200px", margin: "0 auto", borderTop: `1px solid rgba(255,255,255,0.04)`, paddingTop: "24px", fontSize: "12px", color: "rgba(255,255,255,0.3)" }}>
