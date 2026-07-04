@@ -1,12 +1,11 @@
 import React, { useState, useEffect,useRef } from "react";
-import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useScroll } from "framer-motion";
 import PaymentPage from "./components/PaymentPage";
 import Grainient from './Grainient';
 import ContactUs from "./components/ContactUs";
 import AboutApp from "./components/AboutApp";
 import Tutorial from "./Tutorial"; // ← NEW IMPORT
 import Prism from "./Prism"; // 
-import BorderGlow from './BorderGlow';
 import { auth, db } from "./firebase"; 
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore"; 
@@ -72,6 +71,8 @@ const styles = {
     overflowX: "hidden",
     position: "relative",
     color: theme.text,
+    perspective: "1800px",
+    perspectiveOrigin: "50% 20%",
   },
   blob: {
     position: "absolute",
@@ -94,6 +95,8 @@ const styles = {
     background: "rgba(255, 255, 255, 0.02)",
     color: theme.text,
     transition: "all 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+    transformStyle: "preserve-3d",
+    boxShadow: "0 1px 0 rgba(255,255,255,0.05) inset, 0 6px 14px -8px rgba(0,0,0,0.6)",
   },
   card: {
     background: theme.card,
@@ -102,7 +105,8 @@ const styles = {
     WebkitBackdropFilter: "blur(32px) saturate(190%)",
     border: `1px solid ${theme.border}`,
     boxShadow: "0 0 40px -10px rgba(58, 162, 230, 0.25), 0 25px 50px -12px rgba(0, 0, 0, 0.7), inset 0 1px 1px rgba(255,255,255,0.15)",
-    transition: "box-shadow 0.3s ease, border-color 0.3s ease"
+    transition: "box-shadow 0.3s ease, border-color 0.3s ease",
+    transformStyle: "preserve-3d",
   },
   input: {
     width: "100%",
@@ -149,7 +153,8 @@ const styles = {
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     outline: "none",
     boxSizing: "border-box",
-    transition: "all 0.25s ease"
+    transition: "all 0.25s ease",
+    boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)",
   },
   toggleContainer: {
     display: "flex",
@@ -159,7 +164,9 @@ const styles = {
     padding: "4px",
     marginBottom: "48px",
     position: "relative",
-    zIndex: 2
+    zIndex: 2,
+    transformStyle: "preserve-3d",
+    boxShadow: "inset 0 2px 6px rgba(0,0,0,0.4), 0 8px 20px -12px rgba(0,0,0,0.6)",
   },
   toggleButton: {
     padding: "10px 24px",
@@ -200,7 +207,8 @@ const styles = {
     borderRadius: "24px",
     backdropFilter: "blur(20px)",
     zIndex: 2,
-    position: "relative"
+    position: "relative",
+    transformStyle: "preserve-3d",
   },
   footerWrapper: {
     width: "100%",
@@ -236,6 +244,166 @@ const styles = {
   }
 };
 
+// ─── 3D TILT WRAPPER (NEW — purely additive) ──────────────────────────────
+// A tiny reusable primitive that gives ANY child element a mouse-driven 3D
+// tilt + a matching translateZ "lift" on hover, using real spring physics so
+// the motion settles instead of snapping. This is layered under specific
+// elements throughout the page (nav buttons, inputs, table rows, footer
+// columns, stars, badges, etc.) to give the whole page a consistent sense of
+// depth without altering any existing behavior, handlers, or children.
+const Tilt3D = ({ children, style, maxTilt = 10, liftZ = 14, scaleOnHover = 1, ...rest }) => {
+  const mx = useMotionValue(0);
+  const my = useMotionValue(0);
+  const rX = useSpring(useTransform(my, [-0.5, 0.5], [maxTilt, -maxTilt]), { stiffness: 260, damping: 22, mass: 0.6 });
+  const rY = useSpring(useTransform(mx, [-0.5, 0.5], [-maxTilt, maxTilt]), { stiffness: 260, damping: 22, mass: 0.6 });
+  const z = useSpring(0, { stiffness: 220, damping: 20 });
+
+  return (
+    <motion.div
+      onMouseMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        mx.set((e.clientX - rect.left) / rect.width - 0.5);
+        my.set((e.clientY - rect.top) / rect.height - 0.5);
+      }}
+      onMouseEnter={() => z.set(liftZ)}
+      onMouseLeave={() => { mx.set(0); my.set(0); z.set(0); }}
+      style={{
+        rotateX: rX,
+        rotateY: rY,
+        translateZ: z,
+        scale: scaleOnHover !== 1 ? undefined : undefined,
+        transformStyle: "preserve-3d",
+        ...style,
+      }}
+      {...rest}
+    >
+      {children}
+    </motion.div>
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ─── SCROLL-DRIVEN BACKGROUND CUBE (NEW — purely additive) ────────────────────
+// The real "wow factor" layer: a huge, deeply faded wireframe cube that lives
+// fixed behind the entire page and is visibly tied to scrolling — it spins
+// continuously AND drifts/tilts/rotates further the more you scroll, so it
+// reads as a real object suspended in 3D space behind the glass content
+// rather than a static decoration. Kept very low-opacity + screen blend so
+// it never competes with foreground text or cards; it's felt more than seen,
+// which is what sells the illusion. Nothing else on the page is touched —
+// this is a single fixed, pointer-events:none layer inserted once.
+const ScrollBackgroundCube = () => {
+  const driftRef = useRef(null);
+  const cubeRef = useRef(null);
+  const baseAngle = useRef(0);
+  const scrollProgress = useRef(0);
+
+  useEffect(() => {
+    let frameId;
+
+    const handleScroll = () => {
+      const maxScroll = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+      scrollProgress.current = Math.min(Math.max(window.scrollY / maxScroll, 0), 1);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+
+    const tick = () => {
+      baseAngle.current += 0.1; // slow ambient idle spin, always on
+
+      const p = scrollProgress.current;
+      const scrollSpin = p * 420; // extra full-ish rotation across the whole page
+      const tiltX = 22 + p * 46; // tilts further open the deeper you scroll
+
+      if (cubeRef.current) {
+        cubeRef.current.style.transform = `rotateX(${tiltX}deg) rotateY(${baseAngle.current + scrollSpin}deg) rotateZ(${p * 12}deg)`;
+      }
+      if (driftRef.current) {
+        // Vertical + horizontal drift driven purely by scroll position —
+        // this is what makes it feel like it's "traveling" with the page.
+        const driftY = -60 + p * 220;
+        const driftX = Math.sin(p * Math.PI * 1.6) * 90;
+        const scale = 0.85 + p * 0.35;
+        driftRef.current.style.transform = `translate(${driftX}px, ${driftY}px) scale(${scale})`;
+      }
+      frameId = requestAnimationFrame(tick);
+    };
+    frameId = requestAnimationFrame(tick);
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      cancelAnimationFrame(frameId);
+    };
+  }, []);
+
+  const faceStyle = (transform) => ({
+    position: "absolute",
+    width: "640px",
+    height: "640px",
+    left: "-320px",
+    top: "-320px",
+    border: "1px solid rgba(125,211,252,0.32)",
+    borderRadius: "22px",
+    background: "linear-gradient(135deg, rgba(88,166,255,0.09) 0%, rgba(10,20,45,0.015) 100%)",
+    boxShadow: "inset 0 0 70px rgba(88,166,255,0.10), inset 0 0 1px rgba(255,255,255,0.2)",
+    backfaceVisibility: "visible",
+    transform,
+  });
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 0,
+        pointerEvents: "none",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: 0.5,
+        mixBlendMode: "screen",
+        maskImage: "radial-gradient(circle at 50% 45%, black 35%, transparent 78%)",
+        WebkitMaskImage: "radial-gradient(circle at 50% 45%, black 35%, transparent 78%)",
+      }}
+    >
+      <div ref={driftRef} style={{ perspective: "1800px", perspectiveOrigin: "50% 50%", willChange: "transform" }}>
+        <div ref={cubeRef} style={{ position: "relative", width: "1px", height: "1px", transformStyle: "preserve-3d", willChange: "transform" }}>
+          <div style={{ ...faceStyle("translateZ(320px)"), transformStyle: "preserve-3d" }}>
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(125,211,252,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(125,211,252,0.10) 1px, transparent 1px)", backgroundSize: "33.333% 33.333%" }} />
+          </div>
+          <div style={{ ...faceStyle("rotateY(180deg) translateZ(320px)"), transformStyle: "preserve-3d" }} />
+          <div style={{ ...faceStyle("rotateY(90deg) translateZ(320px)"), transformStyle: "preserve-3d" }}>
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(88,166,255,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(88,166,255,0.10) 1px, transparent 1px)", backgroundSize: "33.333% 33.333%" }} />
+          </div>
+          <div style={{ ...faceStyle("rotateY(-90deg) translateZ(320px)"), transformStyle: "preserve-3d" }} />
+          <div style={{ ...faceStyle("rotateX(90deg) translateZ(320px)"), transformStyle: "preserve-3d" }} />
+          <div style={{ ...faceStyle("rotateX(-90deg) translateZ(320px)"), transformStyle: "preserve-3d" }}>
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(125,211,252,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(125,211,252,0.08) 1px, transparent 1px)", backgroundSize: "33.333% 33.333%" }} />
+          </div>
+          {/* Glowing edge accent lines on the 4 vertical edges for a crisper wireframe read */}
+          {[0, 90, 180, 270].map((deg) => (
+            <div
+              key={deg}
+              style={{
+                position: "absolute",
+                left: "-1px",
+                top: "-320px",
+                width: "2px",
+                height: "640px",
+                background: "linear-gradient(180deg, transparent, rgba(125,211,252,0.55), transparent)",
+                transform: `rotateY(${deg}deg) translateZ(320px)`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
 // ─── ACCESS DENIED MODAL ───────────────────────────────────────────────────────
 const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
   <AnimatePresence>
@@ -254,14 +422,15 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
         alignItems: "center",
         justifyContent: "center",
         zIndex: 9999,
-        padding: "24px"
+        padding: "24px",
+        perspective: "1200px",
       }}
       onClick={onClose}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.92, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.92, y: 10 }}
+        initial={{ opacity: 0, scale: 0.92, y: 20, rotateX: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
+        exit={{ opacity: 0, scale: 0.92, y: 10, rotateX: 8 }}
         transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -276,7 +445,8 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
           maxWidth: "420px",
           textAlign: "center",
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-          position: "relative"
+          position: "relative",
+          transformStyle: "preserve-3d",
         }}
       >
         <div style={{
@@ -307,7 +477,8 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
             margin: "0 auto 24px",
             fontSize: "26px",
             boxShadow: "0 0 20px rgba(239, 68, 68, 0.2)",
-            transformStyle: "preserve-3d"
+            transformStyle: "preserve-3d",
+            transform: "translateZ(24px)",
           }}
         >
           🔒
@@ -322,7 +493,8 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
             fontWeight: "700",
             color: "#ffffff",
             margin: "0 0 10px 0",
-            letterSpacing: "-0.4px"
+            letterSpacing: "-0.4px",
+            transform: "translateZ(14px)",
           }}
         >
           Access Denied
@@ -372,7 +544,7 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
         </motion.div>
 
         <motion.button
-          whileHover={{ scale: 1.02, boxShadow: "0 0 20px rgba(239, 68, 68, 0.35)" }}
+          whileHover={{ scale: 1.02, rotateX: -6, translateZ: 10, boxShadow: "0 0 20px rgba(239, 68, 68, 0.35)" }}
           whileTap={{ scale: 0.97 }}
           onClick={onClose}
           style={{
@@ -387,7 +559,8 @@ const AccessDeniedModal = ({ onClose, attemptedPlan }) => (
             cursor: "pointer",
             fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
             boxShadow: "0 0 15px rgba(239, 68, 68, 0.2), 0 4px 10px rgba(0,0,0,0.4)",
-            transition: "all 0.25s ease"
+            transition: "all 0.25s ease",
+            transformStyle: "preserve-3d",
           }}
         >
           Dismiss & Retry
@@ -823,18 +996,137 @@ const FramerScrollMotion = () => {
 };
 // ──────────────────────────────────────────────────────────────────────────────
 
+// ─── PORTFOLIO-STYLE FADE-IN (NEW — purely additive) ──────────────────────────
+// A generic scroll-reveal wrapper matching the "Jack" portfolio's FadeIn
+// primitive: whileInView with viewport={{ once: true, margin: "50px", amount: 0 }}
+// and the same [0.25, 0.1, 0.25, 1] easing curve. Nothing existing is removed —
+// this is only used to wrap a few elements that didn't have an entrance
+// animation yet (currency/billing controls, matrix toggle row, feedback
+// widget, footer columns), on top of whatever motion those elements already had.
+// Now also rises with a slight rotateX so the settle reads as 3D rather than flat.
+const FadeIn = ({ children, delay = 0, duration = 0.85, x = 0, y = 30, style, ...rest }) => (
+  <motion.div
+    initial={{ opacity: 0, x, y, rotateX: 6 }}
+    whileInView={{ opacity: 1, x: 0, y: 0, rotateX: 0 }}
+    viewport={{ once: true, margin: "50px", amount: 0 }}
+    transition={{ delay, duration, ease: [0.25, 0.1, 0.25, 1] }}
+    style={{ transformStyle: "preserve-3d", ...style }}
+    {...rest}
+  >
+    {children}
+  </motion.div>
+);
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ─── PORTFOLIO-STYLE MAGNET (NEW — purely additive) ───────────────────────────
+// Mouse-following magnetic hover effect, matching the "Jack" portfolio's Magnet
+// primitive: tracks cursor distance from the wrapped element's center and
+// nudges it toward the cursor within a padding radius, with distinct
+// active/inactive transition curves. Used to add a subtle magnetic pull to the
+// logo and a couple of CTA buttons, layered on top of whatever hover/tap
+// animation those elements already have — no existing prop is touched.
+const Magnet = ({
+  children,
+  padding = 100,
+  strength = 3,
+  activeTransition = "transform 0.3s ease-out",
+  inactiveTransition = "transform 0.6s ease-in-out",
+  style,
+}) => {
+  const wrapperRef = useRef(null);
+  const [transform, setTransform] = useState("translate3d(0px, 0px, 0)");
+  const [transition, setTransition] = useState(inactiveTransition);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const el = wrapperRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const withinX = e.clientX > rect.left - padding && e.clientX < rect.right + padding;
+      const withinY = e.clientY > rect.top - padding && e.clientY < rect.bottom + padding;
+      if (withinX && withinY) {
+        const distX = e.clientX - centerX;
+        const distY = e.clientY - centerY;
+        setTransition(activeTransition);
+        setTransform(`translate3d(${distX / strength}px, ${distY / strength}px, 0)`);
+      } else {
+        setTransition(inactiveTransition);
+        setTransform("translate3d(0px, 0px, 0)");
+      }
+    };
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [padding, strength, activeTransition, inactiveTransition]);
+
+  return (
+    <div ref={wrapperRef} style={{ display: "inline-block", ...style }}>
+      <div style={{ transform, transition, willChange: "transform" }}>{children}</div>
+    </div>
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
+
+// ─── PORTFOLIO-STYLE ANIMATED TEXT (NEW — purely additive) ────────────────────
+// Character-by-character scroll-reveal, matching the "Jack" portfolio's
+// AnimatedText primitive: each character's opacity ramps from 0.2 to 1 based
+// on scroll progress through the element, using the same
+// offset={['start 0.8', 'end 0.2']} window. Text content is identical to what
+// was already in the file — only the reveal mechanism is new.
+// Each character gets its own component so useTransform is called at that
+// component's own top level, never inside the parent's .map() loop — this is
+// what the react-hooks/rules-of-hooks lint rule requires.
+const AnimatedChar = ({ char, scrollYProgress, start, end }) => {
+  const opacity = useTransform(scrollYProgress, [start, end], [0.2, 1]);
+  return (
+    <motion.span style={{ opacity }}>
+      {char === " " ? "\u00A0" : char}
+    </motion.span>
+  );
+};
+
+const AnimatedText = ({ text, style }) => {
+  const containerRef = useRef(null);
+  const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start 0.8", "end 0.2"] });
+  const characters = text.split("");
+
+  return (
+    <p ref={containerRef} style={{ ...style, position: "relative" }}>
+      {characters.map((char, i) => {
+        const start = i / characters.length;
+        const end = start + 1 / characters.length;
+        return (
+          <AnimatedChar key={i} char={char} scrollYProgress={scrollYProgress} start={start} end={end} />
+        );
+      })}
+    </p>
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────────
 const MagneticCard = ({ children, style, ...props }) => {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-  // Wider tilt range (was ±7deg) so the rotation is clearly visible
   const rawRotateX = useTransform(mouseY, [-400, 400], [14, -14]);
   const rawRotateY = useTransform(mouseX, [-400, 400], [-14, 14]);
-  // Softer spring so the rotation eases in/out instead of snapping —
-  // lower stiffness + slightly higher damping = a smooth, weighted transition
   const rotateX = useSpring(rawRotateX, { stiffness: 150, damping: 20, mass: 0.8 });
   const rotateY = useSpring(rawRotateY, { stiffness: 150, damping: 20, mass: 0.8 });
   const tapScale = useSpring(1, { stiffness: 300, damping: 22 });
   const [ripples, setRipples] = useState([]);
+
+  // ── CLICK-TO-COME-FORWARD (NEW) ── Clicking any card pops it toward the
+  // viewer: real translateZ lift + scale boost + a stronger shadow, and it
+  // rises above its siblings in stacking order while active. Click again to
+  // settle it back down.
+  const [isForward, setIsForward] = useState(false);
+  const forwardZ = useSpring(0, { stiffness: 220, damping: 20 });
+  const forwardScale = useSpring(1, { stiffness: 220, damping: 22 });
+  const combinedScale = useTransform([tapScale, forwardScale], ([t, f]) => t * f);
+
+  useEffect(() => {
+    forwardZ.set(isForward ? 60 : 0);
+    forwardScale.set(isForward ? 1.04 : 1);
+  }, [isForward, forwardZ, forwardScale]);
 
   return (
     <motion.div
@@ -842,10 +1134,15 @@ const MagneticCard = ({ children, style, ...props }) => {
         ...style,
         rotateX,
         rotateY,
-        scale: tapScale,
+        scale: combinedScale,
+        translateZ: forwardZ,
         transformStyle: "preserve-3d",
         willChange: "transform",
-        transition: "box-shadow 0.3s ease", // smooth glow response alongside the tilt
+        zIndex: isForward ? 20 : (style && style.zIndex) || "auto",
+        boxShadow: isForward
+          ? "0 40px 90px -20px rgba(0,0,0,0.85), 0 0 60px -10px rgba(58,162,230,0.5)"
+          : (style && style.boxShadow),
+        transition: "box-shadow 0.3s ease",
       }}
       onMouseMove={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -853,7 +1150,6 @@ const MagneticCard = ({ children, style, ...props }) => {
         mouseY.set(e.clientY - rect.top - rect.height / 2);
       }}
       onMouseLeave={() => {
-        // Animate back to flat smoothly rather than jumping to 0 instantly
         mouseX.set(0);
         mouseY.set(0);
       }}
@@ -865,6 +1161,10 @@ const MagneticCard = ({ children, style, ...props }) => {
         setTimeout(() => setRipples((prev) => prev.filter((r) => r.id !== id)), 700);
       }}
       onMouseUp={() => tapScale.set(1)}
+      onClick={(e) => {
+        setIsForward((prev) => !prev);
+        if (props.onClick) props.onClick(e);
+      }}
       {...props}
     >
       {children}
@@ -1061,22 +1361,16 @@ const RotatingCube = () => {
 // They float and rotate slowly, and drift subtly with parallax on scroll-free
 // ─── 3D FLOATING BLOBS — now click-to-morph (NEW) ─────────────────────────
 // Each blob idles with a soft float + organic border-radius wobble like before.
-// ─── 3D FLOATING BLOBS — click-to-morph into InsightIQ icons (NEW) ────────
-// Each blob idles with a soft float + organic border-radius wobble.
-// Click it and it snaps into a different icon silhouette via clip-path —
-// bar chart, trend arrow, radar sweep, data node, target — all tied to
-// InsightIQ's analytics/telemetry theme, cycling through its own shuffled
-// queue so every blob feels unique.
+// ─── 3D FLOATING BLOBS — click-to-morph between arrow / square (UPDATED) ──
+// Each blob idles with a soft float. Click it and it snaps between just two
+// silhouettes — an arrow and a square — via clip-path, cycling through its
+// own shuffled queue so every blob feels unique.
 const BLOB_SHAPES = {
-  organic: "none", // uses animated borderRadius instead of clip-path
-  chart:   "polygon(0% 100%, 14% 100%, 14% 55%, 28% 55%, 28% 70%, 42% 70%, 42% 35%, 56% 35%, 56% 50%, 70% 50%, 70% 15%, 84% 15%, 84% 100%, 100% 100%)",
-  trend:   "polygon(8% 100%, 32% 74%, 52% 90%, 84% 42%, 100% 56%, 100% 8%, 64% 8%, 78% 24%, 48% 66%, 28% 48%, 0% 78%)",
-  radar:   "polygon(50% 50%, 50% 0%, 75% 12%, 60% 35%, 100% 50%, 88% 75%, 65% 60%, 50% 100%, 25% 88%, 40% 65%, 0% 50%, 12% 25%, 35% 40%)",
-  node:    "polygon(30% 0%, 70% 0%, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0% 70%, 0% 30%)",
-  target:  "polygon(0% 0%,100% 0%,100% 100%,0% 100%,0% 40%,40% 40%,40% 60%,60% 60%,60% 40%,0% 40%)",
+  arrow:  "polygon(0% 35%, 55% 35%, 55% 15%, 100% 50%, 55% 85%, 55% 65%, 0% 65%)",
+  sphere: "circle(50% at 50% 50%)",
 };
-const SHAPE_ORDER = ["organic", "chart", "trend", "radar", "node", "target"];
-
+const SHAPE_ORDER = ["arrow", "sphere"];
+// ─── 3D FLOATING BLOBS — faded matte blue spheres, blended into bg (UPDATED) ──
 const Blob3D = ({
   size = 420,
   top,
@@ -1089,28 +1383,10 @@ const Blob3D = ({
   delay = 0,
   driftX = 40,
   driftY = 50,
-  opacity = 0.55,
-  blurPx = 0,
+  opacity = 0.28,
+  blurPx = 1,
   z = 1,
-  shapeSeed = 0, // offsets where this blob starts in the shape cycle, for variety
 }) => {
-  const morphKeyframes = [
-    "62% 38% 55% 45% / 55% 60% 40% 45%",
-    "45% 55% 60% 40% / 40% 45% 60% 55%",
-    "58% 42% 40% 60% / 60% 40% 55% 45%",
-    "62% 38% 55% 45% / 55% 60% 40% 45%",
-  ];
-
-  const [shapeIndex, setShapeIndex] = useState(shapeSeed % SHAPE_ORDER.length);
-  const [isPopping, setIsPopping] = useState(false);
-  const currentShape = SHAPE_ORDER[shapeIndex];
-
-  const handleClick = () => {
-    setShapeIndex((prev) => (prev + 1) % SHAPE_ORDER.length);
-    setIsPopping(true);
-    setTimeout(() => setIsPopping(false), 400);
-  };
-
   return (
     <motion.div
       style={{
@@ -1119,8 +1395,7 @@ const Blob3D = ({
         width: `${size}px`,
         height: `${size}px`,
         zIndex: z,
-        pointerEvents: "auto",
-        cursor: "pointer",
+        pointerEvents: "none",
         filter: blurPx ? `blur(${blurPx}px)` : "none",
       }}
       animate={{
@@ -1129,39 +1404,52 @@ const Blob3D = ({
         rotate: [0, 8, -6, 0],
       }}
       transition={{ duration, delay, repeat: Infinity, ease: "easeInOut" }}
-      onClick={handleClick}
-      whileHover={{ scale: 1.06 }}
-      whileTap={{ scale: 0.92 }}
     >
-      <motion.div
-        animate={{
-          borderRadius: currentShape === "organic" ? morphKeyframes : "0%",
-          clipPath: BLOB_SHAPES[currentShape],
-          scale: isPopping ? [1, 1.18, 1] : 1,
-        }}
-        transition={{
-          borderRadius: currentShape === "organic"
-            ? { duration: duration * 1.4, repeat: Infinity, ease: "easeInOut" }
-            : { duration: 0.15 },
-          clipPath: { type: "spring", stiffness: 180, damping: 16 },
-          scale: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
-        }}
-        style={{
-          width: "100%",
-          height: "100%",
-          opacity,
-          background: `
-            radial-gradient(circle at 30% 28%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 22%),
-            radial-gradient(circle at 38% 35%, rgba(${hue},0.9) 0%, rgba(${hue},0.35) 45%, rgba(${hueDark},0.15) 75%, rgba(${hueDark},0) 100%)
-          `,
-          boxShadow: `
-            inset -20px -24px 60px rgba(${hueDark},0.55),
-            inset 14px 16px 40px rgba(255,255,255,0.08),
-            0 30px 80px -20px rgba(${hue},0.35)
-          `,
-          transformStyle: "preserve-3d",
-        }}
-      />
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+
+        {/* Base sphere volume — much softer gradient, low contrast, so it
+            reads as a dim ambient shape rather than a distinct object */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            opacity,
+            background: `
+              radial-gradient(circle at 35% 32%, rgba(180,215,255,0.22) 0%, rgba(${hue},0.14) 42%, rgba(${hue},0.05) 68%, transparent 100%)
+            `,
+            boxShadow: `
+              inset -14px -18px 36px rgba(${hueDark},0.18),
+              inset 8px 10px 22px rgba(255,255,255,0.04)
+            `,
+          }}
+        />
+
+        {/* Very soft, wide highlight — barely-there hint of curvature,
+            no sharp catchlight so it stays matte rather than glassy */}
+        <div
+          style={{
+            position: "absolute",
+            top: "18%",
+            left: "24%",
+            width: "34%",
+            height: "26%",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(255,255,255,0.16) 0%, transparent 70%)",
+            filter: "blur(4px)",
+          }}
+        />
+
+        {/* Faint rim tone, low opacity, to keep just a whisper of depth */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            boxShadow: `inset -2px -3px 8px rgba(125,211,252,0.15)`,
+          }}
+        />
+      </div>
     </motion.div>
   );
 };
@@ -1169,6 +1457,8 @@ const Blob3D = ({
 // ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 const DynamicLogo = () => (
   <motion.div
+    whileHover={{ rotateX: -8, rotateY: 10, translateZ: 6 }}
+    transition={{ type: "spring", stiffness: 260, damping: 20 }}
     style={{ 
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', 
       fontWeight: 700, // High-quality bold weight for system fonts
@@ -1177,7 +1467,9 @@ const DynamicLogo = () => (
       color: "#fff", 
       display: "flex", 
       alignItems: "center", 
-      gap: "4px" 
+      gap: "4px",
+      transformStyle: "preserve-3d",
+      textShadow: "0 6px 18px rgba(0,0,0,0.5)",
     }}
   >
     <span>Insight</span>
@@ -1193,9 +1485,8 @@ const DynamicLogo = () => (
 
 // ─── PREMIUM AUTH LAYOUT (used by both Pro & Enterprise terminal gateways) ────
 // Grainient now renders as an animated full-viewport background behind the
-// glass auth card on BOTH terminal screens.
 const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
-  <div style={{ ...styles.pageWrapper, justifyContent: "center", alignItems: "center", padding: "24px" }}>
+  <div style={{ ...styles.pageWrapper, justifyContent: "center", alignItems: "center", padding: "24px", overflow: "hidden" }}>
 
     {/* ── GRAINIENT BACKGROUND (shared by Pro Terminal + Enterprise Terminal) ── */}
     <div style={{
@@ -1210,9 +1501,9 @@ const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
       
     }}>
       <Grainient
-          color1="#040c18"
-          color2="#000000"
-          color3="#3f66a4"
+           color1="#071326"
+           color2="#0d192d"
+           color3="#131e30"
         timeSpeed={5}
         colorBalance={0}
         warpStrength={1}
@@ -1234,6 +1525,11 @@ const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
         zoom={0.9}
       />
     </div>
+
+    {/* ── FLOATING MATTE 3D BLOBS — decorative, pointerEvents:none, sit behind card ── */}
+    <Blob3D size={360} top="8%"   left="-8%"  hue="58,166,255"  hueDark="8,20,44" duration={18} delay={0.5} driftX={-30} driftY={40} opacity={0.22} blurPx={2} z={1} />
+    <Blob3D size={260} bottom="4%" right="-6%" hue="125,211,252" hueDark="10,28,55" duration={14} delay={1.4} driftX={26} driftY={-32} opacity={0.2} blurPx={2} z={1} />
+    <Blob3D size={140} top="60%"  left="8%"   hue="31,111,235"  hueDark="6,16,36" duration={11} delay={2.1} driftX={16} driftY={22} opacity={0.24} blurPx={1} z={1} />
 
     <div style={{ ...styles.blob, top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "600px", height: "600px", background: "radial-gradient(circle, rgba(58, 162, 230, 0.22) 0%, transparent 65%)" }} />
 
@@ -1290,7 +1586,6 @@ const PremiumAuthLayout = ({ children, title, subtitle, onCancel }) => (
     </motion.div>
   </div>
 );
-
 // High-Tier Micro Accordion Sub-Component
 const FaqAccordionItem = ({ question, answer, forceOpen, forceClose }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -1308,7 +1603,7 @@ const FaqAccordionItem = ({ question, answer, forceOpen, forceClose }) => {
     <motion.div 
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      whileHover={{ rotateX: -2, rotateY: 1.5, scale: 1.006 }}
+      whileHover={{ rotateX: -3, rotateY: 2, scale: 1.008, translateZ: 8 }}
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       style={{ 
         ...styles.faqItem, 
@@ -1532,6 +1827,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
   return (
     <>
       <PageCurtainReveal />
+      <ScrollBackgroundCube />
       <CustomCursor />
       <GlobalClickBursts />
       <FramerScrollMotion />
@@ -1574,8 +1870,8 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   style={styles.saasInputField} 
                   value={authEmail} 
                   onChange={(e) => setAuthEmail(e.target.value)}
-                  onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
-                  onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+                  onFocus={(e) => { e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"; e.target.style.transform = "perspective(600px) rotateX(2deg) translateZ(4px)"; e.target.style.boxShadow = "inset 0 2px 6px rgba(0,0,0,0.5), 0 6px 16px -8px rgba(58,162,230,0.4)"; }}
+                  onBlur={(e) => { e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"; e.target.style.transform = "none"; e.target.style.boxShadow = "inset 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)"; }}
                 />
                 <input 
                   type="password" 
@@ -1583,11 +1879,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   style={styles.saasInputField} 
                   value={authPassword} 
                   onChange={(e) => setAuthPassword(e.target.value)} 
-                  onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
-                  onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+                  onFocus={(e) => { e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"; e.target.style.transform = "perspective(600px) rotateX(2deg) translateZ(4px)"; e.target.style.boxShadow = "inset 0 2px 6px rgba(0,0,0,0.5), 0 6px 16px -8px rgba(58,162,230,0.4)"; }}
+                  onBlur={(e) => { e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"; e.target.style.transform = "none"; e.target.style.boxShadow = "inset 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)"; }}
                 />
                 <motion.button 
-                  whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" }}
+                  whileHover={{ scale: 1.02, rotateX: -4, translateZ: 8, boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" }}
                   whileTap={{ scale: 0.98 }}
                   type="submit" 
                   style={{ 
@@ -1604,7 +1900,8 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                     fontSize: "14px",
                     margin: "8px auto 0",
                     boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
-                    transition: "all 0.25s ease"
+                    transition: "all 0.25s ease",
+                    transformStyle: "preserve-3d",
                   }}
                 >
                   Access Enterprise Plan 
@@ -1637,8 +1934,8 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   style={styles.saasInputField} 
                   value={proEmail} 
                   onChange={(e) => setProEmail(e.target.value)} 
-                  onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
-                  onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+                  onFocus={(e) => { e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"; e.target.style.transform = "perspective(600px) rotateX(2deg) translateZ(4px)"; e.target.style.boxShadow = "inset 0 2px 6px rgba(0,0,0,0.5), 0 6px 16px -8px rgba(58,162,230,0.4)"; }}
+                  onBlur={(e) => { e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"; e.target.style.transform = "none"; e.target.style.boxShadow = "inset 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)"; }}
                 />
                 <input 
                   type="password" 
@@ -1646,11 +1943,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   style={styles.saasInputField} 
                   value={proPassword} 
                   onChange={(e) => setProPassword(e.target.value)} 
-                  onFocus={(e) => e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"}
-                  onBlur={(e) => e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"}
+                  onFocus={(e) => { e.target.style.borderColor = "rgba(58, 162, 230, 0.6)"; e.target.style.transform = "perspective(600px) rotateX(2deg) translateZ(4px)"; e.target.style.boxShadow = "inset 0 2px 6px rgba(0,0,0,0.5), 0 6px 16px -8px rgba(58,162,230,0.4)"; }}
+                  onBlur={(e) => { e.target.style.borderColor = "rgba(255, 255, 255, 0.08)"; e.target.style.transform = "none"; e.target.style.boxShadow = "inset 0 2px 6px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)"; }}
                 />
                 <motion.button 
-                  whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" }}
+                  whileHover={{ scale: 1.02, rotateX: -4, translateZ: 8, boxShadow: "0 0 30px rgba(58, 162, 230, 0.6), 0 0 50px rgba(58, 162, 230, 0.3)" }}
                   whileTap={{ scale: 0.98 }}
                   type="submit" 
                   style={{ 
@@ -1667,7 +1964,8 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                     fontSize: "14px",
                     margin: "8px auto 0",
                     boxShadow: "0 0 15px rgba(58, 162, 230, 0.3)",
-                    transition: "all 0.25s ease"
+                    transition: "all 0.25s ease",
+                    transformStyle: "preserve-3d",
                   }}
                 >
                    Access Pro Plan
@@ -2026,9 +2324,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
       `}</style>
 
    
-    {/* Canvas Lights — dimensional 3D blobs, click any one to morph into an InsightIQ icon */}
+    {/* Canvas Lights — dimensional 3D blobs, click any one to toggle between arrow / square */}
    
-      
+      <Blob3D size={420} bottom="-16%" left="-10%" hue="31,111,235" hueDark="6,16,36" duration={17} delay={2}   driftX={-40} driftY={45} opacity={0.4} z={1} shapeSeed={1} />
       <Blob3D size={300} top="30%" left="46%"     hue="125,211,252" hueDark="10,30,55" duration={13} delay={1.2} driftX={30} driftY={-30} opacity={0.28} z={1} blurPx={2} shapeSeed={2} />
 
       {/* Extra small accent blobs — scattered for texture, kept subtle */}
@@ -2038,6 +2336,15 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
       <Blob3D size={130} top="4%"   left="38%"   hue="31,111,235" hueDark="6,16,36" duration={12} delay={0.9} driftX={-16} driftY={22} opacity={0.25} z={1} shapeSeed={1} />
       <Blob3D size={80}  bottom="22%" left="4%"  hue="125,211,252" hueDark="10,28,58" duration={10} delay={2.4} driftX={20} driftY={-18} opacity={0.3}  z={1} blurPx={1} shapeSeed={2} />
       <Blob3D size={100} top="46%"  right="4%"   hue="58,166,255" hueDark="8,22,48"  duration={14} delay={1.1} driftX={-18} driftY={26} opacity={0.28} z={1} shapeSeed={3} />
+
+      {/* ── ARROW-SEEDED ACCENT BLOBS ── glassy 3D spheres that default to the
+          arrow silhouette (shapeSeed=0 → "arrow" in SHAPE_ORDER), scattered
+          around the pricing area for accent. Still fully click-to-morph
+          (arrow ↔ square) like every other Blob3D. */}
+      <Blob3D size={150} top="20%"  right="20%"  hue="52,211,153" hueDark="6,30,26" duration={15} delay={0.6} driftX={-24} driftY={30} opacity={0.34} z={1} shapeSeed={0} />
+      <Blob3D size={95}  bottom="34%" left="22%" hue="125,211,252" hueDark="8,26,52" duration={11} delay={1.9} driftX={18} driftY={-22} opacity={0.3}  z={1} blurPx={1} shapeSeed={0} />
+      <Blob3D size={65}  top="58%"  left="18%"   hue="58,166,255" hueDark="8,20,44"  duration={9}  delay={0.2} driftX={14} driftY={18} opacity={0.32} z={1} shapeSeed={0} />
+      <Blob3D size={120} bottom="6%"  right="10%" hue="31,111,235" hueDark="6,14,34" duration={13} delay={2.6} driftX={-20} driftY={-26} opacity={0.3}  z={1} shapeSeed={0} />
       
       {/* Dot grid ambient overlay */}
       <div className="iiq-dot-grid" />
@@ -2065,11 +2372,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
       <AnimatePresence>
         {toastMessage && (
           <motion.div 
-            initial={{ opacity: 0, y: -20, scale: 0.95, translateX: "-50%" }}
-            animate={{ opacity: 1, y: 0, scale: 1, translateX: "-50%" }}
-            exit={{ opacity: 0, y: -10, scale: 0.95, translateX: "-50%" }}
+            initial={{ opacity: 0, y: -20, scale: 0.95, rotateX: -20, translateX: "-50%" }}
+            animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0, translateX: "-50%" }}
+            exit={{ opacity: 0, y: -10, scale: 0.95, rotateX: -15, translateX: "-50%" }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            style={styles.toastBanner}
+            style={{ ...styles.toastBanner, transformStyle: "preserve-3d" }}
           >
             <span style={{ color: theme.primary }}>✦</span>
             {toastMessage}
@@ -2078,14 +2385,16 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
       </AnimatePresence>
 
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "32px 64px", zIndex: 10, width: "100%", boxSizing: "border-box" }}>
-        <DynamicLogo />
-        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "32px 64px", zIndex: 10, width: "100%", boxSizing: "border-box", transformStyle: "preserve-3d" }}>
+        <Magnet padding={80} strength={5}>
+          <DynamicLogo />
+        </Magnet>
+        <div style={{ display: "flex", gap: "16px", alignItems: "center", transformStyle: "preserve-3d" }}>
 
           {/* ── TUTORIAL BUTTON (new) ── */}
           <motion.button
             className="iiq-tutorial-btn saas-nav-link"
-            whileHover={{ scale: 1.03 }}
+            whileHover={{ scale: 1.03, rotateX: -8, translateZ: 6 }}
             whileTap={{ scale: 0.97 }}
             onClick={() => {
               handleTrackAnalyticsClick("Tutorial Navigation Clicked");
@@ -2105,11 +2414,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             Tutorial
           </motion.button>
 
-          <button style={styles.navButton} onClick={() => { handleTrackAnalyticsClick("Our Story Navigation Clicked"); setShowAbout(true); }} className="saas-nav-link">Our Story</button>
-          <button style={styles.navButton} onClick={() => { handleTrackAnalyticsClick("Support Navigation Clicked"); setShowContact(true); }} className="saas-nav-link">Support</button>
+          <motion.button whileHover={{ rotateX: -8, translateZ: 6 }} style={styles.navButton} onClick={() => { handleTrackAnalyticsClick("Our Story Navigation Clicked"); setShowAbout(true); }} className="saas-nav-link">Our Story</motion.button>
+          <motion.button whileHover={{ rotateX: -8, translateZ: 6 }} style={styles.navButton} onClick={() => { handleTrackAnalyticsClick("Support Navigation Clicked"); setShowContact(true); }} className="saas-nav-link">Support</motion.button>
           
           <motion.button 
-            whileHover={{ boxShadow: "0 0 15px rgba(58, 162, 230, 0.4)", borderColor: "rgba(58, 162, 230, 0.6)" }}
+            whileHover={{ rotateX: -8, translateZ: 6, boxShadow: "0 0 15px rgba(58, 162, 230, 0.4)", borderColor: "rgba(58, 162, 230, 0.6)" }}
             style={{ ...styles.navButton, borderColor: "rgba(255,255,255,0.15)" }} 
             onClick={() => setVerifyPro(true)} 
             className="saas-nav-link"
@@ -2117,7 +2426,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             Pro Portal
           </motion.button>
           <motion.button 
-            whileHover={{ scale: 1.03, boxShadow: "0 0 20px rgba(255, 255, 255, 0.4)" }}
+            whileHover={{ scale: 1.03, rotateX: -8, translateZ: 8, boxShadow: "0 0 20px rgba(255, 255, 255, 0.4)" }}
             whileTap={{ scale: 0.97 }}
             style={{ ...styles.navButton, background: "#fff", color: "#000", border: "none" }} 
             onClick={() => setVerifyEnterprise(true)} 
@@ -2140,17 +2449,22 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         zIndex: 2,
         gap: "48px",
         minHeight: "560px",
+        perspective: "1400px",
       }}>
         {/* Left: hero text + badge + CTAs + stats */}
         <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
+          initial={{ opacity: 0, x: -30, rotateY: 6 }}
+          animate={{ opacity: 1, x: 0, rotateY: 0 }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          style={{ flex: "1 1 0", minWidth: 0 }}
+          style={{ flex: "1 1 0", minWidth: 0, transformStyle: "preserve-3d" }}
         >
         
     
-        <motion.h1 initial={{ opacity: 0, y: 35 }} animate={{ opacity: 1, y: 0 }} style={styles.titleH1}>
+        <motion.h1
+          initial={{ opacity: 0, y: 35, rotateX: 10 }}
+          animate={{ opacity: 1, y: 0, rotateX: 0 }}
+          style={{ ...styles.titleH1, textShadow: "0 12px 30px rgba(0,0,0,0.55)", transformStyle: "preserve-3d" }}
+        >
         Data-driven <br /> <span style={styles.titleH1.span}>intelligence</span> <br />for smart systems.
       </motion.h1>
 
@@ -2193,13 +2507,15 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
       </section>
 
       {/* Rest of main content */}
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px 80px", position: "relative", zIndex: 2 }}>
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 24px 80px", position: "relative", zIndex: 2, perspective: "1600px" }}>
 
         {/* Currency Controls */}
-        <div style={{     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',display: "flex", gap: "8px", marginBottom: "20px", zIndex: 5 }}>
+        <FadeIn delay={0} duration={0.6} y={20} style={{     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',display: "flex", gap: "8px", marginBottom: "20px", zIndex: 5 }}>
           {["USD", "PKR"].map((currOption) => (
-            <button
+            <motion.button
               key={currOption}
+              whileHover={{ rotateX: -10, translateZ: 6 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => handleCurrencyToggle(currOption)}
               style={{
                 padding: "6px 14px",
@@ -2211,24 +2527,26 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 border: `1px solid ${currency === currOption ? theme.primary : theme.border}`,
                 background: currency === currOption ? "rgba(88, 166, 255, 0.15)" : "rgba(255, 255, 255, 0.02)",
                 color: currency === currOption ? "#fff" : theme.subtext,
-                transition: "all 0.2s"
+                transition: "all 0.2s",
+                transformStyle: "preserve-3d",
               }}
             >
               {currOption}
-            </button>
+            </motion.button>
           ))}
          
-        </div>
+        </FadeIn>
 
         {/* Billing Toggle */}
-        <div style={styles.toggleContainer}>
+        <FadeIn delay={0.1} duration={0.6} y={20} style={styles.toggleContainer}>
           <button 
             onClick={() => { handleTrackAnalyticsClick("Billing Cycle: Monthly"); setBillingCycle("monthly"); }}
             style={{ 
               ...styles.toggleButton, 
               color: billingCycle === "monthly" ? "#fff" : theme.subtext,
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-              background: billingCycle === "monthly" ? "rgba(255, 255, 255, 0.08)" : "transparent"
+              background: billingCycle === "monthly" ? "rgba(255, 255, 255, 0.08)" : "transparent",
+              boxShadow: billingCycle === "monthly" ? "inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 10px -4px rgba(0,0,0,0.5)" : "none",
             }}
           >
             Monthly Billing
@@ -2239,12 +2557,13 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
               ...styles.toggleButton, 
               color: billingCycle === "annual" ? theme.primary : theme.subtext,
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-              background: billingCycle === "annual" ? "rgba(88, 166, 255, 0.15)" : "transparent"
+              background: billingCycle === "annual" ? "rgba(88, 166, 255, 0.15)" : "transparent",
+              boxShadow: billingCycle === "annual" ? "inset 0 1px 0 rgba(255,255,255,0.15), 0 4px 10px -4px rgba(0,0,0,0.5)" : "none",
             }}
           >
             Annual Plan <span style={{     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',fontSize: "11px", marginLeft: "4px", padding: "2px 6px", borderRadius: "8px", background: theme.primary, color: "#000", fontWeight: "bold" }}>Save 20%</span>
           </button>
-        </div>
+        </FadeIn>
 
         {/* ── PRICING SECTION WRAPPER (watermark lives here) ────────────────── */}
         <div
@@ -2283,7 +2602,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
            
           </div>
 {/* CARDS REGION */}
-<section style={{ width: "100%", maxWidth: "1040px", margin: "80px auto 0", padding: "0 40px", display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "40px", boxSizing: "border-box", zIndex: 2 }}>
+<section style={{ width: "100%", maxWidth: "1040px", margin: "80px auto 0", padding: "0 40px", display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "40px", boxSizing: "border-box", zIndex: 2, perspective: "1800px" }}>
       {plans.map((plan, planIdx) => {
         const isEnterprise = plan.name === "Enterprise";
         const { symbol, price } = getCurrencySymbolAndPrice(plan.price);
@@ -2315,14 +2634,14 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
           >
            
 
-            <div style={{ padding: "48px 48px 40px 48px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box", position: "relative", zIndex: 1 }}>
-              <div>
+            <div style={{ padding: "48px 48px 40px 48px", height: "100%", display: "flex", flexDirection: "column", justifyContent: "space-between", boxSizing: "border-box", position: "relative", zIndex: 1, transformStyle: "preserve-3d" }}>
+              <div style={{ transform: "translateZ(18px)", transformStyle: "preserve-3d" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
                   <h3 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',fontSize: "27px", fontWeight: "500", margin: 0 }}>{plan.name}</h3>
-                  <button onClick={() => handleSharePlan(plan.name)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "16px", padding: "4px" }} title="Share Environment Parameters">🔗</button>
+                  <motion.button whileHover={{ rotateZ: 15, scale: 1.15 }} onClick={() => handleSharePlan(plan.name)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: "16px", padding: "4px" }} title="Share Environment Parameters">🔗</motion.button>
                 </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "32px" }}>
-                  <span style={{ fontSize: "46px", fontWeight: "700", letterSpacing: "-2px" }}>{symbol}{computedFinPrice}</span>
+                <div style={{ display: "flex", alignItems: "baseline", gap: "6px", marginBottom: "32px", transform: "translateZ(10px)" }}>
+                  <span style={{ fontSize: "46px", fontWeight: "700", letterSpacing: "-2px", textShadow: "0 8px 20px rgba(0,0,0,0.4)" }}>{symbol}{computedFinPrice}</span>
                   <span style={{ color: "#fff", fontSize: "15px" }}>{billingCycle === "annual" ? "/mo, billed annually" : plan.period}</span>
                 </div>
                 <div style={{ height: "1px", background: "linear-gradient(90deg, rgba(255,255,255,0.08), transparent)", marginBottom: "36px" }} />
@@ -2332,6 +2651,7 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                       key={fIdx} 
                       initial={{ opacity: 0, rotateX: -40, y: 8 }}
                       whileInView={{ opacity: 1, rotateX: 0, y: 0 }}
+                      whileHover={{ rotateX: -6, translateZ: 8, x: 4 }}
                       viewport={{ once: true, amount: 0.4 }}
                       transition={{ duration: 0.5, delay: 0.1 + fIdx * 0.08, ease: [0.16, 1, 0.3, 1] }}
                       style={{ display: "flex", alignItems: "start", gap: "14px", fontSize: "15px", color: "#fff", lineHeight: "1.5", transformStyle: "preserve-3d" }}
@@ -2342,8 +2662,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   ))}
                 </ul>
               </div>
+              <Magnet padding={60} strength={6} style={{ margin: "24px auto 0", width: "45%" }}>
               <motion.button
-                whileHover={{ scale: 1.015 }}
+                whileHover={{ scale: 1.015, rotateX: -6, translateZ: 12 }}
                 whileTap={{ scale: 0.985 }}
                 onClick={() => {
                   handleTrackAnalyticsClick("Initiating: " + plan.name);
@@ -2352,10 +2673,10 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 }}
                 style={{
                   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-                  width: "45%",
+                  width: "100%",
                   display: "block",
                   padding: "15px",
-                  margin: "24px auto 0",
+                  margin: "0 auto",
                   borderRadius: "16px",
                   border: isEnterprise ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${theme.border}`,
                   background: isEnterprise ? "linear-gradient(135deg, #1f6feb 0%, #11449e 100%)" : "rgba(255,255,255,0.03)",
@@ -2364,13 +2685,15 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   fontWeight: "600",
                   cursor: "pointer",
                   boxShadow: isEnterprise ? "0 4px 20px rgba(31,111,235,0.4)" : "none",
-                  transition: "background 0.2s ease"
+                  transition: "background 0.2s ease",
+                  transformStyle: "preserve-3d",
                 }}
                 onMouseEnter={(e) => { if(!isEnterprise) e.target.style.background = "rgba(255,255,255,0.07)"; }}
                 onMouseLeave={(e) => { if(!isEnterprise) e.target.style.background = "rgba(255,255,255,0.03)"; }}
               >
                 Choose Plan
               </motion.button>
+              </Magnet>
             </div>
           </MagneticCard>
         );
@@ -2378,8 +2701,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
     </section></div>
 
         {/* Matrix Toggle + Export */}
-        <div style={{ marginTop: "40px", zIndex: 3, display: "flex", gap: "24px", alignItems: "center" }}>
-          <button 
+        <FadeIn delay={0} duration={0.6} y={20} style={{ marginTop: "40px", zIndex: 3, display: "flex", gap: "24px", alignItems: "center" }}>
+          <motion.button 
+            whileHover={{ rotateX: -8, translateZ: 6 }}
             onClick={() => { handleTrackAnalyticsClick("Toggle Matrix View"); setShowFeatureMatrix(!showFeatureMatrix); }}
             style={{
               background: "transparent",
@@ -2397,25 +2721,26 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
             }}
           >
             {showFeatureMatrix ? "Hide Detailed Infrastructure Matrix ↑" : "Compare Detailed Infrastructure Primitives ↓"}
-          </button>
+          </motion.button>
           
-          <button
+          <motion.button
+            whileHover={{ rotateX: -8, translateZ: 6 }}
             onClick={handleDownloadSpecSheet}
             style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${theme.border}`, padding: "6px 14px", borderRadius: "8px", fontSize: "12px", color: "#fff", cursor: "pointer" }}
           >
             💾 Export Specs Manifest (.md)
-          </button>
-        </div>
+          </motion.button>
+        </FadeIn>
 
         {/* Feature Matrix Drawer */}
         <AnimatePresence>
           {showFeatureMatrix && (
             <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
+              initial={{ opacity: 0, y: -20, rotateX: -8 }}
+              animate={{ opacity: 1, y: 0, rotateX: 0 }}
+              exit={{ opacity: 0, y: -20, rotateX: -8 }}
               transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              style={styles.matrixSection}
+              style={{ ...styles.matrixSection, perspective: "1400px" }}
             >
               <h3 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',fontSize: "20px", fontWeight: "700", marginBottom: "24px", textAlign: "center", letterSpacing: "-0.5px" }}>
                 Deep Architecture Verification Primitives
@@ -2431,11 +2756,15 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   </thead>
                   <tbody>
                     {telemetryMetrics.map((row, index) => (
-                      <tr key={index} style={{ borderBottom: `1px solid rgba(255,255,255,0.04)`, color: theme.subtext }}>
+                      <motion.tr
+                        key={index}
+                        whileHover={{ rotateX: -2, translateZ: 6, backgroundColor: "rgba(88,166,255,0.04)" }}
+                        style={{ borderBottom: `1px solid rgba(255,255,255,0.04)`, color: theme.subtext, transformStyle: "preserve-3d" }}
+                      >
                         <td style={{ padding: "16px", fontWeight: "500", color: "#fff" }}>{row.label}</td>
                         <td style={{ padding: "16px" }}>{row.pro}</td>
                         <td style={{ padding: "16px", color: "rgba(88, 166, 255, 0.85)" }}>{row.enterprise}</td>
-                      </tr>
+                      </motion.tr>
                     ))}
                   </tbody>
                 </table>
@@ -2445,11 +2774,11 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         </AnimatePresence>
 
         {/* FAQ Section */}
-        <section style={styles.faqSection}>
+        <section style={{ ...styles.faqSection, perspective: "1400px" }}>
           <div style={{ textAlign: "center", marginBottom: "48px" }}>
             <h2 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   fontSize: "42px", // Vercel uses highly controlled sizes
-  fontWeight: "700", letterSpacing: "-1px", marginBottom: "12px" }}>
+  fontWeight: "700", letterSpacing: "-1px", marginBottom: "12px", textShadow: "0 10px 26px rgba(0,0,0,0.5)" }}>
               Frequently Asked Questions
             </h2>
             <p style={{ color: theme.subtext, fontSize: "15px", marginBottom: "24px" }}>
@@ -2462,7 +2791,9 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                 placeholder="🔍 Search infrastructure queries..."
                 value={faqSearchQuery}
                 onChange={handleSearchFaq}
-                style={{ width: "100%", padding: "12px 18px", background: "rgba(0,0,0,0.3)", border: `1px solid ${theme.border}`, borderRadius: "12px", color: "#fff", fontSize: "14px", outline: "none" }}
+                style={{ width: "100%", padding: "12px 18px", background: "rgba(0,0,0,0.3)", border: `1px solid ${theme.border}`, borderRadius: "12px", color: "#fff", fontSize: "14px", outline: "none", boxShadow: "inset 0 2px 6px rgba(0,0,0,0.5)" }}
+                onFocus={(e) => { e.target.style.transform = "perspective(600px) rotateX(2deg)"; }}
+                onBlur={(e) => { e.target.style.transform = "none"; }}
               />
               <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
                 <span onClick={() => handleToggleAllFaqs("expand")} style={{ fontSize: "12px", color: theme.primary, cursor: "pointer", textDecoration: "underline" }}>Expand All</span>
@@ -2491,31 +2822,32 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
         </section>
 
         {/* Feedback Widget */}
-        <div style={{ margin: "40px auto 0", textAlign: "center", padding: "24px", background: "rgba(255,255,255,0.01)", border: `1px solid ${theme.border}`, borderRadius: "16px", maxWidth: "400px", width: "100%", zIndex: 2 }}>
+        <FadeIn delay={0} duration={0.7} y={30} style={{ margin: "40px auto 0", textAlign: "center", padding: "24px", background: "rgba(255,255,255,0.01)", border: `1px solid ${theme.border}`, borderRadius: "16px", maxWidth: "400px", width: "100%", zIndex: 2, boxShadow: "0 20px 40px -20px rgba(0,0,0,0.6)" }}>
           <h4 style={{ margin: "0 0 10px 0", fontSize: "14px", fontWeight: "600" }}>System Environment Optimization Score</h4>
           {!feedbackSubmitted ? (
-            <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "12px" }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: "8px", marginTop: "12px", perspective: "300px" }}>
               {[1, 2, 3, 4, 5].map((star) => (
-                <span 
+                <motion.span 
                   key={star} 
+                  whileHover={{ scale: 1.35, rotateY: 25, rotateX: -15 }}
                   onClick={() => handleFeedbackSubmit(star)}
-                  style={{ fontSize: "20px", cursor: "pointer", color: userRating >= star ? "#58a6ff" : "rgba(255,255,255,0.2)" }}
+                  style={{ fontSize: "20px", cursor: "pointer", color: userRating >= star ? "#58a6ff" : "rgba(255,255,255,0.2)", display: "inline-block", transformStyle: "preserve-3d" }}
                   onMouseEnter={() => setUserRating(star)}
                   onMouseLeave={() => setUserRating(0)}
                 >
                   ★
-                </span>
+                </motion.span>
               ))}
             </div>
           ) : (
             <p style={{ fontSize: "12px", color: "#34d399", margin: "8px 0 0 0" }}>Log metrics recorded. Thank you for refining infrastructure.</p>
           )}
-        </div>
+        </FadeIn>
 
       </main>
 
       {/* Footer */}
-      <footer style={styles.footerWrapper}>
+      <footer style={{ ...styles.footerWrapper, perspective: "1200px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "40px", maxWidth: "1200px", margin: "0 auto 48px" }}>
           <div style={{ flex: "1 1 250px" }}>
             <DynamicLogo />
@@ -2531,16 +2863,18 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   placeholder="terminal@engine.io"
                   value={newsletterEmail}
                   onChange={(e) => setNewsletterEmail(e.target.value)}
-                  style={{ padding: "8px 12px", background: "#000", border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: "#fff", outline: "none", width: "160px" }}
+                  style={{ padding: "8px 12px", background: "#000", border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: "#fff", outline: "none", width: "160px", boxShadow: "inset 0 2px 6px rgba(0,0,0,0.6)" }}
+                  onFocus={(e) => { e.target.style.transform = "perspective(500px) rotateX(3deg)"; }}
+                  onBlur={(e) => { e.target.style.transform = "none"; }}
                 />
-                <button type="submit" style={{ padding: "8px 12px", borderRadius: "8px", background: theme.primary, border: "none", color: "#000", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Ingest</button>
+                <motion.button whileHover={{ rotateX: -10, translateZ: 4 }} type="submit" style={{ padding: "8px 12px", borderRadius: "8px", background: theme.primary, border: "none", color: "#000", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Ingest</motion.button>
               </div>
               {newsletterStatus && <p style={{ fontSize: "11px", marginTop: "6px", color: newsletterStatus.includes("successful") ? "#34d399" : "#f87171" }}>{newsletterStatus}</p>}
             </form>
           </div>
           
           <div style={{ display: "flex", gap: "64px", flexWrap: "wrap" }}>
-            <div>
+            <FadeIn delay={0} duration={0.6} y={20}>
               <h4 style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',color: "#fff", fontSize: "14px", fontWeight: "600", marginBottom: "16px" }}>Product</h4>
               <ul style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
                 <li><a href="#features" style={{ color: theme.subtext, textDecoration: "none", transition: "color 0.2s" }} onMouseEnter={(e) => e.target.style.color = "#fff"} onMouseLeave={(e) => e.target.style.color = theme.subtext}>Features</a></li>
@@ -2557,21 +2891,21 @@ export default function Subscription({ onSubscribe, onGoToDashboard }) {
                   </span>
                 </li>
               </ul>
-            </div>
-            <div>
+            </FadeIn>
+            <FadeIn delay={0.1} duration={0.6} y={20}>
               <h4 style={{ color: "#fff", fontSize: "14px", fontWeight: "700", marginBottom: "16px" }}>Company</h4>
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
                 <li><span style={{  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',color: theme.subtext, cursor: "pointer" }} onClick={() => { handleTrackAnalyticsClick("Footer: About Us"); setShowAbout(true); }}>Our Story</span></li>
                 <li><span style={{  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',color: theme.subtext, cursor: "pointer" }} onClick={() => { handleTrackAnalyticsClick("Footer: Contact Us"); setShowContact(true); }}>Support</span></li>
               </ul>
-            </div>
-            <div>
+            </FadeIn>
+            <FadeIn delay={0.2} duration={0.6} y={20}>
               <h4 style={{ color: "#fff", fontSize: "14px", fontWeight: "600", marginBottom: "16px" }}>Legal</h4>
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px", fontSize: "13px" }}>
                 <li><a href="#privacy" style={{ color: theme.subtext, textDecoration: "none" }}>Privacy Policy</a></li>
                 <li><a href="#terms" style={{ color: theme.subtext, textDecoration: "none" }}>Terms of Service</a></li>
               </ul>
-            </div>
+            </FadeIn>
 
 
 

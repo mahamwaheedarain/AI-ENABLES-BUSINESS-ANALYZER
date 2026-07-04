@@ -1,5 +1,5 @@
 // src/components/ContactUs.js
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { db } from "../firebase"; 
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion"; // Essential for hardware-accelerated animations
@@ -17,6 +17,145 @@ const theme = {
   success: "#3fb950",
   fontMain: "'Inter', -apple-system, system-ui, sans-serif", // Clean, high-clarity Inter font
   accentGlow: "rgba(58, 162, 230, 0.25)",
+};
+
+// New: ambient particle field, ported 1:1 from the Veldara landing page's
+// #particles-canvas logic (dust motes drifting + wrapping at the edges).
+// Self-contained via refs so it drops into the background stack without
+// touching any existing markup/state above.
+const ParticleField = () => {
+  const canvasRef = useRef(null);
+  const particlesRef = useRef([]);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    const createParticles = () => {
+      const particles = [];
+      const count = Math.floor((canvas.width * canvas.height) / 12000);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          size: Math.random() * 1.5 + 0.5,
+          opacity: Math.random() * 0.6 + 0.2,
+        });
+      }
+      particlesRef.current = particles;
+    };
+
+    const resize = () => {
+      const parent = canvas.parentElement;
+      canvas.width = parent.clientWidth;
+      canvas.height = parent.clientHeight;
+      createParticles();
+    };
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of particlesRef.current) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${p.opacity})`;
+        ctx.fill();
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
+    />
+  );
+};
+
+// New: blur/fade reveal, ported from Veldara's #section-three-inner
+// (opacity 0 -> 1, translateY(32px) -> 0, blur(8px) -> blur(0), over 1s
+// ease-out). The original triggers via IntersectionObserver on scroll;
+// this page's header is already in view on load, so it triggers once on
+// mount after `delay` instead — the equivalent "reveal moment" for content
+// that's visible immediately rather than scrolled into view.
+const BlurReveal = ({ children, delay = 150, duration = 1000 }) => {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
+
+  return (
+    <div
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(32px)",
+        filter: visible ? "blur(0px)" : "blur(8px)",
+        transition: `opacity ${duration}ms ease-out, transform ${duration}ms ease-out, filter ${duration}ms ease-out`,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+// New: horizontal mask-sweep reveal, ported from Veldara's #fixed-cards
+// logic (mask-image linear-gradient sweeping black -> transparent to
+// "wipe in" content). The original ties reveal progress to scroll position
+// through a trigger zone; here progress is driven by elapsed time since
+// mount instead — same wipe, timed rather than scroll-scrubbed.
+const MaskReveal = ({ children, direction = "to right", duration = 900, delay = 0 }) => {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let rafId;
+    let start = null;
+
+    const tick = (ts) => {
+      if (start === null) start = ts;
+      const elapsed = ts - start;
+      const pct = Math.min(1, Math.max(0, elapsed / duration));
+      setProgress(pct);
+      if (pct < 1) rafId = requestAnimationFrame(tick);
+    };
+
+    const timeoutId = setTimeout(() => {
+      rafId = requestAnimationFrame(tick);
+    }, delay);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [duration, delay]);
+
+  const revealPct = progress * 130;
+  const maskImage = `linear-gradient(${direction}, black ${revealPct}%, transparent ${revealPct + 15}%)`;
+
+  return (
+    <div style={{ maskImage, WebkitMaskImage: maskImage }}>
+      {children}
+    </div>
+  );
 };
 
 export default function ContactUs({ onBack }) {
@@ -111,14 +250,21 @@ export default function ContactUs({ onBack }) {
           maskImage: "radial-gradient(ellipse 60% 50% at 50% 0%, black 40%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse 60% 50% at 50% 0%, black 40%, transparent 100%)"
         }} />
       </div>
+
+      {/* New: ambient drifting particles, matching Veldara's particle layer */}
+      <div style={{ position: "absolute", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none" }}>
+        <ParticleField />
+      </div>
       
       <div style={{ position: "relative", zIndex: 1 }}>
         {/* Header - Aligned with Business Analyzer Dashboards */}
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '48px' }}>
           <motion.div variants={itemVariants}>
-            <h1 style={{   fontMain: "'Inter', -apple-system, system-ui, sans-serif",  fontSize: '32px', fontWeight: '300', margin: 0, letterSpacing: '-0.5px' }}>
-              Inquiry <span style={{ color: theme.primary, fontWeight: 800, fontStyle: "italic",  fontMain: "'Inter', -apple-system, system-ui, sans-serif"}}>Portal</span>
-            </h1>
+            <BlurReveal delay={150}>
+              <h1 style={{   fontMain: "'Inter', -apple-system, system-ui, sans-serif",  fontSize: '32px', fontWeight: '300', margin: 0, letterSpacing: '-0.5px' }}>
+                Inquiry <span style={{ color: theme.primary, fontWeight: 800, fontStyle: "italic",  fontMain: "'Inter', -apple-system, system-ui, sans-serif"}}>Portal</span>
+              </h1>
+            </BlurReveal>
            
           </motion.div>
           <motion.button 
@@ -144,6 +290,7 @@ export default function ContactUs({ onBack }) {
           
           {/* Message Input Section */}
           <motion.section variants={itemVariants} style={cardStyle}>
+            <MaskReveal direction="to right" duration={900} delay={100}>
             <div style={cardHeader}>Send a Message</div>
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
@@ -194,12 +341,13 @@ export default function ContactUs({ onBack }) {
                 )}
               </AnimatePresence>
             </form>
+            </MaskReveal>
           </motion.section>
 
           {/* Support Information Section */}
           <motion.section variants={itemVariants} style={{ ...cardStyle, borderLeft: `3px solid ${theme.primary}`, boxShadow: `0 0 30px -10px ${theme.accentGlow}, 0 20px 40px -15px rgba(0,0,0,0.5)` }}>
+            <MaskReveal direction="to right" duration={900} delay={250}>
 
-            
             <div style={infoBox}>
               <div style={label}>Support Email</div>
               <div style={val}>wmaham06@gmail.com</div>
@@ -220,6 +368,7 @@ export default function ContactUs({ onBack }) {
                 All inquiries are processed through our encrypted data stream to ensure total privacy.
               </p>
             </div>
+            </MaskReveal>
           </motion.section>
         </div>
 

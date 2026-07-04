@@ -1,5 +1,5 @@
 // src/components/Auth.js
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import  Orb from "./Orb"; // Updated to local folder import with named wrapper to prevent crashes
 import BorderGlow from '../BorderGlow';
@@ -35,6 +35,17 @@ const styles = {
     borderRadius: "50%",
     opacity: 0.15,
     zIndex: 1, // Elevated above the absolute Orb background layer
+  },
+  // New: ambient particle canvas, same drifting-dust behavior as the
+  // Veldara scroll page's #particles-canvas, layered above the blobs
+  // but below the foreground copy/card (matches the site's z-index: 3).
+  particlesCanvas: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    height: "100%",
+    zIndex: 1,
+    pointerEvents: "none",
   },
   visualSide: {
     flex: 1,
@@ -302,6 +313,146 @@ const PasswordMatchHint = ({ password, confirmPassword }) => {
   );
 };
 
+// New: ambient particle field, ported 1:1 from the Veldara landing page's
+// #particles-canvas logic (ctx.arc dust motes drifting + wrapping at the
+// edges). Implemented as a self-contained component using refs so it drops
+// in without disturbing any existing markup, state, or styles above.
+const ParticleField = () => {
+  const canvasRef = useRef(null);
+  const particlesRef = useRef([]);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    const createParticles = () => {
+      const particles = [];
+      const count = Math.floor((canvas.width * canvas.height) / 12000);
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          size: Math.random() * 1.5 + 0.5,
+          opacity: Math.random() * 0.6 + 0.2,
+        });
+      }
+      particlesRef.current = particles;
+    };
+
+    const resize = () => {
+      const parent = canvas.parentElement;
+      canvas.width = parent.clientWidth;
+      canvas.height = parent.clientHeight;
+      createParticles();
+    };
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of particlesRef.current) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${p.opacity})`;
+        ctx.fill();
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+    rafRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} style={styles.particlesCanvas} />;
+};
+
+// New: blur/fade reveal, ported from Veldara's #section-three-inner
+// (opacity 0 -> 1, translateY(32px) -> 0, blur(8px) -> blur(0), all over
+// 1s ease-out). The original triggers via IntersectionObserver on scroll;
+// since the auth page has no scroll, this triggers once on mount after
+// `delay`, which is the equivalent "reveal moment" for a static viewport.
+const BlurReveal = ({ children, delay = 150, duration = 1000 }) => {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
+
+  return (
+    <div
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? "translateY(0)" : "translateY(32px)",
+        filter: visible ? "blur(0px)" : "blur(8px)",
+        transition: `opacity ${duration}ms ease-out, transform ${duration}ms ease-out, filter ${duration}ms ease-out`,
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+// New: horizontal mask-sweep reveal, ported from Veldara's #fixed-cards
+// logic (cardsGrid mask-image linear-gradient sweeping black -> transparent
+// to "wipe in" the content). The original ties revealPct to scroll
+// progress through a trigger zone; here there's no scroll to tie to, so
+// progress is driven by elapsed time since mount instead — the same wipe,
+// just timed rather than scrubbed.
+const MaskReveal = ({ children, direction = "to right", duration = 900, delay = 0 }) => {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    let rafId;
+    let start = null;
+
+    const tick = (ts) => {
+      if (start === null) start = ts;
+      const elapsed = ts - start;
+      const pct = Math.min(1, Math.max(0, elapsed / duration));
+      setProgress(pct);
+      if (pct < 1) rafId = requestAnimationFrame(tick);
+    };
+
+    const timeoutId = setTimeout(() => {
+      rafId = requestAnimationFrame(tick);
+    }, delay);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (rafId) cancelAnimationFrame(rafId);
+    };
+  }, [duration, delay]);
+
+  const revealPct = progress * 130;
+  const maskImage = `linear-gradient(${direction}, black ${revealPct}%, transparent ${revealPct + 15}%)`;
+
+  return (
+    <div style={{ maskImage, WebkitMaskImage: maskImage }}>
+      {children}
+    </div>
+  );
+};
+
+// ─── 3D FLOATING MATTE BLOBS (NEW — purely additive) ──────────────────────
+// Same glassy, faded, blue-transparent sphere illusion used elsewhere in
+// the app: layered radial gradient + soft inset shadow + a wide blurred
+// highlight, low opacity so they read as ambient depth rather than a
+// distinct foreground object. Purely decorative, pointerEvents:none, so
+
 const MagneticCard = ({ children, style, ...props }) => {
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -365,25 +516,38 @@ const AuthLayout = ({ children, title }) => (
     <motion.div animate={{ x: [0, 90, 0], y: [0, 70, 0] }} transition={{ duration: 25, repeat: Infinity }} style={{ ...styles.blob, top: "-15%", left: "-15%" }} />
     <motion.div animate={{ x: [0, -70, 0], y: [0, -90, 0] }} transition={{ duration: 18, repeat: Infinity }} style={{ ...styles.blob, bottom: "-15%", right: "-8%" }} />
 
-    <div style={styles.visualSide}>
-      <DynamicLogo />
-      <motion.h1 initial={{ opacity: 0, y: 35 }} animate={{ opacity: 1, y: 0 }} style={styles.titleH1}>
-        Data-driven <br /> <span style={styles.titleH1.span}>clarity for the</span> <br /> modern enterprise.
-      </motion.h1>
-      <motion.p 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        transition={{ delay: 0.35 }} 
-        style={{ color: "#fff", fontSize: "20px", maxWidth: "480px", lineHeight: "1.5" }}
-      >
-        Elevate your business insights. Transform complex logs into actionable intelligence.
-      </motion.p>
+    
+
+    {/* New: ambient drifting particles, matching Veldara's particle layer */}
+    <ParticleField />
+
+    <div style={{ ...styles.visualSide, perspective: "1400px", transformStyle: "preserve-3d" }}>
+      <div style={{ transform: "translateZ(20px)", transformStyle: "preserve-3d" }}>
+        <DynamicLogo />
+      </div>
+      <BlurReveal delay={150}>
+        <motion.h1 initial={{ opacity: 0, y: 35 }} animate={{ opacity: 1, y: 0 }} style={{ ...styles.titleH1, transform: "translateZ(36px)", transformStyle: "preserve-3d", textShadow: "0 14px 32px rgba(0,0,0,0.5)" }}>
+          Data-driven <br /> <span style={styles.titleH1.span}>clarity for the</span> <br /> modern enterprise.
+        </motion.h1>
+        <motion.p 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          transition={{ delay: 0.35 }} 
+          style={{ color: "#fff", fontSize: "20px", maxWidth: "480px", lineHeight: "1.5", transform: "translateZ(16px)", transformStyle: "preserve-3d" }}
+        >
+          Elevate your business insights. Transform complex logs into actionable intelligence.
+        </motion.p>
+      </BlurReveal>
     </div>
 
-    <div style={styles.authSide}>
-      <MagneticCard initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ type: "spring", stiffness: 90, damping: 20 }} style={styles.card}>
-        <h2 style={{ fontSize: "26px", marginBottom: "34px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', color: theme.text, letterSpacing: '-0.5px' }}>{title}</h2>
-        {children}
+    <div style={{ ...styles.authSide, perspective: "1400px" }}>
+      <MagneticCard initial={{ opacity: 0, scale: 0.95, rotateX: 10 }} animate={{ opacity: 1, scale: 1, rotateX: 0 }} transition={{ type: "spring", stiffness: 90, damping: 20 }} style={styles.card}>
+        <MaskReveal duration={900} delay={200}>
+          <div style={{ transform: "translateZ(24px)", transformStyle: "preserve-3d" }}>
+            <h2 style={{ fontSize: "26px", marginBottom: "34px", fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif', color: theme.text, letterSpacing: '-0.5px' }}>{title}</h2>
+            {children}
+          </div>
+        </MaskReveal>
       </MagneticCard>
     </div>
   </div>
