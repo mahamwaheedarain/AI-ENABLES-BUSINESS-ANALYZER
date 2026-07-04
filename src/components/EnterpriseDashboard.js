@@ -1007,26 +1007,7 @@ function EnterpriseDashboard({ user, onHome }) {
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               style={uploadCardStyle}
             >
-              <div
-                style={{
-                  background: "rgba(88, 166, 255, 0.08)",
-                  border: "1px solid rgba(88, 166, 255, 0.25)",
-                  padding: "6px 16px",
-                  borderRadius: "100px",
-                  fontSize: "11px",
-                  fontFamily: FONT,
-                  fontWeight: 700,
-                  color: theme.primary,
-                  letterSpacing: "1px",
-                  textTransform: "uppercase",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  marginBottom: "26px",
-                }}
-              >
-                <Icons.Zap size={12} strokeWidth={2} /> Secure Ingestion Pipeline
-              </div>
+          
 
               {/* Animated Orb */}
               <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto 22px" }}>
@@ -1267,9 +1248,7 @@ function EnterpriseDashboard({ user, onHome }) {
                 {loading ? `${INGEST_STAGES[ingestStage].label}...` : "Analyze Data & Continue"}
               </motion.button>
 
-              <p style={{ marginTop: 18, fontSize: 11.5, fontFamily: FONT, color: "#4d5562", letterSpacing: 0.3, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-                <Icons.Lock size={11} strokeWidth={2} /> Encrypted in transit · Stored in PostgreSQL · SOC 2-aligned handling
-              </p>
+             
             </motion.div>
           </div>
         )}
