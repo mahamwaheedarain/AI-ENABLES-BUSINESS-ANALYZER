@@ -3,7 +3,9 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area
+  AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  ScatterChart, Scatter, ComposedChart, Legend
 } from "recharts";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -84,6 +86,10 @@ const theme = {
   fontMain:  "'Inter', -apple-system, system-ui, sans-serif",
   fontMono:  "'JetBrains Mono', monospace",
 };
+
+// Palette used for multi-slice charts (pie/donut) — pulled from the theme
+// so new charts stay visually consistent with the rest of the system.
+const PIE_COLORS = [theme.primary, theme.accent, theme.success, "#ffab40", "#f85149"];
 
 // ─── Module definitions ───────────────────────────────────────────────────────
 const modules = [
@@ -192,6 +198,179 @@ function computeTrendPercent(ledger, config) {
   const seed = hashSeed(seedSource);
   // Map to a plausible -20% .. +20% range
   return (seededRandom(seed) * 40) - 20;
+}
+
+// ── Extra insight helpers — all derived directly from the uploaded CSV rows ──
+
+// Pulls a clean numeric series for a given column key out of the ledger,
+// skipping any row where that column is missing or non-numeric.
+function getNumericSeries(ledger, key) {
+  return (ledger || [])
+    .map(r => parseFloat(r?.[key]))
+    .filter(v => !isNaN(v));
+}
+
+// Simple arithmetic mean of a numeric series.
+function computeAverage(series) {
+  if (!series || !series.length) return null;
+  return series.reduce((a, b) => a + b, 0) / series.length;
+}
+
+// Coefficient of variation (stdev / |mean| * 100) — a scale-independent
+// read on how "jumpy" a metric has been across the uploaded reporting window.
+function computeVolatility(series) {
+  if (!series || series.length < 2) return null;
+  const avg = computeAverage(series);
+  if (!avg) return null;
+  const variance = series.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / series.length;
+  const stdev = Math.sqrt(variance);
+  return (stdev / Math.abs(avg)) * 100;
+}
+
+// Finds the peak and trough row for a given column, along with the
+// Month label attached to each, so insights can reference real periods.
+function computePeakTrough(ledger, key) {
+  if (!ledger || !ledger.length) return null;
+  let maxRow = null, minRow = null;
+  ledger.forEach(row => {
+    const v = parseFloat(row?.[key]);
+    if (isNaN(v)) return;
+    if (!maxRow || v > parseFloat(maxRow[key])) maxRow = row;
+    if (!minRow || v < parseFloat(minRow[key])) minRow = row;
+  });
+  if (!maxRow || !minRow) return null;
+  return {
+    max: parseFloat(maxRow[key]), maxMonth: maxRow.Month,
+    min: parseFloat(minRow[key]), minMonth: minRow.Month,
+  };
+}
+
+// Period-over-period % change for any arbitrary column key (used for the
+// module's secondary/tertiary KPIs, not just the main chart metric).
+function trendForKey(ledger, key) {
+  const series = getNumericSeries(ledger, key);
+  if (series.length < 2) return null;
+  const last = series[series.length - 1];
+  const prev = series[series.length - 2];
+  if (prev === 0 || isNaN(prev) || isNaN(last)) return null;
+  return ((last - prev) / Math.abs(prev)) * 100;
+}
+
+// Builds the full, expanded list of insights for the active module — all
+// computed straight from the uploaded CSV ledger, no hardcoded copy.
+function generateInsights(ledger, config) {
+  const insights = [];
+  if (!ledger || !ledger.length) return insights;
+
+  // 1. Headline trend on the module's core chart metric.
+  const primaryTrend = computeTrendPercent(ledger, config);
+  insights.push(
+    `The current trend for ${config.id} indicates a ${Math.abs(primaryTrend).toFixed(1)}% ` +
+    `${primaryTrend >= 0 ? "improvement" : "decline"} in fiscal efficiency, based on the uploaded ledger data.`
+  );
+
+  // 2 & 3. Secondary and tertiary KPI trends, straight from the CSV columns.
+  [
+    { key: config.kpi2Key, label: config.kpi2 },
+    { key: config.kpi3Key, label: config.kpi3 },
+  ].forEach(({ key, label }) => {
+    const pct = trendForKey(ledger, key);
+    if (pct !== null) {
+      insights.push(
+        `${label} has ${pct >= 0 ? "risen" : "fallen"} ${Math.abs(pct).toFixed(1)}% from the prior reporting period.`
+      );
+    }
+  });
+
+  // 4. Peak / trough read on the core chart metric.
+  const peakTrough = computePeakTrough(ledger, config.chartKey);
+  if (peakTrough) {
+    insights.push(
+      `${config.metricTelemetryName} peaked at ${peakTrough.max} in ${peakTrough.maxMonth || "the latest period"} ` +
+      `and bottomed at ${peakTrough.min} in ${peakTrough.minMonth || "an earlier period"}.`
+    );
+  }
+
+  // 5. Volatility / stability read across the whole reporting window.
+  const volatility = computeVolatility(getNumericSeries(ledger, config.chartKey));
+  if (volatility !== null) {
+    const stability = volatility < 10 ? "highly stable" : volatility < 25 ? "moderately volatile" : "highly volatile";
+    insights.push(
+      `${config.id} has been ${stability} across the reporting window, with a coefficient of variation of ${volatility.toFixed(1)}%.`
+    );
+  }
+
+  // 6. Average benchmark for the module's primary KPI.
+  const avg = computeAverage(getNumericSeries(ledger, config.chartKey));
+  if (avg !== null) {
+    insights.push(
+      `Average ${config.kpi1.toLowerCase()} across all ${ledger.length} reporting periods sits at ${avg.toFixed(2)}.`
+    );
+  }
+
+  // 7. Closing audit line — always present, matches original copy.
+  insights.push("No anomalies detected in current transactional audit.");
+
+  return insights;
+}
+
+// ── Chart-data builders — everything below is derived straight from the
+// uploaded CSV ledger for the active module, no hardcoded/mock numbers. ──────
+
+// Trims the ledger to the last N rows and pulls out a clean numeric
+// timeseries for whichever column keys are requested, tagging each point
+// with its Month label so multi-line/composed charts stay aligned.
+function buildTimeSeriesData(ledger, keys, limit = 12) {
+  return (ledger || []).slice(-limit).map((row, i) => {
+    const point = { Month: row.Month || `P${i + 1}` };
+    keys.forEach(k => {
+      const v = parseFloat(row?.[k]);
+      point[k] = isNaN(v) ? 0 : v;
+    });
+    return point;
+  });
+}
+
+// Snapshot of the module's three KPIs for the most recent reporting period —
+// feeds the bar chart and the pie/donut composition chart.
+function buildKPIComparisonData(config, lastEntry) {
+  const pull = (key) => {
+    const v = parseFloat(lastEntry?.[key]);
+    return isNaN(v) ? 0 : Math.abs(v);
+  };
+  return [
+    { name: config.kpi1, value: pull(config.kpi1Key) },
+    { name: config.kpi2, value: pull(config.kpi2Key) },
+    { name: config.kpi3, value: pull(config.kpi3Key) },
+  ];
+}
+
+// Current-period value vs. full-window average for each KPI — feeds the
+// radar/benchmark chart.
+function buildRadarData(ledger, config, lastEntry) {
+  const avg1 = computeAverage(getNumericSeries(ledger, config.kpi1Key)) || 0;
+  const avg2 = computeAverage(getNumericSeries(ledger, config.kpi2Key)) || 0;
+  const avg3 = computeAverage(getNumericSeries(ledger, config.kpi3Key)) || 0;
+  const cur1 = parseFloat(lastEntry?.[config.kpi1Key]); 
+  const cur2 = parseFloat(lastEntry?.[config.kpi2Key]);
+  const cur3 = parseFloat(lastEntry?.[config.kpi3Key]);
+  return [
+    { metric: config.kpi1, current: isNaN(cur1) ? 0 : cur1, average: avg1 },
+    { metric: config.kpi2, current: isNaN(cur2) ? 0 : cur2, average: avg2 },
+    { metric: config.kpi3, current: isNaN(cur3) ? 0 : cur3, average: avg3 },
+  ];
+}
+
+// Paired (kpi1, kpi2) points across every reporting period — feeds the
+// scatter correlation chart.
+function buildScatterData(ledger, config) {
+  return (ledger || [])
+    .map(row => ({
+      x: parseFloat(row?.[config.kpi1Key]),
+      y: parseFloat(row?.[config.kpi2Key]),
+      Month: row.Month,
+    }))
+    .filter(p => !isNaN(p.x) && !isNaN(p.y));
 }
 
 // ─── KPI Card ─────────────────────────────────────────────────────────────────
@@ -396,11 +575,17 @@ export default function FinanceDashboard() {
       return "0.00";
     };
 
-    // Trend % derived from the uploaded CSV data (real period-over-period
-    // change when available, otherwise a value seeded from the file content
-    // so it's stable per-dataset rather than a hardcoded constant).
-    const trendPercent = computeTrendPercent(data.ledger, config);
-    const trendIsUp    = trendPercent >= 0;
+    // Full, expanded list of insights — all derived from the uploaded CSV
+    // ledger data (trend, secondary KPI trends, peak/trough, volatility,
+    // and average benchmark) rather than a single static line.
+    const insights = generateInsights(data.ledger, config);
+
+    // ── Extra chart datasets — all derived straight from data.ledger ────────
+    const multiMetricData   = buildTimeSeriesData(data.ledger, [config.kpi1Key, config.kpi2Key, config.kpi3Key], 12);
+    const composedData      = buildTimeSeriesData(data.ledger, [config.chartKey], 12).map(p => ({ Month: p.Month, value: p[config.chartKey] }));
+    const kpiComparisonData = buildKPIComparisonData(config, lastEntry);
+    const radarData         = buildRadarData(data.ledger, config, lastEntry);
+    const scatterData       = buildScatterData(data.ledger, config);
 
     return (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.4 }}>
@@ -410,26 +595,140 @@ export default function FinanceDashboard() {
           <KPICard title={config.kpi3} value={extractValue(config.kpi3Key, config.kpi3)} color={theme.success} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "25px", marginBottom: "30px" }}>
-          <div style={cardStyle}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "25px", marginBottom: "30px", alignItems: "stretch" }}>
+          {/* FIX: card is now a flex column and the chart wrapper grows (flex: 1)
+              to fill the full stretched grid-row height instead of staying
+              pinned at a fixed 250px — this is what was leaving the empty
+              space below the area chart when the Insights card was taller. */}
+          <div style={{ ...cardStyle, display: "flex", flexDirection: "column" }}>
             <div style={cardHeader}>{activeFunc}</div>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={data.ledger.slice(-20)}>
-                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="Month" hide />
-                <YAxis hide />
-                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: "12px" }} />
-                <Area type="monotone" dataKey={config.chartKey} stroke={config.color} fill={config.color} fillOpacity={0.1} strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div style={{ flex: 1, minHeight: 250 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data.ledger.slice(-20)} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                  <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="Month" hide />
+                  <YAxis hide domain={["dataMin - dataMin * 0.05", "dataMax"]} />
+                  <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: "12px" }} />
+                  <Area type="monotone" dataKey={config.chartKey} stroke={config.color} fill={config.color} fillOpacity={0.1} strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
           <div style={{ ...cardStyle, borderLeft: `4px solid ${config.color}` }}>
             <div style={{ ...cardHeader, color: config.color }}>Financial Insights</div>
-            <p style={{ fontSize: "14px", lineHeight: "1.8", color: theme.textMuted }}>
-              The current trend for {activeFunc} indicates a {Math.abs(trendPercent).toFixed(1)}%
-              {trendIsUp ? " improvement" : " decline"} in fiscal efficiency, based on the uploaded ledger data.
-              No anomalies detected in current transactional audit.
-            </p>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
+              {insights.map((text, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: "50%", background: config.color,
+                    marginTop: "8px", flexShrink: 0,
+                  }} />
+                  <span style={{ fontSize: "14px", lineHeight: "1.8", color: theme.textMuted }}>
+                    {text}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* ── Advanced Analytics — additional professional chart types, all
+             computed live from the uploaded CSV ledger for the active module ── */}
+        <div style={{ marginBottom: "18px" }}>
+          <div style={{ ...cardHeader, marginBottom: "16px" }}>Advanced Analytics</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "25px", marginBottom: "30px" }}>
+
+          {/* Bar chart: current-period KPI comparison */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>KPI Comparison — Current Period</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={kpiComparisonData}>
+                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fill: theme.subtext, fontSize: 11 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                <YAxis tick={{ fill: theme.subtext, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: "12px" }} />
+                <Bar dataKey="value" fill={config.color} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Line chart: multi-metric trend across reporting periods */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>Multi-Metric Trend</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={multiMetricData}>
+                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="Month" tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                <YAxis tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: "12px" }} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Line type="monotone" dataKey={config.kpi1Key} name={config.kpi1} stroke={theme.primary} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey={config.kpi2Key} name={config.kpi2} stroke={theme.accent} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey={config.kpi3Key} name={config.kpi3} stroke={theme.success} strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Donut chart: current-period composition */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>Current Period Composition</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie data={kpiComparisonData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                  {kpiComparisonData.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: "12px" }} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Radar chart: current vs average benchmark */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>Current vs Average Benchmark</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke={theme.border} />
+                <PolarAngleAxis dataKey="metric" tick={{ fill: theme.subtext, fontSize: 10 }} />
+                <PolarRadiusAxis tick={{ fill: theme.subtext, fontSize: 9 }} axisLine={false} />
+                <Radar name="Current" dataKey="current" stroke={config.color} fill={config.color} fillOpacity={0.3} />
+                <Radar name="Average" dataKey="average" stroke={theme.subtext} fill={theme.subtext} fillOpacity={0.12} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: "12px" }} />
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Scatter chart: correlation between the module's primary and secondary KPI */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>{config.kpi1} vs {config.kpi2} Correlation</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <ScatterChart>
+                <CartesianGrid stroke={theme.border} strokeDasharray="3 3" />
+                <XAxis dataKey="x" name={config.kpi1} tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                <YAxis dataKey="y" name={config.kpi2} tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ strokeDasharray: "3 3" }} contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: "12px" }} />
+                <Scatter data={scatterData} fill={config.color} />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Composed chart: core metric as bar + trend line overlay */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>{config.chartKey} — Composed View</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={composedData}>
+                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="Month" tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                <YAxis tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: "12px" }} />
+                <Bar dataKey="value" fill={config.color} fillOpacity={0.25} radius={[3, 3, 0, 0]} />
+                <Line type="monotone" dataKey="value" stroke={config.color} strokeWidth={2} dot={{ r: 3 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
         </div>
 

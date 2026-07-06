@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, ScatterChart, Scatter, Cell
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  AreaChart, Area, ScatterChart, Scatter, Cell,
+  BarChart, Bar, PieChart, Pie,
+  LineChart, Line,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar
 } from "recharts";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -324,7 +327,72 @@ export default function MarketingDashboard() {
       status:     (row.predicted_churn === 1 || row.status === "CRITICAL" || eng < 30) ? "CRITICAL" : "STABLE",
     };
   };
+// Simple Pearson correlation coefficient
+function pearsonCorrelation(a, b) {
+  const n = a.length;
+  if (n === 0) return 0;
+  const meanA = a.reduce((s, v) => s + v, 0) / n;
+  const meanB = b.reduce((s, v) => s + v, 0) / n;
+  let num = 0, denA = 0, denB = 0;
+  for (let i = 0; i < n; i++) {
+    const da = a[i] - meanA, db = b[i] - meanB;
+    num += da * db;
+    denA += da * da;
+    denB += db * db;
+  }
+  const den = Math.sqrt(denA * denB);
+  return den === 0 ? 0 : num / den;
+}
 
+// Derives extra chart-ready data + narrative insights from the ledger
+function computeExtraAnalytics(ledger) {
+  if (!ledger.length) return null;
+
+  const total = ledger.length;
+  const stableCount   = ledger.filter(r => r.status === "STABLE").length;
+  const criticalCount = total - stableCount;
+
+  const topAccounts = [...ledger]
+    .sort((a, b) => b.spent - a.spent)
+    .slice(0, 8)
+    .map(r => ({ id: String(r.id).slice(0, 10), spent: r.spent }));
+
+  const criticalSpend = ledger.filter(r => r.status === "CRITICAL").reduce((s, r) => s + r.spent, 0);
+  const totalSpend    = ledger.reduce((s, r) => s + r.spent, 0);
+  const riskConcentration = totalSpend > 0 ? ((criticalSpend / totalSpend) * 100).toFixed(1) : "0.0";
+
+  const spendVals = ledger.map(r => r.spent);
+  const engVals    = ledger.map(r => r.engagement);
+  const corr = pearsonCorrelation(spendVals, engVals);
+
+  const mid = Math.floor(total / 2);
+  const firstHalfAvgEng  = ledger.slice(0, mid).reduce((s, r) => s + r.engagement, 0) / (mid || 1);
+  const secondHalfAvgEng = ledger.slice(mid).reduce((s, r) => s + r.engagement, 0) / ((total - mid) || 1);
+  const trendDirection = secondHalfAvgEng >= firstHalfAvgEng ? "improving" : "declining";
+  const trendDelta = Math.abs(secondHalfAvgEng - firstHalfAvgEng).toFixed(1);
+
+  const avg = (key) => ledger.reduce((s, r) => s + (typeof r[key] === "string" ? parseFloat(r[key]) : r[key]), 0) / total;
+  const radarData = [
+    { metric: "Engagement",  value: Math.min(100, avg("engagement")) },
+    { metric: "Sessions",    value: Math.min(100, avg("sessions") / 2) },
+    { metric: "Conversion",  value: Math.min(100, avg("conversion") * 1000) },
+    { metric: "Spend",       value: Math.min(100, avg("spent") / 50) },
+    { metric: "ROI",         value: Math.min(100, ledger.reduce((s, r) => s + parseFloat(r.roi), 0) / total) },
+  ];
+
+  return {
+    statusPie: [
+      { name: "Stable",   value: stableCount },
+      { name: "Critical", value: criticalCount },
+    ],
+    topAccounts,
+    riskConcentration,
+    corr,
+    trendDirection,
+    trendDelta,
+    radarData,
+  };
+}
   const getInsightsFor = (tab, flaggedCount) => {
     if (tab === "Market Trends") return [
       { label: "Market Reach",      text: "Organic growth trend suggests a 12% expansion in target demographics." },
@@ -343,7 +411,16 @@ export default function MarketingDashboard() {
       { label: "Capital Efficiency",text: "Budget distribution matrix validates lower customer acquisition costs." },
     ];
   };
-
+  function getExtraInsights(extra) {
+    if (!extra) return [];
+    const corrLabel = Math.abs(extra.corr) > 0.5 ? "a strong" : Math.abs(extra.corr) > 0.2 ? "a moderate" : "a weak";
+    const corrDir = extra.corr >= 0 ? "positive" : "negative";
+    return [
+      { label: "Spend-Engagement Link", text: `Analysis shows ${corrLabel} ${corrDir} correlation (r=${extra.corr.toFixed(2)}) between spend and engagement.` },
+      { label: "Risk Concentration",    text: `${extra.riskConcentration}% of total spend sits in flagged CRITICAL accounts.` },
+      { label: "Engagement Trend",      text: `Engagement is ${extra.trendDirection} across the record set (Δ${extra.trendDelta} pts, first half vs second half).` },
+    ];
+  }
   const renderContent = () => {
     const raw = dataStore[activeFunc];
     if (!raw || !raw.ledger || raw.ledger.length === 0) {
@@ -365,6 +442,8 @@ export default function MarketingDashboard() {
     const timeSeries = ledger.slice(0, 15).map((d, index) => ({ x: index, val: d.engagement, reach: d.sessions || d.spent }));
     const insights   = getInsightsFor(activeFunc, flagged);
     const data       = { ...raw, ledger, flagged, timeSeries, insights };
+    const extra = computeExtraAnalytics(ledger);
+const extraInsights = getExtraInsights(extra);
 
     const config = {
       "Market Trends":       { kpi1: "Total Audience",  kpi2: "Avg Engagement", kpi3: "Market Cap",      accent: theme.primary },
@@ -467,6 +546,69 @@ export default function MarketingDashboard() {
            
           </div>
         </div>
+        {extra && (
+  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: "25px", marginBottom: "30px" }}>
+    <div style={cardStyle}>
+      <div style={cardHeader}>Top Accounts by Spend</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={extra.topAccounts}>
+          <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+          <XAxis dataKey="id" stroke={theme.subtext} fontSize={9} tickLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
+          <YAxis stroke={theme.subtext} fontSize={10} tickLine={false} axisLine={false} />
+          <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+          <Bar dataKey="spent" radius={[4, 4, 0, 0]}>
+            {extra.topAccounts.map((_, i) => <Cell key={i} fill={theme.primary} fillOpacity={1 - i * 0.08} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+
+    <div style={cardStyle}>
+      <div style={cardHeader}>Status Distribution</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <PieChart>
+          <Pie data={extra.statusPie} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>
+            {extra.statusPie.map((entry, i) => (
+              <Cell key={i} fill={entry.name === "Critical" ? theme.danger : theme.success} />
+            ))}
+          </Pie>
+          <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+          <Legend wrapperStyle={{ fontSize: "11px", color: theme.subtext }} />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+
+    <div style={cardStyle}>
+      <div style={cardHeader}>Metric Profile (Radar)</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <RadarChart data={extra.radarData} outerRadius={70}>
+          <PolarGrid stroke={theme.border} />
+          <PolarAngleAxis dataKey="metric" stroke={theme.subtext} fontSize={10} />
+          <PolarRadiusAxis stroke={theme.border} fontSize={9} tick={false} axisLine={false} />
+          <Radar dataKey="value" stroke={theme.accent} fill={theme.accent} fillOpacity={0.35} />
+          <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+        </RadarChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+)}
+
+{extra && (
+  <div style={{ ...cardStyle, marginBottom: "30px" }}>
+    <div style={cardHeader}>Engagement vs Sessions Trend</div>
+    <ResponsiveContainer width="100%" height={200}>
+      <LineChart data={timeSeries}>
+        <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+        <XAxis dataKey="x" stroke={theme.subtext} fontSize={10} tickLine={false} />
+        <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} />
+        <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+        <Legend wrapperStyle={{ fontSize: "11px", color: theme.subtext }} />
+        <Line type="monotone" dataKey="val"   name="Engagement" stroke={theme.primary} strokeWidth={2.5} dot={false} />
+        <Line type="monotone" dataKey="reach" name="Sessions/Spend" stroke={theme.accent}  strokeWidth={2.5} dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+)}
 
         <div style={{ ...cardStyle, marginBottom: "30px" }}>
           <div style={{ ...cardHeader, display: "flex", justifyContent: "space-between" }}>

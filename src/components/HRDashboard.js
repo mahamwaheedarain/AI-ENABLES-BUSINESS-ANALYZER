@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell
+  BarChart, Bar, Cell, PieChart, Pie, LineChart, Line, Legend
 } from "recharts";
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -149,6 +149,155 @@ function buildDataStore(files) {
     store[mod.id] = { ledger: allRows, total: allRows.length };
   });
   return store;
+}
+
+// ── Insight math helpers — all derived straight from the uploaded CSV rows,
+// same concept as FinanceDashboard's generateInsights: no hardcoded copy,
+// every line below is computed from the normalized employee ledger. ────────
+function computeAverage(series) {
+  if (!series || !series.length) return null;
+  return series.reduce((a, b) => a + b, 0) / series.length;
+}
+
+// Coefficient of variation (stdev / |mean| * 100) — scale-independent read
+// on how spread out a metric is across the current workforce.
+function computeVolatility(series) {
+  if (!series || series.length < 2) return null;
+  const avg = computeAverage(series);
+  if (!avg) return null;
+  const variance = series.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / series.length;
+  const stdev = Math.sqrt(variance);
+  return (stdev / Math.abs(avg)) * 100;
+}
+
+// Highest / lowest employee for a given metric key, tagged with employee id
+// so insights can call out real records instead of anonymous numbers.
+function computePeakTrough(ledger, key) {
+  if (!ledger || !ledger.length) return null;
+  let maxRow = null, minRow = null;
+  ledger.forEach(row => {
+    const v = row[key];
+    if (v === undefined || v === null || isNaN(v)) return;
+    if (!maxRow || v > maxRow[key]) maxRow = row;
+    if (!minRow || v < minRow[key]) minRow = row;
+  });
+  if (!maxRow || !minRow) return null;
+  return { max: maxRow[key], maxId: maxRow.id, min: minRow[key], minId: minRow.id };
+}
+
+// Splits the ledger (in upload order) into an earlier and later half and
+// compares average metric value between them — a lightweight trend read
+// when there's no explicit reporting-period column in the CSV.
+function computeTrend(ledger, key) {
+  if (!ledger || ledger.length < 4) return null;
+  const mid = Math.floor(ledger.length / 2);
+  const firstHalf  = ledger.slice(0, mid).map(r => r[key]).filter(v => !isNaN(v));
+  const secondHalf = ledger.slice(mid).map(r => r[key]).filter(v => !isNaN(v));
+  const a1 = computeAverage(firstHalf);
+  const a2 = computeAverage(secondHalf);
+  if (a1 === null || a2 === null || a1 === 0) return null;
+  return ((a2 - a1) / Math.abs(a1)) * 100;
+}
+
+// Per-module metric metadata used purely for phrasing the insights text —
+// the numbers themselves always come from the ledger.
+const INSIGHT_METRIC = {
+  "Salary Distribution": { key: "salary",   label: "salary",         fmt: (v) => `$${Math.round(v).toLocaleString()}` },
+  "Attrition Analysis":  { key: "overtime", label: "overtime hours", fmt: (v) => `${v.toFixed(1)}h` },
+  "Training Impact":     { key: "training", label: "training hours", fmt: (v) => `${v.toFixed(1)}h` },
+};
+
+// Builds the full, expanded list of HR insights for the active module — all
+// computed live from the uploaded CSV ledger, mirroring the depth of
+// FinanceDashboard's generateInsights (trend, peak/trough, volatility,
+// average benchmark, cohort comparison, closing audit line).
+function generateInsights(ledger, activeFunc) {
+  const insights = [];
+  if (!ledger || !ledger.length) return insights;
+
+  const m       = INSIGHT_METRIC[activeFunc];
+  const total   = ledger.length;
+  const series  = ledger.map(r => r[m.key]).filter(v => !isNaN(v));
+  const flagged = ledger.filter(r => r.status === "CRITICAL").length;
+
+  // 1. Headline trend across the workforce (earlier vs later upload half).
+  const trend = computeTrend(ledger, m.key);
+  if (trend !== null) {
+    insights.push(
+      `Average ${m.label} shows a ${Math.abs(trend).toFixed(1)}% ` +
+      `${trend >= 0 ? "increase" : "decrease"} across the uploaded workforce records.`
+    );
+  }
+
+  // 2. Average benchmark for the active metric.
+  const avg = computeAverage(series);
+  if (avg !== null) {
+    insights.push(`Average ${m.label} across all ${total} employees stands at ${m.fmt(avg)}.`);
+  }
+
+  // 3. Peak / trough read, naming the actual employee IDs involved.
+  const peakTrough = computePeakTrough(ledger, m.key);
+  if (peakTrough) {
+    insights.push(
+      `${peakTrough.maxId} recorded the highest ${m.label} at ${m.fmt(peakTrough.max)}, ` +
+      `while ${peakTrough.minId} recorded the lowest at ${m.fmt(peakTrough.min)}.`
+    );
+  }
+
+  // 4. Volatility / spread read across the whole workforce.
+  const volatility = computeVolatility(series);
+  if (volatility !== null) {
+    const stability = volatility < 10 ? "highly consistent" : volatility < 25 ? "moderately varied" : "highly varied";
+    insights.push(
+      `${m.label.charAt(0).toUpperCase() + m.label.slice(1)} has been ${stability} across the workforce, ` +
+      `with a coefficient of variation of ${volatility.toFixed(1)}%.`
+    );
+  }
+
+  // 5. Module-specific flagged-cohort read.
+  if (activeFunc === "Attrition Analysis") {
+    insights.push(
+      `${flagged} employee${flagged !== 1 ? "s" : ""} (${((flagged / total) * 100).toFixed(1)}% of workforce) ` +
+      `${flagged !== 1 ? "are" : "is"} currently flagged CRITICAL due to elevated overtime exposure.`
+    );
+  } else if (activeFunc === "Salary Distribution" && peakTrough && avg) {
+    const spread = peakTrough.max - peakTrough.min;
+    insights.push(
+      `Salary spread across the workforce is $${spread.toLocaleString()}, ` +
+      `representing a ${((spread / avg) * 100).toFixed(1)}% band around the average.`
+    );
+  } else if (activeFunc === "Training Impact") {
+    const highTrained = ledger.filter(r => r.training > 20).length;
+    insights.push(
+      `${highTrained} employee${highTrained !== 1 ? "s" : ""} (${((highTrained / total) * 100).toFixed(1)}% of workforce) ` +
+      `${highTrained !== 1 ? "have" : "has"} logged more than 20 hours of training.`
+    );
+  }
+
+  // 6. Cross-metric cohort comparison — critical vs stable employees,
+  // read against training investment, straight from the ledger.
+  const criticalRows = ledger.filter(r => r.status === "CRITICAL");
+  const stableRows   = ledger.filter(r => r.status === "STABLE");
+  const avgTrainingCritical = computeAverage(criticalRows.map(r => r.training));
+  const avgTrainingStable   = computeAverage(stableRows.map(r => r.training));
+  if (avgTrainingCritical !== null && avgTrainingStable !== null) {
+    insights.push(
+      `Employees flagged CRITICAL average ${avgTrainingCritical.toFixed(1)}h of training versus ` +
+      `${avgTrainingStable.toFixed(1)}h for stable employees, suggesting ` +
+      `${avgTrainingCritical < avgTrainingStable
+        ? "a possible link between lower training investment and retention risk"
+        : "limited correlation between training exposure and attrition risk"}.`
+    );
+  }
+
+  // 7. Closing audit line — dynamic based on how many records are flagged.
+  insights.push(
+    flagged > 0
+      ? `${flagged} record${flagged !== 1 ? "s" : ""} flagged for HR review; all other employees are within normal operating parameters.`
+      : "No anomalies detected in current workforce audit."
+  );
+
+  return insights;
 }
 
 // ─── File Chip ────────────────────────────────────────────────────────────────
@@ -380,6 +529,11 @@ export default function HRDashboard() {
 
     const kpiVals = getKpiValues();
 
+    // Full, expanded list of insights — all derived from the uploaded CSV
+    // ledger data (trend, average benchmark, peak/trough, volatility,
+    // flagged-cohort read, cross-metric comparison, closing audit line).
+    const insights = generateInsights(data.ledger, activeFunc);
+
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", marginBottom: "30px" }}>
@@ -388,38 +542,143 @@ export default function HRDashboard() {
           <KPICard title={config.kpi3} value={kpiVals[2]} color={theme.success} delay={0.3} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "25px", marginBottom: "30px" }}>
-          <div style={cardStyle}>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "25px", marginBottom: "30px", alignItems: "stretch" }}>
+          <div style={{ ...cardStyle, display: "flex", flexDirection: "column" }}>
             <div style={cardHeader}>{activeFunc} Matrix</div>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={data.ledger.slice(0, 25)}>
-                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="id" stroke={theme.subtext} fontSize={10} tickLine={false} />
-                <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} domain={[0, "auto"]} />
-                <Tooltip
-                  cursor={{ fill: "rgba(255,255,255,0.02)" }}
-                  contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }}
-                />
-                <Bar dataKey={config.chartKey} fill={config.color} radius={[4, 4, 0, 0]}>
-                  {data.ledger.slice(0, 25).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.status === "CRITICAL" ? theme.danger : config.color} fillOpacity={0.8} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div style={{ flex: 1, minHeight: 220 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.ledger.slice(0, 25)}>
+                  <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="id" stroke={theme.subtext} fontSize={10} tickLine={false} />
+                  <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} domain={[0, "auto"]} />
+                  <Tooltip
+                    cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                    contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }}
+                  />
+                  <Bar dataKey={config.chartKey} fill={config.color} radius={[4, 4, 0, 0]}>
+                    {data.ledger.slice(0, 25).map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.status === "CRITICAL" ? theme.danger : config.color} fillOpacity={0.8} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           <div style={{ ...cardStyle, borderLeft: `4px solid ${config.color}` }}>
             <div style={{ ...cardHeader, color: config.color }}>HR Insights</div>
-            <p style={{ fontSize: "14px", lineHeight: "1.7", color: theme.text, margin: 0 }}>
-              Live processing validation for database streams.
-              {activeFunc === "Attrition Analysis"
-                ? ` System has tracked ${data.flagged} critical risk anomalies based on extreme overtime records.`
-                : " Core performance trends are rendering cleanly against training track timelines."}
-            </p>
-            
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "14px" }}>
+              {insights.map((text, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: "50%", background: config.color,
+                    marginTop: "8px", flexShrink: 0,
+                  }} />
+                  <span style={{ fontSize: "14px", lineHeight: "1.8", color: theme.text }}>
+                    {text}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
+        {/* ── Additional CSV-driven visualizations ── */}
+        {(() => {
+          const pieData = [
+            { name: "Stable",   value: data.ledger.filter(r => r.status === "STABLE").length },
+            { name: "Critical", value: data.ledger.filter(r => r.status === "CRITICAL").length },
+          ];
+          const pieColors = [theme.success, theme.danger];
+
+          const trendData = data.ledger.map((r, i) => ({
+            id: r.id,
+            index: i + 1,
+            value: r[config.chartKey],
+          }));
+
+          const stableRows   = data.ledger.filter(r => r.status === "STABLE");
+          const criticalRows = data.ledger.filter(r => r.status === "CRITICAL");
+          const cohortAvg = (rows) => rows.length
+            ? rows.reduce((a, c) => a + c[config.chartKey], 0) / rows.length
+            : 0;
+          const cohortData = [
+            { name: "Stable",   avg: Number(cohortAvg(stableRows).toFixed(1)) },
+            { name: "Critical", avg: Number(cohortAvg(criticalRows).toFixed(1)) },
+          ];
+
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "25px", marginBottom: "30px" }}>
+
+              {/* Status split pie chart */}
+              <div style={cardStyle}>
+                <div style={cardHeader}>Workforce Status Split</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%" cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={3}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`pie-cell-${index}`} fill={pieColors[index]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }}
+                    />
+                    <Legend
+                      verticalAlign="bottom"
+                      wrapperStyle={{ fontSize: "12px", color: theme.subtext }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Trend line chart across ledger */}
+              <div style={cardStyle}>
+                <div style={cardHeader}>{getMetricHeaderName()} Trend</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={trendData}>
+                    <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="index" stroke={theme.subtext} fontSize={10} tickLine={false} />
+                    <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} domain={[0, "auto"]} />
+                    <Tooltip
+                      contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }}
+                      labelFormatter={(i) => trendData[i - 1] ? trendData[i - 1].id : ""}
+                    />
+                    <Line type="monotone" dataKey="value" stroke={config.color} strokeWidth={2} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Cohort comparison bar chart */}
+              <div style={cardStyle}>
+                <div style={cardHeader}>Avg {getMetricHeaderName()}: Stable vs Critical</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={cohortData}>
+                    <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="name" stroke={theme.subtext} fontSize={11} tickLine={false} />
+                    <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} domain={[0, "auto"]} />
+                    <Tooltip
+                      cursor={{ fill: "rgba(255,255,255,0.02)" }}
+                      contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }}
+                    />
+                    <Bar dataKey="avg" radius={[4, 4, 0, 0]}>
+                      {cohortData.map((entry, index) => (
+                        <Cell key={`cohort-cell-${index}`} fill={index === 1 ? theme.danger : theme.success} fillOpacity={0.85} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+            </div>
+          );
+        })()}
 
         <div style={cardStyle}>
           <div style={{ ...cardHeader, display: "flex", justifyContent: "space-between" }}>
@@ -650,4 +909,4 @@ const loaderOverlayStyle = { position: "fixed", inset: 0, background: "rgba(13,1
 const notificationStyle  = { position: "fixed", bottom: "30px", right: "30px", background: theme.success, color: "#fff", padding: "15px 25px", borderRadius: "8px", fontSize: "14px", fontWeight: "700", zIndex: 2000, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" };
 const tableStyle         = { width: "100%", borderCollapse: "collapse", textAlign: "left" };
 const thStyle            = { color: theme.subtext, borderBottom: `1px solid ${theme.border}`, fontSize: "13px", fontWeight: "700" };
-const trStyle            = { borderBottom: `1px solid ${theme.border}`, height: "55px", fontSize: "14px" };
+const trStyle             = { borderBottom: `1px solid ${theme.border}`, height: "55px", fontSize: "14px" };
