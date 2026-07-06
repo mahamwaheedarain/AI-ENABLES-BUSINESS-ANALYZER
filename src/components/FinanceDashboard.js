@@ -309,7 +309,7 @@ function generateInsights(ledger, config) {
   }
 
   // 7. Closing audit line — always present, matches original copy.
-  insights.push("No anomalies detected in current transactional audit.");
+  
 
   return insights;
 }
@@ -884,8 +884,8 @@ export default function FinanceDashboard() {
                 }}
               >
                 <input type="file" multiple hidden accept=".csv" onChange={handleFileInput} />
-                <div style={{ fontSize: files.length > 0 ? "1.2rem" : "1.8rem", marginBottom: 6 }}>
-                  {isDragOver ? "📥" : "📊"}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 6, color: theme.primary }}>
+                  {isDragOver ? <Icons.Upload size={26} /> : <Icons.BarChart size={26} />}
                 </div>
                 <span style={{ color: theme.subtext, fontSize: "13px" }}>
                   {isDragOver

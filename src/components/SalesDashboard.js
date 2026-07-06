@@ -1,13 +1,18 @@
+// src/components/SalesDashboard.js
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Tooltip, ResponsiveContainer, AreaChart, Area, Cell, PieChart, Pie
+import {
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  ScatterChart, Scatter, ComposedChart, Legend
 } from 'recharts';
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
+
+// ============================================================
 // ICONS — thin-stroke monochrome line icons (Vercel-dashboard style):
 // currentColor stroke, ~1.7px weight, rounded caps, 24x24 viewBox.
-// Replaces every emoji in the UI so the whole app reads like one system.
 // ============================================================
 const Icon = ({ children, size = 18, strokeWidth = 1.75, style, ...props }) => (
   <svg
@@ -57,36 +62,91 @@ const Icons = {
   MessageCircle: (p) => <Icon {...p}><path d="M4 12a8 8 0 1 1 3.5 6.6L4 20l1.2-3.6A7.9 7.9 0 0 1 4 12Z" /></Icon>,
 };
 
-const MODULE_META = {
-  finance: { icon: Icons.DollarSign, label: "Finance", blurb: "Revenue, margins & cash flow" },
-  hr: { icon: Icons.Users, label: "HR", blurb: "Headcount, retention & sentiment" },
-  marketing: { icon: Icons.Radio, label: "Marketing", blurb: "Funnel, spend & attribution" },
-  operations: { icon: Icons.Settings, label: "Operations", blurb: "Throughput & SLA health" },
-  sales: { icon: Icons.Target, label: "Sales", blurb: "Pipeline & win-rate trends" },
-  chatbot: { icon: Icons.MessageCircle, label: "Chatbot", blurb: "Conversational AI assistant" },
-};
 // ---------- Unified High-Clarity Theme ----------
 const theme = {
-  primary: "#58a6ff", 
-  bg: "#0d1117", 
-  card: "#161b22", 
+  primary: "#58a6ff",
+  bg: "#0d1117",
+  card: "#161b22",
   surface: "#21262d",
   border: "#30363d",
   text: "#ffffff",
   textMuted: "#e6edf3",
   subtext: "#8b949e",
-  accent: "#1f6feb", 
+  accent: "#8957e5",
   success: "#3fb950",
   danger: "#da3633",
   fontMain: "'Inter', -apple-system, system-ui, sans-serif",
+  fontMono: "'JetBrains Mono', monospace",
 };
 
-// Modules referenced by the upload/merge logic — mirrors the three dashboard tabs
+const PIE_COLORS = [theme.primary, theme.accent, theme.success, "#ffab40", "#da3633"];
+
+// ─── Prediction service connection ────────────────────────────────────────────
+// Matches the running Swagger contract: POST /api/sales/predict?task=<task>
+// with a required multipart/form-data "file" field (see docs at
+// localhost:8000/docs#/default/sales_predict_api_sales_predict_post).
+const API_BASE = "http://localhost:8000/api/sales/predict";
+
+// ─── Module / tab definitions ─────────────────────────────────────────────────
+// `task` is the exact query param sent to the prediction endpoint for that tab.
+// `metricKeys` are candidate field names to look for in the API's response
+// item for that row (adjust these if your backend uses different field
+// names — the extractor also falls back to any numeric field it finds).
+// `secondaryKeys` / `tertiaryKeys` pull extra context straight from the
+// uploaded CSV's own columns (not the API), so charts always have something
+// to compare the prediction against even if the API only returns a scalar.
 const modules = [
-  { id: "Revenue" },
-  { id: "Marketing ROI" },
-  { id: "Customer Churn" },
+  {
+    id: "Revenue",
+    task: "amazon_revenue",
+    color: theme.primary,
+    title: "Revenue Forecast Matrix",
+    metricLabel: "Predicted Revenue",
+    metricKeys: ["predicted_revenue", "revenue", "Revenue", "amazon_revenue", "Amazon_Revenue", "prediction", "value"],
+    secondaryKeys: ["Quantity", "quantity", "Units", "units", "UnitsSold", "Sales", "sales"],
+    secondaryLabel: "Units Sold",
+    tertiaryKeys: ["Price", "price", "UnitPrice", "unit_price", "Cost", "cost"],
+    tertiaryLabel: "Unit Price",
+    kpi1Label: "Records Analyzed",
+    kpi2Label: "Net Forecast",
+    kpi2Format: "currency",
+    kpi3Label: "Model Stability",
+  },
+  {
+    id: "Marketing ROI",
+    task: "marketing_roi",
+    color: theme.accent,
+    title: "Capital Efficiency Logs",
+    metricLabel: "Predicted ROI",
+    metricKeys: ["predicted_roi", "roi", "ROI", "marketing_roi", "Marketing_ROI", "prediction", "value"],
+    secondaryKeys: ["Spend", "spend", "Ad_Spend", "ad_spend", "Budget", "budget"],
+    secondaryLabel: "Ad Spend",
+    tertiaryKeys: ["Clicks", "clicks", "Impressions", "impressions", "Conversions", "conversions"],
+    tertiaryLabel: "Impressions",
+    kpi1Label: "Campaigns Analyzed",
+    kpi2Label: "Net Attribution",
+    kpi2Format: "number",
+    kpi3Label: "Channel Efficiency",
+  },
+  {
+    id: "Customer Churn",
+    task: "customer_churn",
+    color: theme.danger,
+    title: "Risk Probability Dashboard",
+    metricLabel: "Churn Probability",
+    metricKeys: ["predicted_churn", "churn", "Churn", "churn_rate", "Churn_Rate", "customer_churn", "prediction", "value"],
+    secondaryKeys: ["Tenure", "tenure", "Account_Age", "account_age"],
+    secondaryLabel: "Account Tenure",
+    tertiaryKeys: ["Support_Tickets", "support_tickets", "Tickets", "tickets"],
+    tertiaryLabel: "Support Tickets",
+    kpi1Label: "Customers Analyzed",
+    kpi2Label: "At-Risk Impact",
+    kpi2Format: "number",
+    kpi3Label: "Churn Velocity",
+  },
 ];
+
+const tabsList = modules.map(m => m.id);
 
 // ── Storage key helpers ───────────────────────────────────────────────────────
 const guestKey = "InsightIQ_Sales_Files_Guest";
@@ -101,7 +161,7 @@ function formatBytes(bytes) {
 }
 
 function parseCSV(text) {
-  const rows = text.split("\n").filter(r => r.trim() !== "");
+  const rows = (text || "").split("\n").filter(r => r.trim() !== "");
   if (rows.length <= 1) return [];
   const headers = rows[0].split(",").map(h => h.trim());
   return rows.slice(1).map(row => {
@@ -109,18 +169,35 @@ function parseCSV(text) {
     return headers.reduce((obj, header, index) => {
       const val = values[index]?.trim();
       const cleanHeader = header.replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '');
-      obj[cleanHeader] = isNaN(val) ? val : parseFloat(val);
-      obj[header] = isNaN(val) ? val : parseFloat(val);
+      const num = parseFloat(val);
+      obj[cleanHeader] = isNaN(num) || val === "" ? val : num;
+      obj[header] = isNaN(num) || val === "" ? val : num;
       return obj;
     }, {});
   });
+}
+
+// Pulls a numeric value off a row, tolerant of header spelling/casing
+// differences, falling back to the first numeric field present.
+function extractMetricValue(row, possibleKeys) {
+  for (const k of possibleKeys) {
+    const v = row?.[k];
+    if (v !== undefined && v !== null && v !== "" && !isNaN(v)) return Number(v);
+    const normalizedKey = k.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
+    const v2 = row?.[normalizedKey];
+    if (v2 !== undefined && v2 !== null && v2 !== "" && !isNaN(v2)) return Number(v2);
+  }
+  for (const v of Object.values(row || {})) {
+    if (v !== "" && v !== null && v !== undefined && !isNaN(v) && isFinite(Number(v))) return Number(v);
+  }
+  return 0;
 }
 
 function loadFromStorage(key) {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return [];
-    return JSON.parse(raw).map(f => ({ ...f, rows: parseCSV(f.content || "") }));
+    return JSON.parse(raw);
   } catch {
     return [];
   }
@@ -129,20 +206,199 @@ function loadFromStorage(key) {
 function saveToStorage(key, files) {
   try {
     localStorage.setItem(key, JSON.stringify(
-      files.map(({ name, size, content }) => ({ name, size, content }))
+      files.map(({ name, size, dataStoreFragment }) => ({ name, size, dataStoreFragment }))
     ));
   } catch (e) {
     console.warn("localStorage write failed:", e);
   }
 }
 
+// Merges every uploaded file's per-tab fragment into one combined ledger
+// per tab, across all uploaded files.
 function buildDataStore(files) {
-  const allRows = files.flatMap(f => f.rows || []);
-  const store   = {};
+  const store = {};
   modules.forEach(mod => {
-    store[mod.id] = { ledger: allRows, total: allRows.length };
+    let combinedLedger = [];
+    files.forEach(f => {
+      const frag = f.dataStoreFragment?.[mod.id];
+      if (frag?.ledger?.length) combinedLedger = [...combinedLedger, ...frag.ledger];
+    });
+    store[mod.id] = { ledger: combinedLedger, total: combinedLedger.length };
   });
   return store;
+}
+
+// ── Pure numeric / statistical helpers (all computed from real ledger data) ──
+function getNumericSeries(ledger, key) {
+  return (ledger || []).map(r => parseFloat(r?.[key])).filter(v => !isNaN(v));
+}
+function computeAverage(series) {
+  if (!series || !series.length) return null;
+  return series.reduce((a, b) => a + b, 0) / series.length;
+}
+function computeVolatility(series) {
+  if (!series || series.length < 2) return null;
+  const avg = computeAverage(series);
+  if (!avg) return null;
+  const variance = series.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / series.length;
+  return (Math.sqrt(variance) / Math.abs(avg)) * 100;
+}
+function computePeakTrough(ledger, key) {
+  if (!ledger || !ledger.length) return null;
+  let maxRow = null, minRow = null, maxIdx = 0, minIdx = 0;
+  ledger.forEach((row, i) => {
+    const v = parseFloat(row?.[key]);
+    if (isNaN(v)) return;
+    if (!maxRow || v > parseFloat(maxRow[key])) { maxRow = row; maxIdx = i; }
+    if (!minRow || v < parseFloat(minRow[key])) { minRow = row; minIdx = i; }
+  });
+  if (!maxRow || !minRow) return null;
+  return {
+    max: parseFloat(maxRow[key]), maxLabel: maxRow.Month || maxRow.id || `record ${maxIdx + 1}`,
+    min: parseFloat(minRow[key]), minLabel: minRow.Month || minRow.id || `record ${minIdx + 1}`,
+  };
+}
+function trendForKey(ledger, key) {
+  const series = getNumericSeries(ledger, key);
+  if (series.length < 2) return null;
+  const last = series[series.length - 1], prev = series[series.length - 2];
+  if (prev === 0 || isNaN(prev) || isNaN(last)) return null;
+  return ((last - prev) / Math.abs(prev)) * 100;
+}
+function computeCorrelation(xs, ys) {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2) return null;
+  const xs2 = xs.slice(0, n), ys2 = ys.slice(0, n);
+  const avgX = computeAverage(xs2), avgY = computeAverage(ys2);
+  let num = 0, denX = 0, denY = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs2[i] - avgX, dy = ys2[i] - avgY;
+    num += dx * dy; denX += dx * dx; denY += dy * dy;
+  }
+  if (denX === 0 || denY === 0) return null;
+  return num / Math.sqrt(denX * denY);
+}
+function describeCorrelation(r) {
+  const abs = Math.abs(r);
+  const strength = abs > 0.7 ? "strong" : abs > 0.4 ? "moderate" : "weak";
+  return `${strength} ${r >= 0 ? "positive" : "negative"}`;
+}
+
+// Finds whichever candidate column name is actually present in the ledger.
+function resolveKey(ledger, candidates) {
+  if (!ledger || !ledger.length) return candidates[0];
+  const sample = ledger[0];
+  for (const c of candidates) {
+    if (sample[c] !== undefined) return c;
+    const clean = c.replace(/\s/g, '').replace(/[^a-zA-Z0-9]/g, '');
+    if (sample[clean] !== undefined) return clean;
+  }
+  return candidates[0];
+}
+
+// Aggregate stats for the active module's prediction column.
+function computeSalesMetrics(ledger) {
+  const total = ledger.length;
+  const series = getNumericSeries(ledger, "__prediction");
+  const sum = series.reduce((a, b) => a + b, 0);
+  const avg = computeAverage(series);
+  const volatility = computeVolatility(series);
+  return { total, sum, avg, volatility };
+}
+
+// Builds the expanded, dynamic insight list for the active module.
+// NOTE: copy is deliberately framed as business analysis — no mention of the
+// underlying model, service, or infrastructure that produced the numbers.
+function generateSalesInsights(ledger, config, metrics, secondaryKey) {
+  const insights = [];
+  if (!ledger || !ledger.length) return insights;
+
+  insights.push(
+    `Across ${metrics.total} records analyzed for ${config.id}, the average ${config.metricLabel.toLowerCase()} came in at ${metrics.avg !== null ? metrics.avg.toFixed(2) : "0.00"}.`
+  );
+
+  const trendPct = trendForKey(ledger, "__prediction");
+  if (trendPct !== null) {
+    insights.push(
+      `${config.metricLabel} has ${trendPct >= 0 ? "risen" : "fallen"} ${Math.abs(trendPct).toFixed(1)}% between the last two records in the uploaded ledger.`
+    );
+  }
+
+  const peakTrough = computePeakTrough(ledger, "__prediction");
+  if (peakTrough) {
+    insights.push(
+      `${config.metricLabel} peaked at ${peakTrough.max.toFixed(2)} (${peakTrough.maxLabel}) and bottomed at ${peakTrough.min.toFixed(2)} (${peakTrough.minLabel}).`
+    );
+  }
+
+  if (metrics.volatility !== null) {
+    const stability = metrics.volatility < 10 ? "highly stable" : metrics.volatility < 25 ? "moderately volatile" : "highly volatile";
+    insights.push(
+      `${config.metricLabel} has been ${stability} across the dataset, with a coefficient of variation of ${metrics.volatility.toFixed(1)}%.`
+    );
+  }
+
+  if (secondaryKey) {
+    const secondarySeries = getNumericSeries(ledger, secondaryKey);
+    const predictionSeries = getNumericSeries(ledger, "__prediction");
+    if (secondarySeries.length >= 2 && predictionSeries.length >= 2) {
+      const corr = computeCorrelation(predictionSeries, secondarySeries);
+      if (corr !== null) {
+        insights.push(
+          `${config.metricLabel} shows a ${describeCorrelation(corr)} correlation (r = ${corr.toFixed(2)}) with ${config.secondaryLabel.toLowerCase()} across all records.`
+        );
+      }
+    }
+  }
+
+  return insights;
+}
+
+// ── Chart-data builders — all derived from the enriched ledger (CSV rows +
+// prediction service results merged together) for the active module. ───────
+function buildTimeSeriesData(ledger, keys, limit = 20) {
+  return (ledger || []).slice(-limit).map((row, i) => {
+    const point = { Month: row.Month || row.id || `#${i + 1}` };
+    keys.forEach(k => {
+      const v = parseFloat(row?.[k]);
+      point[k] = isNaN(v) ? 0 : v;
+    });
+    return point;
+  });
+}
+
+function buildKPIComparisonData(config, metrics, secondaryKey, secondaryLedger) {
+  const secondaryAvg = computeAverage(getNumericSeries(secondaryLedger, secondaryKey)) || 0;
+  return [
+    { name: "Records", value: metrics.total },
+    { name: config.metricLabel, value: Math.abs(metrics.avg || 0) },
+    { name: config.secondaryLabel, value: Math.abs(secondaryAvg) },
+  ];
+}
+
+function buildRadarData(ledger, config, secondaryKey, tertiaryKey) {
+  const lastEntry = ledger[ledger.length - 1] || {};
+  const dims = [
+    { key: "__prediction", label: config.metricLabel },
+    { key: secondaryKey, label: config.secondaryLabel },
+    { key: tertiaryKey, label: config.tertiaryLabel },
+  ];
+  return dims.map(({ key, label }) => {
+    const avg = computeAverage(getNumericSeries(ledger, key)) || 0;
+    const cur = parseFloat(lastEntry?.[key]);
+    return { metric: label, current: isNaN(cur) ? 0 : cur, average: avg };
+  });
+}
+
+function buildScatterData(ledger, secondaryKey) {
+  return (ledger || [])
+    .map(row => ({ x: parseFloat(row?.__prediction), y: parseFloat(row?.[secondaryKey]) }))
+    .filter(p => !isNaN(p.x) && !isNaN(p.y));
+}
+
+function formatKPIValue(value, format) {
+  if (value === null || value === undefined || isNaN(value)) return format === "currency" ? "$0.00" : "0";
+  return format === "currency" ? `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : Number(value).toFixed(2);
 }
 
 // ─── File Chip ────────────────────────────────────────────────────────────────
@@ -159,7 +415,7 @@ const FileChip = ({ file, onRemove }) => (
       fontSize: 12.5, color: theme.textMuted,
     }}
   >
-    <span>📄</span>
+    <Icons.File size={14} />
     <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
       {file.name}
     </span>
@@ -179,19 +435,19 @@ const FileChip = ({ file, onRemove }) => (
 const KPICard = ({ title, value, color, delay }) => (
   <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay }} style={{ ...cardStyle, borderTop: `3px solid ${color}` }}>
     <div style={{ fontSize: '12px', color: theme.subtext, marginBottom: '10px', fontWeight: '700' }}>{title}</div>
-    <div style={{ fontSize: '26px', fontWeight: '800' }}>{value}</div>
+    <div style={{ fontSize: '26px', fontWeight: '800', fontFamily: theme.fontMono }}>{value}</div>
   </motion.div>
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function SalesDashboard() {
-  const [activeFunc, setActiveFunc] = useState("Revenue");
+  const [activeFunc, setActiveFunc] = useState(tabsList[0]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [notification, setNotification] = useState("");
   const [showManage, setShowManage] = useState(false);
 
-  // Auth gate — mirrors HRDashboard persistence pattern
+  // Auth gate
   const [isAuthResolving, setIsAuthResolving] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [storageKey, setStorageKey] = useState(guestKey);
@@ -199,7 +455,6 @@ export default function SalesDashboard() {
 
   const fileInputRef = useRef(null);
 
-  // 1. Auth lifecycle — sets the correct per-user storage key, then hydrates files
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -217,66 +472,86 @@ export default function SalesDashboard() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Sync to localStorage whenever files or key change
   useEffect(() => {
-    if (isAuthResolving) return; 
+    if (isAuthResolving) return;
     saveToStorage(storageKey, files);
   }, [files, storageKey, isAuthResolving]);
 
   const totalBytes = useMemo(() => files.reduce((s, f) => s + (f.size || 0), 0), [files]);
-  const dataStore  = useMemo(() => buildDataStore(files), [files]);
+  const dataStore = useMemo(() => buildDataStore(files), [files]);
 
-  // ── Notification ───────────────────────────────────────────────────────────
   const showNotification = (msg) => { setNotification(msg); setTimeout(() => setNotification(""), 4000); };
 
-  // ── Read raw File objects ──────────────────────────────────────────────────
-  const readRawFiles = (rawFiles) =>
-    Promise.all(
-      rawFiles.map(raw =>
-        new Promise(resolve => {
-          const reader = new FileReader();
-          reader.onload = e => resolve({
-            name: raw.name, size: raw.size,
-            content: e.target.result, rows: parseCSV(e.target.result),
-          });
-          reader.readAsText(raw);
-        })
-      )
-    );
-
-  // ── Merge without duplicates ───────────────────────────────────────────────
-  const mergeInto = (prev, incoming) => {
-    const existing = new Set(prev.map(f => f.name));
-    return [...prev, ...incoming.filter(f => !existing.has(f.name))];
-  };
-
-  // ── Sync to PostgreSQL ─────────────────────────────────────────────────────
-  const syncToPostgres = async (allFiles) => {
-    try {
-      const payload = allFiles.map(f => ({ filename: f.name, content: f.content }));
-      const uploadRes = await fetch("http://localhost:5000/api/upload/upload-multiple", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ files: payload }),
-      });
-      if (!uploadRes.ok) throw new Error("Upload failed");
-      showNotification("Archives successfully synchronized with PostgreSQL");
-    } catch (err) {
-      console.error("Sync error:", err);
-      showNotification("⚠️ Sync failed — check backend on port 5000");
-    }
-  };
-
-  // ── Process & add files ────────────────────────────────────────────────────
+  // ── Process & add files: call the prediction endpoint once per tab (task)
+  // for each uploaded file, then merge the response with the raw CSV row it
+  // corresponds to (by index) so secondary/tertiary CSV columns stay
+  // available for the extra charts even though the API only scores the
+  // target metric. ──────────────────────────────────────────────────────────
   const processAndAdd = async (rawFiles) => {
     if (!rawFiles.length) return;
     setIsProcessing(true);
-    const processed = await readRawFiles(rawFiles);
-    setFiles(prev => {
-      const updated = mergeInto(prev, processed);
-      syncToPostgres(updated);
-      return updated;
-    });
-    setIsProcessing(false);
+
+    const existingNames = new Set(files.map(f => f.name));
+    const uniqueRawFiles = rawFiles.filter(rf => !existingNames.has(rf.name));
+    const incomingProcessedFiles = [];
+
+    try {
+      for (const file of uniqueRawFiles) {
+        const csvText = await file.text();
+        const csvRows = parseCSV(csvText);
+        const dataStoreFragment = {};
+        let anyTabSucceeded = false;
+
+        for (const mod of modules) {
+          const formData = new FormData();
+          formData.append("file", file);
+
+          try {
+            const response = await fetch(`${API_BASE}?task=${mod.task}`, {
+              method: "POST",
+              body: formData,
+            });
+            const result = await response.json();
+
+            if (result && result.status !== "error") {
+              // Accepts a few common response shapes: sales_data / predictions / data.
+              const predicted = result.sales_data || result.predictions || result.data || [];
+
+              const enrichedLedger = csvRows.map((row, i) => {
+                const predictionItem = predicted[i];
+                const predictionSource = predictionItem && typeof predictionItem === "object"
+                  ? predictionItem
+                  : { prediction: predictionItem };
+                const merged = { ...row, ...predictionSource };
+                const predictionValue = extractMetricValue(merged, mod.metricKeys);
+                return { ...merged, __prediction: predictionValue };
+              });
+
+              dataStoreFragment[mod.id] = { ledger: enrichedLedger };
+              anyTabSucceeded = true;
+            }
+          } catch (apiErr) {
+            console.error(`Prediction request failed for task=${mod.task}:`, apiErr);
+          }
+        }
+
+        if (anyTabSucceeded) {
+          incomingProcessedFiles.push({ name: file.name, size: file.size, dataStoreFragment });
+        } else {
+          showNotification(`⚠️ No results returned for ${file.name}`);
+        }
+      }
+
+      if (incomingProcessedFiles.length > 0) {
+        setFiles(prev => [...prev, ...incomingProcessedFiles]);
+        showNotification("Sales metrics updated");
+      }
+    } catch (err) {
+      console.error("Critical processing error:", err);
+      showNotification("⚠️ Something went wrong while processing your files — please try again");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleFileInput = async (e) => {
@@ -290,171 +565,247 @@ export default function SalesDashboard() {
     await processAndAdd(Array.from(e.dataTransfer.files || []));
   };
 
-  // ── Remove a file ──────────────────────────────────────────────────────────
   const removeFile = (name) => {
-    setFiles(prev => {
-      const updated = prev.filter(f => f.name !== name);
-      if (updated.length > 0) syncToPostgres(updated);
-      return updated;
-    });
+    setFiles(prev => prev.filter(f => f.name !== name));
   };
 
-  // Pulls a numeric value off a raw CSV row, tolerant of header spelling/casing differences.
-  const extractMetricValue = (row, possibleKeys) => {
-    for (let k of possibleKeys) {
-      if (row[k] !== undefined && row[k] !== null && row[k] !== "" && !isNaN(row[k])) return Number(row[k]);
-      const normalizedKey = k.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
-      if (row[normalizedKey] !== undefined && row[normalizedKey] !== null && row[normalizedKey] !== "" && !isNaN(row[normalizedKey])) return Number(row[normalizedKey]);
+  // ─── Dashboard renderer ────────────────────────────────────────────────────
+  const renderContent = () => {
+    const data = dataStore[activeFunc];
+    const config = modules.find(m => m.id === activeFunc);
+
+    if (!data || !data.ledger || data.ledger.length === 0) {
+      return (
+        <div style={emptyStateStyle}>
+          <motion.div animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 2, repeat: Infinity }} style={{ fontSize: '14px', fontWeight: '600', color: theme.primary }}>
+            Awaiting Commercial Insights
+          </motion.div>
+        </div>
+      );
     }
-    for (const v of Object.values(row)) {
-      if (v !== "" && v !== null && v !== undefined && !isNaN(v) && isFinite(Number(v))) {
-        return Number(v);
-      }
-    }
-    return 0;
-  };
 
-  // Builds the dashboard structures from the ledger array
-  const buildTabData = (tab, ledger) => {
-    const metricKeysByTab = {
-      "Revenue": ["Amazon_Revenue", "Revenue", "amazon_revenue", "revenue", "sales", "Sales", "amount", "Amount"],
-      "Marketing ROI": ["Marketing_ROI", "ROI", "marketing_roi", "roi", "ad_spend", "Ad_Spend", "spend", "Spend"],
-      "Customer Churn": ["Customer_Churn", "Churn", "customer_churn", "churn", "churn_rate", "Churn_Rate", "risk", "Risk"]
-    };
-    const predictions = ledger.map((row) => extractMetricValue(row, metricKeysByTab[tab]));
+    const ledger = data.ledger;
+    const metrics = computeSalesMetrics(ledger);
+    const secondaryKey = resolveKey(ledger, config.secondaryKeys);
+    const tertiaryKey = resolveKey(ledger, config.tertiaryKeys);
+    const insights = generateSalesInsights(ledger, config, metrics, secondaryKey);
 
-    const total = predictions.length;
-    const metric = predictions.reduce((a, b) => a + b, 0).toFixed(2);
-    const accuracy = total > 0 ? 0.94 : 0;
+    const history = buildTimeSeriesData(ledger, ["__prediction"], 30).map((p, i) => ({ x: i, y: p.__prediction }));
+    const multiMetricData = buildTimeSeriesData(ledger, ["__prediction", secondaryKey, tertiaryKey], 12);
+    const composedData = buildTimeSeriesData(ledger, ["__prediction"], 12).map(p => ({ Month: p.Month, value: p.__prediction }));
+    const kpiComparisonData = buildKPIComparisonData(config, metrics, secondaryKey, ledger);
+    const radarData = buildRadarData(ledger, config, secondaryKey, tertiaryKey);
+    const scatterData = buildScatterData(ledger, secondaryKey);
 
-    const labelMapping = {
-      "Revenue": ["SKU Velocity", "Buy Box Delta", "Organic Rank Index", "Inventory Liquidity", "Pricing Elasticity"],
-      "Marketing ROI": ["Acquisition Yield", "ACOS Protocol", "Conversion Velocity", "Brand Attribution", "PPC Efficiency"],
-      "Customer Churn": ["LTV Survival", "Cohort Alpha", "Dormant Recovery", "Subscription Health", "Attrition Log"]
-    };
-    const labelSet = labelMapping[tab] || ["Data Vector"];
-    const insights = predictions.map((val, i) => ({
-      label: labelSet[i % labelSet.length],
-      value: val,
-      conf: (accuracy * 100).toFixed(1),
-      status: val > predictions[0] ? "Expanding" : "Stable"
-    }));
-
+    // Above/below average split — used for the compliance-style pie.
+    const aboveAvg = ledger.filter(r => parseFloat(r.__prediction) >= (metrics.avg || 0)).length;
+    const belowAvg = metrics.total - aboveAvg;
     const distribution = [
-      { name: 'Signal', value: accuracy * 100 },
-      { name: 'Noise', value: 100 - (accuracy * 100) }
+      { name: "At/Above Average", value: aboveAvg },
+      { name: "Below Average", value: belowAvg },
     ];
 
-    return { accuracy, total, metric, predictions, insights, distribution };
-  };
-
-  const renderContent = () => {
-    const raw = dataStore[activeFunc];
-    if (!raw || !raw.ledger || raw.ledger.length === 0) return (
-      <div style={emptyStateStyle}>
-        <motion.div animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 2, repeat: Infinity }} style={{ fontSize: '14px', fontWeight: '600', color: theme.primary }}>
-          Awaiting Commercial Insights
-        </motion.div>
-      </div>
-    );
-
-    const data = buildTabData(activeFunc, raw.ledger);
-
-    const config = {
-      "Revenue": { 
-        accent: theme.primary, title: "Revenue Forecast Matrix",
-        kpis: ["Inventory", "Net Forecast", "Inventory Health"],
-        columns: ["Product Name", "Monthly Revenue", "Accuracy", "Trend"]
-      },
-      "Marketing ROI": { 
-        accent: theme.accent, title: "Capital Efficiency Logs",
-        kpis: ["Spend Volume", "Net Attribution", "Channel Efficiency"],
-        columns: ["Marketing Channel", "Return on Ad Spend", "Accuracy", "Trend"]
-      },
-      "Customer Churn": { 
-        accent: theme.danger, title: "Risk Probability Dashboard",
-        kpis: ["At-Risk Entities", "LTV Impact", "Churn Velocity"],
-        columns: ["Customer Segment", "Churn Rate", "Accuracy", "Trend"]
-      }
-    }[activeFunc];
-
-    const getKpiValues = () => {
-        if (activeFunc === "Revenue") return [data.total, `$${Number(data.metric).toLocaleString()}`, "98.2%"];
-        if (activeFunc === "Marketing ROI") return [`$${(data.metric / 10).toFixed(0)}`, `${(data.accuracy * 88).toFixed(1)}%`, "High"];
-        return [(data.total * 0.12).toFixed(0), `$${(data.metric * 0.05).toFixed(0)}`, "Stable"];
-    };
+    const stabilityLabel = metrics.volatility === null ? "N/A"
+      : metrics.volatility < 10 ? "Stable"
+      : metrics.volatility < 25 ? "Moderate"
+      : "Volatile";
 
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-          {config.kpis.map((title, i) => (
-            <KPICard key={title} title={title} value={getKpiValues()[i]} color={config.accent} delay={0.1 * (i + 1)} />
-          ))}
+          <KPICard title={config.kpi1Label} value={metrics.total} color={theme.text} delay={0.1} />
+          <KPICard title={config.kpi2Label} value={formatKPIValue(metrics.sum, config.kpi2Format)} color={config.color} delay={0.2} />
+          <KPICard title={config.kpi3Label} value={stabilityLabel} color={theme.success} delay={0.3} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 0.8fr', gap: '25px', marginBottom: '30px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 0.8fr', gap: '25px', marginBottom: '30px', alignItems: 'stretch' }}>
+          {/* Each card below is a flex column with the chart/content wrapper set
+              to flex:1, so all three cards stretch to match the tallest one
+              (usually the insights list) and the charts fill that full height
+              instead of leaving empty space under a fixed pixel height. */}
+          <div style={{ ...cardStyle, display: "flex", flexDirection: "column" }}>
+            <div style={cardHeader}>Prediction Distribution</div>
+            <div style={{ flex: 1, minHeight: 180, display: "flex", alignItems: "center" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={distribution} innerRadius="38%" outerRadius="65%" paddingAngle={8} dataKey="value">
+                    <Cell fill={config.color} stroke="none" />
+                    <Cell fill={theme.border} stroke="none" />
+                  </Pie>
+                  <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, display: "flex", flexDirection: "column" }}>
+            <div style={cardHeader}>{config.title}</div>
+            <div style={{ flex: 1, minHeight: 200 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={history} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={config.color} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={config.color} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <Area type="monotone" dataKey="y" stroke={config.color} fill="url(#colorSales)" strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div style={{ ...cardStyle, borderLeft: `4px solid ${config.color}`, display: "flex", flexDirection: "column" }}>
+            <div style={{ ...cardHeader, color: config.color }}>Sales Insights</div>
+            <ul style={{ flex: 1, margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "12px", justifyContent: "space-between" }}>
+              {insights.map((text, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: config.color, marginTop: "7px", flexShrink: 0 }} />
+                  <span style={{ fontSize: "13px", lineHeight: "1.6", color: theme.text }}>{text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* ── Advanced Analytics — additional chart types, all computed live
+             from the merged CSV + prediction ledger ── */}
+        <div style={{ marginBottom: "18px" }}>
+          <div style={{ ...cardHeader, marginBottom: "16px" }}>Advanced Analytics</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '25px', marginBottom: '30px' }}>
+
+          {/* Bar chart: KPI comparison */}
           <div style={cardStyle}>
-            <div style={cardHeader}>Statistical Distribution</div>
-            <ResponsiveContainer width="100%" height={180}>
+            <div style={cardHeader}>KPI Comparison</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={kpiComparisonData}>
+                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={{ fill: theme.subtext, fontSize: 11 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                <YAxis tick={{ fill: theme.subtext, fontSize: 11 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                <Bar dataKey="value" fill={config.color} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Line chart: multi-metric trend */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>Multi-Metric Trend</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={multiMetricData}>
+                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="Month" tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                <YAxis tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Line type="monotone" dataKey="__prediction" name={config.metricLabel} stroke={theme.primary} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey={secondaryKey} name={config.secondaryLabel} stroke={theme.accent} strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey={tertiaryKey} name={config.tertiaryLabel} stroke={theme.success} strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Donut chart: KPI composition */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>KPI Composition</div>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie data={data.distribution} innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value">
-                  <Cell fill={config.accent} stroke="none" />
-                  <Cell fill={theme.border} stroke="none" />
+                <Pie data={kpiComparisonData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                  {kpiComparisonData.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                  ))}
                 </Pie>
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
 
+          {/* Radar chart: current vs average benchmark */}
           <div style={cardStyle}>
-            <div style={cardHeader}>{config.title}</div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={data.predictions.slice(0, 30).map((p, i) => ({ x: i, y: p }))}>
-                <Area type="monotone" dataKey="y" stroke={config.accent} fill={config.accent} fillOpacity={0.2} strokeWidth={3} />
-              </AreaChart>
+            <div style={cardHeader}>Current vs Average Benchmark</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <RadarChart data={radarData}>
+                <PolarGrid stroke={theme.border} />
+                <PolarAngleAxis dataKey="metric" tick={{ fill: theme.subtext, fontSize: 10 }} />
+                <PolarRadiusAxis tick={{ fill: theme.subtext, fontSize: 9 }} axisLine={false} />
+                <Radar name="Current" dataKey="current" stroke={config.color} fill={config.color} fillOpacity={0.3} />
+                <Radar name="Average" dataKey="average" stroke={theme.subtext} fill={theme.subtext} fillOpacity={0.12} />
+                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+              </RadarChart>
             </ResponsiveContainer>
           </div>
 
-          <div style={{ ...cardStyle, borderLeft: `4px solid ${config.accent}` }}>
-            <div style={{...cardHeader, color: config.accent}}>Sales Insights</div>
-            <p style={{ fontSize: '14px', lineHeight: '1.6', color: theme.text }}>
-              Revenue streams indicate {data.accuracy > 0.8 ? "high" : "moderate"} reliability. 
-            </p>
+          {/* Scatter chart: prediction vs secondary metric correlation */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>{config.metricLabel} vs {config.secondaryLabel} Correlation</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <ScatterChart>
+                <CartesianGrid stroke={theme.border} strokeDasharray="3 3" />
+                <XAxis dataKey="x" name={config.metricLabel} tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                <YAxis dataKey="y" name={config.secondaryLabel} tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                <Scatter data={scatterData} fill={config.color} />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Composed chart: prediction bar + trend line overlay */}
+          <div style={cardStyle}>
+            <div style={cardHeader}>{config.metricLabel} — Composed View</div>
+            <ResponsiveContainer width="100%" height={220}>
+              <ComposedChart data={composedData}>
+                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="Month" tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                <YAxis tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                <Bar dataKey="value" fill={config.color} fillOpacity={0.25} radius={[3, 3, 0, 0]} />
+                <Line type="monotone" dataKey="value" stroke={config.color} strokeWidth={2} dot={{ r: 3 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
         <div style={cardStyle}>
           <div style={{ ...cardHeader, display: 'flex', justifyContent: 'space-between', marginBottom: '25px' }}>
             <span style={{ color: theme.text }}>{activeFunc} Audit Ledger</span>
-           
           </div>
           <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
             <table style={tableStyle}>
-            <thead>
-  <tr style={thStyle}>
-    <th style={{padding: '15px'}}>{config.columns[0]}</th>
-    <th>{config.columns[1]}</th>
-    <th>{config.columns[2]}</th>
-    <th>{config.columns[3]}</th>
-  </tr>
-</thead>
+              <thead>
+                <tr style={thStyle}>
+                  <th style={{ padding: '15px' }}>Record</th>
+                  <th>{config.metricLabel}</th>
+                  <th>{config.secondaryLabel}</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
               <tbody>
-                {data.insights.map((insight, idx) => (
-                  <tr key={idx} style={trStyle}>
-                    <td style={{padding: '15px', color: theme.primary, fontWeight: '600'}}>{insight.label}</td>
-                    <td style={{color: theme.textMuted}}>${Number(insight.value).toLocaleString()}</td>
-                    <td style={{color: theme.textMuted}}>{insight.conf}%</td>
-                    <td>
-                      <span style={{ 
-                        background: insight.status === "Expanding" ? 'rgba(63, 185, 80, 0.1)' : 'rgba(88, 166, 255, 0.1)',
-                        color: insight.status === "Expanding" ? theme.success : theme.primary,
-                        padding: '6px 14px', borderRadius: '6px', border: `1px solid ${insight.status === "Expanding" ? 'rgba(63, 185, 80, 0.2)' : 'rgba(88, 166, 255, 0.2)'}`,
-                        fontSize: '11px', fontWeight: '800'
-                      }}>
-                        {insight.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {ledger.slice(-15).map((row, i) => {
+                  const val = parseFloat(row.__prediction);
+                  const secVal = parseFloat(row?.[secondaryKey]);
+                  const above = !isNaN(val) && val >= (metrics.avg || 0);
+                  return (
+                    <tr key={i} style={trStyle}>
+                      <td style={{ padding: '15px', color: theme.primary, fontWeight: '600' }}>{row.id || row.Month || `REC-${String(i + 1).padStart(3, '0')}`}</td>
+                      <td style={{ color: theme.textMuted, fontFamily: theme.fontMono }}>{!isNaN(val) ? val.toFixed(2) : "0.00"}</td>
+                      <td style={{ color: theme.textMuted, fontFamily: theme.fontMono }}>{!isNaN(secVal) ? secVal.toFixed(2) : "—"}</td>
+                      <td>
+                        <span style={{
+                          background: above ? 'rgba(63, 185, 80, 0.1)' : 'rgba(218, 54, 51, 0.1)',
+                          color: above ? theme.success : theme.danger,
+                          padding: '6px 14px', borderRadius: '6px',
+                          border: `1px solid ${above ? 'rgba(63, 185, 80, 0.2)' : 'rgba(218, 54, 51, 0.2)'}`,
+                          fontSize: '11px', fontWeight: '800'
+                        }}>
+                          {above ? "Above Avg" : "Below Avg"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -483,7 +834,7 @@ export default function SalesDashboard() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={loaderOverlayStyle}>
             <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} style={{ width: 60, height: 60, border: `4px solid ${theme.primary}`, borderTopColor: 'transparent', borderRadius: '50%' }} />
             <motion.div animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity }} style={{ marginTop: '25px', fontSize: '13px', color: theme.primary, fontWeight: '700', letterSpacing: '2px' }}>
-              RE-ALIGNING LIVE METRICS
+              ANALYZING SALES DATA
             </motion.div>
           </motion.div>
         )}
@@ -498,10 +849,8 @@ export default function SalesDashboard() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
         <div>
           <h1 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Business Analyzer | <span style={{ color: theme.primary }}>Sales Dashboard</span></h1>
-          
         </div>
-        
-        {/* ── Manage Files Panel Toggle ── */}
+
         <button
           onClick={() => setShowManage(v => !v)}
           style={{
@@ -512,9 +861,9 @@ export default function SalesDashboard() {
             fontSize: "13px", fontWeight: "700", cursor: "pointer", transition: "all 0.2s ease",
           }}
         >
-           <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <Icons.Folder size={16} strokeWidth={1.8} /> Manage Files
-              </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Icons.Folder size={16} strokeWidth={1.8} /> Manage Files
+          </span>
           {files.length > 0 && (
             <span style={{
               background: "rgba(88,166,255,0.2)", border: "1px solid rgba(88,166,255,0.35)",
@@ -527,7 +876,6 @@ export default function SalesDashboard() {
         </button>
       </header>
 
-      {/* ── Manage Files Drop/View Panel ── */}
       <AnimatePresence>
         {showManage && (
           <motion.div
@@ -566,8 +914,8 @@ export default function SalesDashboard() {
                 }}
               >
                 <input type="file" multiple hidden accept=".csv" onChange={handleFileInput} />
-                <div style={{ fontSize: files.length > 0 ? "1.2rem" : "1.8rem", marginBottom: 6 }}>
-                  {isDragOver ? "📥" : "📊"}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 6, color: theme.primary }}>
+                  {isDragOver ? <Icons.Upload size={26} /> : <Icons.BarChart size={26} />}
                 </div>
                 <span style={{ color: theme.subtext, fontSize: "13px" }}>
                   {isDragOver
@@ -593,8 +941,8 @@ export default function SalesDashboard() {
       </AnimatePresence>
 
       <nav style={{ display: 'flex', gap: '40px', marginBottom: '40px', borderBottom: `1px solid ${theme.border}` }}>
-        {["Revenue", "Marketing ROI", "Customer Churn"].map(tab => (
-          <button key={tab} onClick={() => setActiveFunc(tab)} style={{ 
+        {tabsList.map(tab => (
+          <button key={tab} onClick={() => setActiveFunc(tab)} style={{
             background: 'none', border: 'none', cursor: 'pointer', fontFamily: theme.fontMain, fontSize: '15px',
             color: activeFunc === tab ? theme.primary : theme.subtext,
             borderBottom: activeFunc === tab ? `3px solid ${theme.primary}` : 'none',
@@ -608,13 +956,13 @@ export default function SalesDashboard() {
   );
 }
 
-const cardStyle = { background: theme.card, padding: '30px', borderRadius: '12px', border: `1px solid ${theme.border}` };
-const cardHeader = { fontSize: '12px', color: theme.subtext, marginBottom: '20px', fontWeight: '800', letterSpacing: '0.5px' };
-const buttonStyle = { padding: '14px 28px', background: theme.primary, color: '#fff', fontSize: '14px', fontWeight: '800', cursor: 'pointer', borderRadius: '8px' };
-const uploadButtonStyle  = { padding: "10px 18px", background: theme.primary, color: "#fff", fontSize: "11px", fontWeight: "900", cursor: "pointer", borderRadius: "6px", letterSpacing: "1px", display: "inline-block" };
-const emptyStateStyle = { height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${theme.border}`, borderRadius: '16px' };
-const loaderOverlayStyle = { position: 'fixed', inset: 0, background: 'rgba(13, 17, 23, 0.95)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' };
-const notificationStyle = { position: 'fixed', bottom: '30px', right: '30px', background: theme.success, color: '#fff', padding: '15px 25px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', zIndex: 2000, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse', textAlign: 'left' };
-const thStyle = { color: theme.subtext, borderBottom: `1px solid ${theme.border}`, fontSize: '13px', fontWeight: '700' };
-const trStyle = { borderBottom: `1px solid ${theme.border}`, height: '55px', fontSize: '14px' };
+// ─── Shared styles ────────────────────────────────────────────────────────────
+const cardStyle          = { background: theme.card, padding: '25px', borderRadius: '12px', border: `1px solid ${theme.border}` };
+const cardHeader          = { fontSize: '12px', color: theme.subtext, marginBottom: '20px', fontWeight: '800', letterSpacing: '0.5px', textTransform: "uppercase" };
+const uploadButtonStyle   = { padding: "10px 18px", background: theme.primary, color: "#fff", fontSize: "11px", fontWeight: "900", cursor: "pointer", borderRadius: "6px", letterSpacing: "1px", display: "inline-block" };
+const emptyStateStyle     = { height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px dashed ${theme.border}`, borderRadius: '16px' };
+const loaderOverlayStyle  = { position: 'fixed', inset: 0, background: 'rgba(13, 17, 23, 0.95)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' };
+const notificationStyle   = { position: 'fixed', bottom: '30px', right: '30px', background: theme.success, color: '#fff', padding: '15px 25px', borderRadius: '8px', fontSize: '14px', fontWeight: '700', zIndex: 2000, boxShadow: '0 4px 12px rgba(0,0,0,0.3)' };
+const tableStyle          = { width: '100%', borderCollapse: 'collapse', textAlign: 'left' };
+const thStyle             = { color: theme.subtext, borderBottom: `1px solid ${theme.border}`, fontSize: '13px', fontWeight: '700' };
+const trStyle             = { borderBottom: `1px solid ${theme.border}`, height: '55px', fontSize: '14px' };

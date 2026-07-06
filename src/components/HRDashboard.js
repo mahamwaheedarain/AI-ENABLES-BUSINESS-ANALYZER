@@ -515,10 +515,30 @@ export default function HRDashboard() {
       }
       if (activeFunc === "Attrition Analysis") {
         const avgOvertime = data.ledger.reduce((a, c) => a + c.overtime, 0) / total;
-        return [data.flagged, `${avgOvertime.toFixed(1)}h`, "88.4%"];
+        const retentionIndex =
+        total > 0
+          ? (((total - data.flagged) / total) * 100).toFixed(1)
+          : "0.0";
+      
+      return [
+        data.flagged,
+        `${avgOvertime.toFixed(1)}h`,
+        `${retentionIndex}%`
+      ];
       }
       const avgTraining = data.ledger.reduce((a, c) => a + c.training, 0) / total;
-      return [`${avgTraining.toFixed(1)}h`, data.ledger.filter(x => x.training > 20).length, "94.2%"];
+      const trainedEmployees = data.ledger.filter(x => x.training > 20).length;
+
+const efficiencyGain =
+  total > 0
+    ? ((trainedEmployees / total) * 100).toFixed(1)
+    : "0.0";
+
+return [
+  `${avgTraining.toFixed(1)}h`,
+  trainedEmployees,
+  `${efficiencyGain}%`
+];
     };
 
     const getMetricHeaderName = () => {
@@ -848,8 +868,8 @@ export default function HRDashboard() {
                 }}
               >
                 <input type="file" multiple hidden accept=".csv" onChange={handleFileInput} />
-                <div style={{ fontSize: files.length > 0 ? "1.2rem" : "1.8rem", marginBottom: 6 }}>
-                  {isDragOver ? "📥" : "📊"}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 6, color: theme.primary }}>
+                  {isDragOver ? <Icons.Upload size={26} /> : <Icons.BarChart size={26} />}
                 </div>
                 <span style={{ color: theme.subtext, fontSize: "13px" }}>
                   {isDragOver

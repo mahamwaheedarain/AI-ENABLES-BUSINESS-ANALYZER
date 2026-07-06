@@ -1,14 +1,18 @@
+// src/components/OperationsDashboard.js
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  CartesianGrid, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, Cell, PieChart, Pie
+import {
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  ScatterChart, Scatter, ComposedChart, Legend
 } from 'recharts';
 import { auth } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
+
+// ============================================================
 // ICONS — thin-stroke monochrome line icons (Vercel-dashboard style):
 // currentColor stroke, ~1.7px weight, rounded caps, 24x24 viewBox.
-// Replaces every emoji in the UI so the whole app reads like one system.
 // ============================================================
 const Icon = ({ children, size = 18, strokeWidth = 1.75, style, ...props }) => (
   <svg
@@ -58,42 +62,114 @@ const Icons = {
   MessageCircle: (p) => <Icon {...p}><path d="M4 12a8 8 0 1 1 3.5 6.6L4 20l1.2-3.6A7.9 7.9 0 0 1 4 12Z" /></Icon>,
 };
 
-const MODULE_META = {
-  finance: { icon: Icons.DollarSign, label: "Finance", blurb: "Revenue, margins & cash flow" },
-  hr: { icon: Icons.Users, label: "HR", blurb: "Headcount, retention & sentiment" },
-  marketing: { icon: Icons.Radio, label: "Marketing", blurb: "Funnel, spend & attribution" },
-  operations: { icon: Icons.Settings, label: "Operations", blurb: "Throughput & SLA health" },
-  sales: { icon: Icons.Target, label: "Sales", blurb: "Pipeline & win-rate trends" },
-  chatbot: { icon: Icons.MessageCircle, label: "Chatbot", blurb: "Conversational AI assistant" },
-};
 // ---------- High-Clarity Unified Theme ----------
 const theme = {
-  primary: "#58a6ff", 
-  bg: "#0d1117", 
-  card: "#161b22", 
+  primary: "#58a6ff",
+  bg: "#0d1117",
+  card: "#161b22",
   surface: "#21262d",
   text: "#ffffff",
   textMuted: "#e6edf3",
   subtext: "#8b949e",
   border: "#30363d",
-  accent: "#1f6feb", 
+  accent: "#8957e5",
   success: "#3fb950",
   danger: "#f85149",
   fontMain: "'Inter', -apple-system, system-ui, sans-serif",
+  fontMono: "'JetBrains Mono', monospace",
 };
 
-const tabsList = ["Risk Management", "Logistics Tracking"];
+// Palette used for multi-slice charts (pie/donut) — pulled from the theme
+// so new charts stay visually consistent with the rest of the system.
+const PIE_COLORS = [theme.primary, theme.accent, theme.success, "#ffab40", "#f85149"];
+
+// ============================================================
+// BACKEND CONNECTION
+// ============================================================
+// All CSV parsing / prediction now happens server-side via FastAPI.
+// POST /api/operations/predict?task=<task>  (multipart/form-data, field "file")
+const API_BASE_URL = "http://localhost:8000";
+const PREDICT_ENDPOINT = `${API_BASE_URL}/api/operations/predict`;
+
+// ─── Module definitions ───────────────────────────────────────────────────────
+// Each module calls the backend prediction endpoint with its own `task`.
+// The backend returns `data_rows` — the parsed/enriched ledger — which is
+// normalized (see normalizeBackendRow) into the same field names the rest of
+// this dashboard already expects (risk_status, otif_status, profit, etc.).
+const modules = [
+  {
+    id: "Risk Management",
+    task: "risk",
+    color: theme.danger,
+    flagKey: "risk_status",
+    flagValue: "LATE RISK",
+    distributionLabels: ["Compliant", "Breach"],
+    metricKey: "profit", metricLabel: "Profit",
+    secondaryKey: "sales", secondaryLabel: "Sales",
+    tertiaryKey: "quantity", tertiaryLabel: "Order Quantity",
+    kpi1Label: "Throughput Units",
+    kpi2Label: "Breach Flags",
+    kpi3Label: "EBITDA Impact",
+    kpi3Type: "sum",
+    kpi3Format: "currency",
+    chartTitle: "Financial Margin Stream",
+  },
+  {
+    id: "Logistics Tracking",
+    task: "otif",
+    color: theme.primary,
+    flagKey: "otif_status",
+    flagValue: "LATE",
+    distributionLabels: ["On-Time", "Late"],
+    metricKey: "transit_days", metricLabel: "Transit Days",
+    secondaryKey: "distance", secondaryLabel: "Distance",
+    tertiaryKey: "quantity", tertiaryLabel: "Order Quantity",
+    kpi1Label: "Shipments Tracked",
+    kpi2Label: "Late Deliveries",
+    kpi3Label: "Avg Transit Days",
+    kpi3Type: "avg",
+    kpi3Format: "number",
+    chartTitle: "Geospatial OTIF Stream",
+  },
+];
+
+const tabsList = modules.map(m => m.id);
 
 // ── Storage key helpers ───────────────────────────────────────────────────────
 const guestKey = "InsightIQ_Operations_Files_Guest";
 const userKey  = (uid) => `InsightIQ_Operations_Files_User_${uid}`;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Generic helpers ──────────────────────────────────────────────────────────
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+// Maps the backend's `data_rows` field names onto the field names the rest of
+// the dashboard already relies on (both the clean lowercase keys and the
+// original keys are kept so nothing downstream needs to change).
+const BACKEND_FIELD_MAP = {
+  Id: "id",
+  Month: "Month",
+  Risk_Status: "risk_status",
+  Otif_Status: "otif_status",
+  Profit: "profit",
+  Sales: "sales",
+  Quantity: "quantity",
+  Transit_Days: "transit_days",
+  Distance: "distance",
+};
+
+function normalizeBackendRow(row) {
+  const out = {};
+  Object.entries(row || {}).forEach(([key, value]) => {
+    const mapped = BACKEND_FIELD_MAP[key] || key;
+    out[mapped] = value;
+    out[key] = value;
+  });
+  return out;
 }
 
 function loadFromStorage(key) {
@@ -109,11 +185,227 @@ function loadFromStorage(key) {
 function saveToStorage(key, files) {
   try {
     localStorage.setItem(key, JSON.stringify(
-      files.map(({ name, size, dataStoreFragment }) => ({ name, size, dataStoreFragment }))
+      files.map(({ name, size, content }) => ({ name, size, content }))
     ));
   } catch (e) {
     console.warn("localStorage write failed:", e);
   }
+}
+
+// Calls the backend prediction endpoint for a single file + task, returning
+// the normalized ledger rows from `data_rows`.
+async function fetchOperationsPredict(task, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${PREDICT_ENDPOINT}?task=${encodeURIComponent(task)}`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Backend responded with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return (payload.data_rows || []).map(normalizeBackendRow);
+}
+
+// ── Pure numeric / statistical helpers (all computed from real ledger data) ──
+function getNumericSeries(ledger, key) {
+  return (ledger || [])
+    .map(r => parseFloat(r?.[key]))
+    .filter(v => !isNaN(v));
+}
+
+function computeAverage(series) {
+  if (!series || !series.length) return null;
+  return series.reduce((a, b) => a + b, 0) / series.length;
+}
+
+function computeVolatility(series) {
+  if (!series || series.length < 2) return null;
+  const avg = computeAverage(series);
+  if (!avg) return null;
+  const variance = series.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / series.length;
+  const stdev = Math.sqrt(variance);
+  return (stdev / Math.abs(avg)) * 100;
+}
+
+function computePeakTrough(ledger, key) {
+  if (!ledger || !ledger.length) return null;
+  let maxRow = null, minRow = null, maxIdx = 0, minIdx = 0;
+  ledger.forEach((row, i) => {
+    const v = parseFloat(row?.[key]);
+    if (isNaN(v)) return;
+    if (!maxRow || v > parseFloat(maxRow[key])) { maxRow = row; maxIdx = i; }
+    if (!minRow || v < parseFloat(minRow[key])) { minRow = row; minIdx = i; }
+  });
+  if (!maxRow || !minRow) return null;
+  return {
+    max: parseFloat(maxRow[key]), maxLabel: maxRow.Month || maxRow.id || `record ${maxIdx + 1}`,
+    min: parseFloat(minRow[key]), minLabel: minRow.Month || minRow.id || `record ${minIdx + 1}`,
+  };
+}
+
+function trendForKey(ledger, key) {
+  const series = getNumericSeries(ledger, key);
+  if (series.length < 2) return null;
+  const last = series[series.length - 1];
+  const prev = series[series.length - 2];
+  if (prev === 0 || isNaN(prev) || isNaN(last)) return null;
+  return ((last - prev) / Math.abs(prev)) * 100;
+}
+
+// Pearson correlation coefficient between two numeric series (paired by index).
+function computeCorrelation(xs, ys) {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2) return null;
+  const xs2 = xs.slice(0, n), ys2 = ys.slice(0, n);
+  const avgX = computeAverage(xs2), avgY = computeAverage(ys2);
+  let num = 0, denX = 0, denY = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs2[i] - avgX, dy = ys2[i] - avgY;
+    num += dx * dy; denX += dx * dx; denY += dy * dy;
+  }
+  if (denX === 0 || denY === 0) return null;
+  return num / Math.sqrt(denX * denY);
+}
+
+function describeCorrelation(r) {
+  const abs = Math.abs(r);
+  const strength = abs > 0.7 ? "strong" : abs > 0.4 ? "moderate" : "weak";
+  const direction = r >= 0 ? "positive" : "negative";
+  return `${strength} ${direction}`;
+}
+
+// Reads a status column with graceful fallback across common alternates,
+// so a ledger row only needs one of risk_status / otif_status / status present.
+function readFlag(row, config) {
+  const raw = row?.[config.flagKey] ?? row?.risk_status ?? row?.otif_status ?? row?.status;
+  return String(raw ?? "").trim().toUpperCase();
+}
+
+// Aggregate stats for the active module, derived entirely from the ledger.
+function computeModuleMetrics(ledger, config) {
+  const total = ledger.length;
+  const flagValueNorm = String(config.flagValue).toUpperCase();
+  const flagged = ledger.filter(row => readFlag(row, config) === flagValueNorm).length;
+  const compliant = total - flagged;
+
+  const metricSeries = getNumericSeries(ledger, config.metricKey);
+  const sumMetric = metricSeries.reduce((a, b) => a + b, 0);
+  const avgMetric = computeAverage(metricSeries);
+
+  return {
+    total, flagged, compliant, sumMetric, avgMetric,
+    distribution: [
+      { name: config.distributionLabels[0], value: compliant },
+      { name: config.distributionLabels[1], value: flagged },
+    ],
+  };
+}
+
+// Builds the expanded, dynamic insight list for the active module.
+function generateOperationsInsights(ledger, config, metrics) {
+  const insights = [];
+  if (!ledger || !ledger.length) return insights;
+
+  const breachRate = metrics.total > 0 ? (metrics.flagged / metrics.total) * 100 : 0;
+  insights.push(
+    `${config.distributionLabels[1]} events account for ${breachRate.toFixed(1)}% of all ${metrics.total} tracked records in the uploaded ledger.`
+  );
+
+  const trendPct = trendForKey(ledger, config.metricKey);
+  if (trendPct !== null) {
+    insights.push(
+      `${config.metricLabel} has ${trendPct >= 0 ? "increased" : "decreased"} ${Math.abs(trendPct).toFixed(1)}% from the prior reporting period.`
+    );
+  }
+
+  const peakTrough = computePeakTrough(ledger, config.metricKey);
+  if (peakTrough) {
+    insights.push(
+      `${config.metricLabel} peaked at ${peakTrough.max.toFixed(2)} (${peakTrough.maxLabel}) and bottomed at ${peakTrough.min.toFixed(2)} (${peakTrough.minLabel}).`
+    );
+  }
+
+  const volatility = computeVolatility(getNumericSeries(ledger, config.metricKey));
+  if (volatility !== null) {
+    const stability = volatility < 10 ? "highly stable" : volatility < 25 ? "moderately volatile" : "highly volatile";
+    insights.push(
+      `${config.id} has been ${stability}, with a coefficient of variation of ${volatility.toFixed(1)}% on ${config.metricLabel.toLowerCase()}.`
+    );
+  }
+
+  if (metrics.avgMetric !== null) {
+    insights.push(
+      `Average ${config.metricLabel.toLowerCase()} across all ${metrics.total} records sits at ${metrics.avgMetric.toFixed(2)}.`
+    );
+  }
+
+  const secondarySeries = getNumericSeries(ledger, config.secondaryKey);
+  const metricSeries = getNumericSeries(ledger, config.metricKey);
+  if (secondarySeries.length >= 2 && metricSeries.length >= 2) {
+    const corr = computeCorrelation(metricSeries, secondarySeries);
+    if (corr !== null) {
+      insights.push(
+        `${config.metricLabel} and ${config.secondaryLabel} show a ${describeCorrelation(corr)} correlation (r = ${corr.toFixed(2)}) across the dataset.`
+      );
+    }
+  }
+
+  return insights;
+}
+
+// ── Chart-data builders — everything below is derived straight from the
+// backend-returned ledger for the active module, no hardcoded/mock numbers. ──
+function buildTimeSeriesData(ledger, keys, limit = 20) {
+  return (ledger || []).slice(-limit).map((row, i) => {
+    const point = { Month: row.Month || row.id || `#${i + 1}` };
+    keys.forEach(k => {
+      const v = parseFloat(row?.[k]);
+      point[k] = isNaN(v) ? 0 : v;
+    });
+    return point;
+  });
+}
+
+function buildKPIComparisonData(config, metrics) {
+  const kpi3Value = config.kpi3Type === "sum" ? metrics.sumMetric : metrics.avgMetric;
+  return [
+    { name: config.kpi1Label, value: metrics.total },
+    { name: config.kpi2Label, value: metrics.flagged },
+    { name: config.kpi3Label, value: Math.abs(kpi3Value || 0) },
+  ];
+}
+
+function buildRadarData(ledger, config) {
+  const lastEntry = ledger[ledger.length - 1] || {};
+  const dims = [
+    { key: config.metricKey, label: config.metricLabel },
+    { key: config.secondaryKey, label: config.secondaryLabel },
+    { key: config.tertiaryKey, label: config.tertiaryLabel },
+  ];
+  return dims.map(({ key, label }) => {
+    const avg = computeAverage(getNumericSeries(ledger, key)) || 0;
+    const cur = parseFloat(lastEntry?.[key]);
+    return { metric: label, current: isNaN(cur) ? 0 : cur, average: avg };
+  });
+}
+
+function buildScatterData(ledger, config) {
+  return (ledger || [])
+    .map(row => ({
+      x: parseFloat(row?.[config.metricKey]),
+      y: parseFloat(row?.[config.secondaryKey]),
+    }))
+    .filter(p => !isNaN(p.x) && !isNaN(p.y));
+}
+
+function formatKPIValue(value, format) {
+  if (value === null || value === undefined || isNaN(value)) return format === "currency" ? "$0.00" : "0";
+  return format === "currency" ? `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 })}` : Number(value).toFixed(2);
 }
 
 // ─── File Chip ────────────────────────────────────────────────────────────────
@@ -130,7 +422,7 @@ const FileChip = ({ file, onRemove }) => (
       fontSize: 12.5, color: theme.textMuted,
     }}
   >
-    <span>📄</span>
+    <Icons.File size={14} />
     <span style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
       {file.name}
     </span>
@@ -150,13 +442,13 @@ const FileChip = ({ file, onRemove }) => (
 const KPICard = ({ title, value, color, delay }) => (
   <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay }} style={{ ...cardStyle, borderTop: `3px solid ${color}` }}>
     <div style={{ fontSize: '12px', color: theme.subtext, marginBottom: '10px', fontWeight: '700' }}>{title}</div>
-    <div style={{ fontSize: '26px', fontWeight: '800' }}>{value}</div>
+    <div style={{ fontSize: '26px', fontWeight: '800', fontFamily: theme.fontMono }}>{value}</div>
   </motion.div>
 );
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function OperationsDashboard() {
-  const [activeFunc, setActiveFunc] = useState("Risk Management");
+  const [activeFunc, setActiveFunc] = useState(tabsList[0]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [notification, setNotification] = useState("");
@@ -167,6 +459,12 @@ export default function OperationsDashboard() {
   const [currentUser, setCurrentUser] = useState(null);
   const [storageKey, setStorageKey] = useState(guestKey);
   const [files, setFiles] = useState([]);
+
+  // ── Backend-driven ledgers, one per module, keyed by module id ─────────────
+  // { [moduleId]: { ledger: [...], loading: bool, error: string|null } }
+  const [moduleLedgers, setModuleLedgers] = useState(() =>
+    modules.reduce((acc, m) => ({ ...acc, [m.id]: { ledger: [], loading: false, error: null } }), {})
+  );
 
   const fileInputRef = useRef(null);
 
@@ -194,110 +492,79 @@ export default function OperationsDashboard() {
     saveToStorage(storageKey, files);
   }, [files, storageKey, isAuthResolving]);
 
+  // 3. Whenever the file set changes, re-run predictions against the backend
+  //    for every module (each module hits the endpoint with its own `task`).
+  useEffect(() => {
+    if (isAuthResolving) return;
+
+    if (files.length === 0) {
+      setModuleLedgers(modules.reduce((acc, m) => ({ ...acc, [m.id]: { ledger: [], loading: false, error: null } }), {}));
+      return;
+    }
+
+    let cancelled = false;
+
+    modules.forEach(async (mod) => {
+      setModuleLedgers(prev => ({ ...prev, [mod.id]: { ...prev[mod.id], loading: true, error: null } }));
+      try {
+        const results = await Promise.all(
+          files.map(f => fetchOperationsPredict(mod.task, new File([f.content], f.name, { type: "text/csv" })))
+        );
+        const merged = results.flat();
+        if (!cancelled) {
+          setModuleLedgers(prev => ({ ...prev, [mod.id]: { ledger: merged, loading: false, error: null } }));
+        }
+      } catch (err) {
+        console.error(`Backend prediction failed for task "${mod.task}":`, err);
+        if (!cancelled) {
+          setModuleLedgers(prev => ({ ...prev, [mod.id]: { ledger: [], loading: false, error: err.message || "Backend request failed" } }));
+        }
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [files, isAuthResolving]);
+
   const showNotification = (msg) => { setNotification(msg); setTimeout(() => setNotification(""), 4000); };
 
-  // Compute total byte metrics
   const totalBytes = useMemo(() => files.reduce((s, f) => s + (f.size || 0), 0), [files]);
 
-  // Unified Data Store Generator compiled dynamically from all active file fragments
-  const dataStore = useMemo(() => {
-    const store = {};
-    files.forEach(f => {
-      if (!f.dataStoreFragment) return;
-      Object.keys(f.dataStoreFragment).forEach(key => {
-        if (!store[key]) {
-          store[key] = { total: 0, flagged: 0, benefit: 0, ledger: [], distribution: [], history: [], insights: [] };
-        }
-        const frag = f.dataStoreFragment[key];
-        const combinedLedger = [...store[key].ledger, ...(frag.ledger || [])];
-        const total = combinedLedger.length;
-        const flagged = combinedLedger.filter(p => p.risk_status === "LATE RISK").length;
-        const totalProfit = combinedLedger.reduce((a, c) => a + c.profit, 0);
+  // ── Read raw File objects into text content (parsing now happens server-side) ──
+  const readRawFiles = (rawFiles) =>
+    Promise.all(
+      rawFiles.map(raw =>
+        new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = e => resolve({
+            name: raw.name, size: raw.size, content: e.target.result,
+          });
+          reader.readAsText(raw);
+        })
+      )
+    );
 
-        store[key] = {
-          total: total,
-          flagged: flagged,
-          benefit: totalProfit,
-          ledger: combinedLedger,
-          distribution: [
-            { name: 'Compliant', value: total - flagged },
-            { name: 'Breach', value: flagged }
-          ],
-          history: combinedLedger.slice(0, 15).map((d, i) => ({ x: i, y: d.profit })),
-          insights: key === "Risk Management"
-            ? [
-                { label: "Margin Erosion", text: `Breached SLAs represent a potential $${(flagged * 42).toFixed(0)} hit to net earnings.` },
-                { label: "Working Capital Trap", text: `Total capital locked in high-risk transit.` },
-                { label: "Primary Risk Drivers", text: "Correlation analysis identifies Order Quantity as the top predictor of failure." }
-              ]
-            : [
-                { label: "OTIF Performance", text: `On-Time In-Full rate is ${total > 0 ? (100 - (flagged / total * 100)).toFixed(1) : 0}%.` },
-                { label: "Cycle Time Variance", text: "Standard deviation of lead times is 2.2 days." },
-                { label: "Logistics Health", text: "Global transit reliability index: 0.92." }
-              ]
-        };
-      });
-    });
-    return store;
-  }, [files]);
+  const mergeInto = (prev, incoming) => {
+    const existing = new Set(prev.map(f => f.name));
+    return [...prev, ...incoming.filter(f => !existing.has(f.name))];
+  };
 
-  // Process and query analytics endpoints for each uploaded file
   const processAndAdd = async (rawFiles) => {
     if (!rawFiles.length) return;
     setIsProcessing(true);
-
-    const tasks = ["risk", "logistics"];
-    const incomingProcessedFiles = [];
-
-    // Filter out names already active inside existing file state array
-    const existingNames = new Set(files.map(f => f.name));
-    const uniqueRawFiles = rawFiles.filter(rf => !existingNames.has(rf.name));
-
     try {
-      for (const file of uniqueRawFiles) {
-        let fileProcessed = false;
-        let fileDataStoreFragment = {};
+      const processed = await readRawFiles(rawFiles);
+      const existingNames = new Set(files.map(f => f.name));
+      const uniqueProcessed = processed.filter(f => !existingNames.has(f.name));
 
-        for (const task of tasks) {
-          const formData = new FormData();
-          formData.append("file", file);
-
-          const response = await fetch(`http://127.0.0.1:8000/api/operations/predict?task=${task}`, {
-            method: "POST",
-            body: formData,
-          });
-          const result = await response.json();
-
-          if (result.status === "success" && result.operations_data) {
-            fileProcessed = true;
-            const key = task === "risk" ? "Risk Management" : "Logistics Tracking";
-
-            const rawData = result.operations_data.map(d => ({
-              ...d,
-              profit: Number(d.profit) || 0,
-              sales: Number(d.sales) || 0
-            }));
-
-            fileDataStoreFragment[key] = { ledger: rawData };
-          }
-        }
-
-        if (fileProcessed) {
-          incomingProcessedFiles.push({
-            name: file.name,
-            size: file.size,
-            dataStoreFragment: fileDataStoreFragment
-          });
-        }
-      }
-
-      if (incomingProcessedFiles.length > 0) {
-        setFiles(prev => [...prev, ...incomingProcessedFiles]);
-        showNotification("Operational metrics synchronized dynamically");
+      if (uniqueProcessed.length > 0) {
+        setFiles(prev => mergeInto(prev, uniqueProcessed));
+        showNotification("Files uploaded — syncing with backend prediction engine");
+      } else {
+        showNotification("No new files to add");
       }
     } catch (err) {
-      console.error("Critical Processing Error:", err);
-      showNotification("⚠️ Processing error — verify microservices core port 8000");
+      console.error("File read error:", err);
+      showNotification("⚠️ Could not read one or more files");
     } finally {
       setIsProcessing(false);
     }
@@ -320,97 +587,255 @@ export default function OperationsDashboard() {
 
   // ─── Dashboard renderer ────────────────────────────────────────────────────
   const renderContent = () => {
-    const data = dataStore[activeFunc];
-    if (!data || !data.ledger || data.ledger.length === 0) return (
-      <div style={emptyStateStyle}>
-        <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 2, repeat: Infinity }} style={{ color: theme.primary, fontSize: '14px', fontWeight: '600' }}>
-          Awaiting Operations Insights
-        </motion.div>
-      </div>
-    );
+    const config = modules.find(m => m.id === activeFunc);
+    const moduleState = moduleLedgers[activeFunc] || { ledger: [], loading: false, error: null };
 
-    const config = {
-      "Risk Management": { accent: theme.danger, title: "Financial Margin Stream" },
-      "Logistics Tracking": { accent: theme.primary, title: "Geospatial OTIF Stream" }
-    }[activeFunc];
+    if (moduleState.loading) {
+      return (
+        <div style={emptyStateStyle}>
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} style={{ width: 36, height: 36, border: `3px solid ${theme.primary}`, borderTopColor: "transparent", borderRadius: "50%", marginBottom: 16 }} />
+        </div>
+      );
+    }
+
+    if (moduleState.error) {
+      return (
+        <div style={{ ...emptyStateStyle, flexDirection: "column", gap: "10px", borderColor: "rgba(248,81,73,0.4)" }}>
+          <div style={{ color: theme.danger, fontSize: "14px", fontWeight: "700" }}>Backend request failed</div>
+          <div style={{ color: theme.subtext, fontSize: "12px" }}>{moduleState.error}</div>
+        </div>
+      );
+    }
+
+    const ledger = moduleState.ledger;
+
+    if (!ledger || ledger.length === 0) {
+      return (
+        <div style={emptyStateStyle}>
+          <motion.div animate={{ opacity: [0.2, 0.5, 0.2] }} transition={{ duration: 2, repeat: Infinity }} style={{ color: theme.primary, fontSize: '14px', fontWeight: '600' }}>
+            Awaiting Operations Insights
+          </motion.div>
+        </div>
+      );
+    }
+
+    const metrics = computeModuleMetrics(ledger, config);
+    const insights = generateOperationsInsights(ledger, config, metrics);
+
+    const history = buildTimeSeriesData(ledger, [config.metricKey], 20).map((p, i) => ({ x: i, y: p[config.metricKey] }));
+    const multiMetricData = buildTimeSeriesData(ledger, [config.metricKey, config.secondaryKey, config.tertiaryKey], 12);
+    const composedData = buildTimeSeriesData(ledger, [config.metricKey], 12).map(p => ({ Month: p.Month, value: p[config.metricKey] }));
+    const kpiComparisonData = buildKPIComparisonData(config, metrics);
+    const radarData = buildRadarData(ledger, config);
+    const scatterData = buildScatterData(ledger, config);
+
+    const kpi3Value = config.kpi3Type === "sum" ? metrics.sumMetric : metrics.avgMetric;
 
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-          <KPICard title="Throughput Units" value={data.total} color={theme.text} delay={0.1} />
-          <KPICard title="Breach Flags" value={data.flagged} color={theme.danger} delay={0.2} />
-          <KPICard title="EBITDA Impact" value={`$${data.benefit.toLocaleString()}`} color={theme.success} delay={0.3} />
+          <KPICard title={config.kpi1Label} value={metrics.total} color={theme.text} delay={0.1} />
+          <KPICard title={config.kpi2Label} value={metrics.flagged} color={theme.danger} delay={0.2} />
+          <KPICard title={config.kpi3Label} value={formatKPIValue(kpi3Value, config.kpi3Format)} color={theme.success} delay={0.3} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 0.8fr', gap: '25px', marginBottom: '30px' }}>
-          <div style={cardStyle}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 0.8fr', gap: '25px', marginBottom: '30px', alignItems: 'stretch' }}>
+          <div style={chartCardStyle}>
             <div style={cardHeader}>Compliance Ratio</div>
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie data={data.distribution} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                  <Cell fill={theme.success} stroke="none" />
-                  <Cell fill={theme.danger} stroke="none" />
-                </Pie>
-                <Tooltip contentStyle={{background: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px'}} />
-              </PieChart>
-            </ResponsiveContainer>
+            <div style={chartWrapStyle}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={metrics.distribution} innerRadius="52%" outerRadius="92%" paddingAngle={5} dataKey="value">
+                    <Cell fill={theme.success} stroke="none" />
+                    <Cell fill={theme.danger} stroke="none" />
+                  </Pie>
+                  <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: '8px' }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          <div style={cardStyle}>
-            <div style={cardHeader}>{config.title}</div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={data.history}>
-                <defs>
-                  <linearGradient id="colorAcc" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={config.accent} stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor={config.accent} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <Area type="monotone" dataKey="y" stroke={config.accent} fill="url(#colorAcc)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div style={chartCardStyle}>
+            <div style={cardHeader}>{config.chartTitle}</div>
+            <div style={chartWrapStyle}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={history} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorAcc" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={config.color} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={config.color} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <YAxis hide domain={['dataMin - 1', 'dataMax + 1']} />
+                  <Area type="monotone" dataKey="y" stroke={config.color} fill="url(#colorAcc)" strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
-          <div style={{ ...cardStyle, borderLeft: `4px solid ${config.accent}` }}>
-            <div style={{...cardHeader, color: config.accent}}>Operational Insights</div>
-            <p style={{ fontSize: '14px', lineHeight: '1.6', color: theme.text }}>
-              Verified {data.total} units. 
-              {activeFunc === "Risk Management" ? " Financial integrity is optimized for gross margin defense." : " Transit flow tracked for OTIF compliance across all geo-nodes."}
-            </p>
+          <div style={{ ...chartCardStyle, borderLeft: `4px solid ${config.color}` }}>
+            <div style={{ ...cardHeader, color: config.color }}>Operational Insights</div>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: "12px", flex: 1 }}>
+              {insights.map((text, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: config.color, marginTop: "7px", flexShrink: 0 }} />
+                  <span style={{ fontSize: "13px", lineHeight: "1.6", color: theme.text }}>{text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* ── Advanced Analytics — additional chart types, all computed live
+             from the backend-returned ledger for the active module ── */}
+        <div style={{ marginBottom: "18px" }}>
+          <div style={{ ...cardHeader, marginBottom: "16px" }}>Advanced Analytics</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '25px', marginBottom: '30px', alignItems: 'stretch' }}>
+
+          {/* Bar chart: current KPI comparison */}
+          <div style={chartCardStyle}>
+            <div style={cardHeader}>KPI Comparison</div>
+            <div style={chartWrapStyle}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={kpiComparisonData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fill: theme.subtext, fontSize: 11 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                  <YAxis tick={{ fill: theme.subtext, fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                  <Bar dataKey="value" fill={config.color} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Line chart: multi-metric trend across reporting periods */}
+          <div style={chartCardStyle}>
+            <div style={cardHeader}>Multi-Metric Trend</div>
+            <div style={chartWrapStyle}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={multiMetricData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="Month" tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                  <YAxis tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Line type="monotone" dataKey={config.metricKey} name={config.metricLabel} stroke={theme.primary} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey={config.secondaryKey} name={config.secondaryLabel} stroke={theme.accent} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey={config.tertiaryKey} name={config.tertiaryLabel} stroke={theme.success} strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Donut chart: current KPI composition */}
+          <div style={chartCardStyle}>
+            <div style={cardHeader}>KPI Composition</div>
+            <div style={chartWrapStyle}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={kpiComparisonData} dataKey="value" nameKey="name" innerRadius="45%" outerRadius="80%" paddingAngle={3}>
+                    {kpiComparisonData.map((entry, idx) => (
+                      <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Radar chart: current vs average benchmark */}
+          <div style={chartCardStyle}>
+            <div style={cardHeader}>Current vs Average Benchmark</div>
+            <div style={chartWrapStyle}>
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={radarData} outerRadius="75%">
+                  <PolarGrid stroke={theme.border} />
+                  <PolarAngleAxis dataKey="metric" tick={{ fill: theme.subtext, fontSize: 10 }} />
+                  <PolarRadiusAxis tick={{ fill: theme.subtext, fontSize: 9 }} axisLine={false} />
+                  <Radar name="Current" dataKey="current" stroke={config.color} fill={config.color} fillOpacity={0.3} />
+                  <Radar name="Average" dataKey="average" stroke={theme.subtext} fill={theme.subtext} fillOpacity={0.12} />
+                  <Legend wrapperStyle={{ fontSize: "11px" }} />
+                  <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Scatter chart: correlation between the module's primary and secondary metric */}
+          <div style={chartCardStyle}>
+            <div style={cardHeader}>{config.metricLabel} vs {config.secondaryLabel} Correlation</div>
+            <div style={chartWrapStyle}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ScatterChart margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid stroke={theme.border} strokeDasharray="3 3" />
+                  <XAxis dataKey="x" name={config.metricLabel} tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                  <YAxis dataKey="y" name={config.secondaryLabel} tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{ strokeDasharray: '3 3' }} contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                  <Scatter data={scatterData} fill={config.color} />
+                </ScatterChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Composed chart: core metric as bar + trend line overlay */}
+          <div style={chartCardStyle}>
+            <div style={cardHeader}>{config.metricLabel} — Composed View</div>
+            <div style={chartWrapStyle}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={composedData} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="Month" tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={{ stroke: theme.border }} tickLine={false} />
+                  <YAxis tick={{ fill: theme.subtext, fontSize: 10 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, fontSize: '12px' }} />
+                  <Bar dataKey="value" fill={config.color} fillOpacity={0.25} radius={[3, 3, 0, 0]} />
+                  <Line type="monotone" dataKey="value" stroke={config.color} strokeWidth={2} dot={{ r: 3 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
         <div style={cardStyle}>
           <div style={cardHeader}>Supply Chain Audit Ledger</div>
-          <table style={tableStyle}>
-            <thead>
-              <tr style={thStyle}>
-                <th style={{padding: '15px'}}>Log ID</th>
-                <th>Status</th>
-                <th>Gross Margin</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.ledger.slice(0, 10).map((row, i) => (
-                <tr key={i} style={trStyle}>
-                  <td style={{padding: '15px', color: theme.primary, fontWeight: '600'}}>{row.id || `NEURAL-${String(i+1).padStart(3, '0')}`}</td>
-                  <td>
-                    <span style={{ 
-                      background: row.risk_status === 'LATE RISK' ? 'rgba(248, 81, 73, 0.1)' : 'rgba(63, 185, 80, 0.1)',
-                      color: row.risk_status === 'LATE RISK' ? theme.danger : theme.success,
-                      padding: '5px 12px', borderRadius: '6px', border: `1px solid ${row.risk_status === 'LATE RISK' ? 'rgba(248, 81, 73, 0.2)' : 'rgba(63, 185, 80, 0.2)'}`,
-                      fontSize: '11px', fontWeight: '800'
-                    }}>
-                      {row.risk_status === 'LATE RISK' ? 'Breached' : 'Compliant'}
-                    </span>
-                  </td>
-                  <td style={{color: row.profit !== 0 ? (row.profit > 0 ? theme.success : theme.danger) : theme.text, fontWeight: '700'}}>
-                    {row.profit > 0 ? '+' : ''}{row.profit.toFixed(2)}
-                  </td>
+          <div style={{ overflowX: "auto" }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr style={thStyle}>
+                  <th style={{ padding: '15px' }}>Log ID</th>
+                  <th>Status</th>
+                  <th>{config.metricLabel}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {ledger.slice(-10).map((row, i) => {
+                  const flagged = readFlag(row, config) === String(config.flagValue).toUpperCase();
+                  const val = parseFloat(row?.[config.metricKey]);
+                  return (
+                    <tr key={i} style={trStyle}>
+                      <td style={{ padding: '15px', color: theme.primary, fontWeight: '600' }}>{row.id || `NEURAL-${String(i + 1).padStart(3, '0')}`}</td>
+                      <td>
+                        <span style={{
+                          background: flagged ? 'rgba(248, 81, 73, 0.1)' : 'rgba(63, 185, 80, 0.1)',
+                          color: flagged ? theme.danger : theme.success,
+                          padding: '5px 12px', borderRadius: '6px',
+                          border: `1px solid ${flagged ? 'rgba(248, 81, 73, 0.2)' : 'rgba(63, 185, 80, 0.2)'}`,
+                          fontSize: '11px', fontWeight: '800'
+                        }}>
+                          {flagged ? config.distributionLabels[1] : config.distributionLabels[0]}
+                        </span>
+                      </td>
+                      <td style={{ color: !isNaN(val) ? (val >= 0 ? theme.success : theme.danger) : theme.text, fontWeight: '700', fontFamily: theme.fontMono }}>
+                        {!isNaN(val) ? val.toFixed(2) : "0.00"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       </motion.div>
     );
@@ -454,9 +879,8 @@ export default function OperationsDashboard() {
           <h1 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>
             Business Analyzer | <span style={{ color: theme.primary }}>Operations Dashboard</span>
           </h1>
-          
         </div>
-        
+
         {/* ── Manage Files toggle ── */}
         <button
           onClick={() => setShowManage(v => !v)}
@@ -468,9 +892,9 @@ export default function OperationsDashboard() {
             fontSize: "13px", fontWeight: "700", cursor: "pointer", transition: "all 0.2s ease",
           }}
         >
-    <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <Icons.Folder size={16} strokeWidth={1.8} /> Manage Files
-              </span>
+          <span style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Icons.Folder size={16} strokeWidth={1.8} /> Manage Files
+          </span>
           {files.length > 0 && (
             <span style={{
               background: "rgba(88,166,255,0.2)", border: "1px solid rgba(88,166,255,0.35)",
@@ -523,8 +947,8 @@ export default function OperationsDashboard() {
                 }}
               >
                 <input type="file" multiple hidden accept=".csv" onChange={handleFileInput} />
-                <div style={{ fontSize: files.length > 0 ? "1.2rem" : "1.8rem", marginBottom: 6 }}>
-                  {isDragOver ? "📥" : "📊"}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 6, color: theme.primary }}>
+                  {isDragOver ? <Icons.Upload size={26} /> : <Icons.BarChart size={26} />}
                 </div>
                 <span style={{ color: theme.subtext, fontSize: "13px" }}>
                   {isDragOver
@@ -553,7 +977,7 @@ export default function OperationsDashboard() {
       {/* ── Nav tabs ── */}
       <nav style={{ display: 'flex', gap: '40px', marginBottom: '40px', borderBottom: `1px solid ${theme.border}` }}>
         {tabsList.map(tab => (
-          <button key={tab} onClick={() => setActiveFunc(tab)} style={{ 
+          <button key={tab} onClick={() => setActiveFunc(tab)} style={{
             background: 'none', border: 'none', cursor: 'pointer', fontFamily: theme.fontMain, fontSize: '15px',
             color: activeFunc === tab ? theme.primary : theme.subtext,
             borderBottom: activeFunc === tab ? `3px solid ${theme.primary}` : 'none',
@@ -568,12 +992,21 @@ export default function OperationsDashboard() {
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
-const cardStyle          = { background: theme.card, padding: "30px", borderRadius: "12px", border: `1px solid ${theme.border}` };
-const cardHeader         = { fontSize: "12px", color: theme.subtext, marginBottom: "20px", fontWeight: "800", letterSpacing: "0.5px" };
-const uploadButtonStyle  = { padding: "10px 18px", background: theme.primary, color: "#fff", fontSize: "11px", fontWeight: "900", cursor: "pointer", borderRadius: "6px", letterSpacing: "1px", display: "inline-block" };
-const emptyStateStyle    = { height: "400px", display: "flex", alignItems: "center", justifyContent: "center", border: `1px dashed ${theme.border}`, borderRadius: "16px" };
-const loaderOverlayStyle = { position: "fixed", inset: 0, background: "rgba(13,17,23,0.95)", zIndex: 1000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" };
-const notificationStyle  = { position: "fixed", bottom: "30px", right: "30px", background: theme.success, color: "#fff", padding: "15px 25px", borderRadius: "8px", fontSize: "14px", fontWeight: "700", zIndex: 2000, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" };
-const tableStyle         = { width: "100%", borderCollapse: "collapse", textAlign: "left" };
-const thStyle            = { color: theme.subtext, borderBottom: `1px solid ${theme.border}`, fontSize: "13px", fontWeight: "700" };
-const trStyle            = { borderBottom: `1px solid ${theme.border}`, height: "55px", fontSize: "14px" };
+const cardStyle          = { background: theme.card, padding: "25px", borderRadius: "12px", border: `1px solid ${theme.border}` };
+// chartCardStyle: same as cardStyle but stretches to fill the grid row height
+// (via CSS Grid's default/explicit align-items: stretch on the parent) and
+// lays its children out as a column so the chart wrapper can grow to fill
+// all remaining vertical space instead of sitting in a fixed-px box.
+const chartCardStyle      = { ...cardStyle, display: "flex", flexDirection: "column", height: "100%", minHeight: "300px" };
+// chartWrapStyle: the flexible region inside a chart card that the
+// ResponsiveContainer (height="100%") expands into — this is what makes the
+// chart cover the whole card instead of leaving empty space around it.
+const chartWrapStyle      = { flex: 1, minHeight: 0, width: "100%" };
+const cardHeader          = { fontSize: "12px", color: theme.subtext, marginBottom: "20px", fontWeight: "800", letterSpacing: "0.5px", textTransform: "uppercase" };
+const uploadButtonStyle   = { padding: "10px 18px", background: theme.primary, color: "#fff", fontSize: "11px", fontWeight: "900", cursor: "pointer", borderRadius: "6px", letterSpacing: "1px", display: "inline-block" };
+const emptyStateStyle     = { height: "400px", display: "flex", alignItems: "center", justifyContent: "center", border: `1px dashed ${theme.border}`, borderRadius: "16px" };
+const loaderOverlayStyle  = { position: "fixed", inset: 0, background: "rgba(13,17,23,0.95)", zIndex: 1000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)" };
+const notificationStyle   = { position: "fixed", bottom: "30px", right: "30px", background: theme.success, color: "#fff", padding: "15px 25px", borderRadius: "8px", fontSize: "14px", fontWeight: "700", zIndex: 2000, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" };
+const tableStyle          = { width: "100%", borderCollapse: "collapse", textAlign: "left" };
+const thStyle             = { color: theme.subtext, borderBottom: `1px solid ${theme.border}`, fontSize: "13px", fontWeight: "700" };
+const trStyle             = { borderBottom: `1px solid ${theme.border}`, height: "55px", fontSize: "14px" };

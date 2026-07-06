@@ -191,6 +191,182 @@ const KPICard = ({ title, value, color, delay }) => (
   </motion.div>
 );
 
+// ── Numeric helpers — everything below is derived straight from the CSV ledger ──
+function computeAverage(series) {
+  if (!series || !series.length) return 0;
+  return series.reduce((a, b) => a + (isNaN(b) ? 0 : b), 0) / series.length;
+}
+
+// Simple Pearson correlation coefficient
+function pearsonCorrelation(a, b) {
+  const n = a.length;
+  if (n === 0) return 0;
+  const meanA = a.reduce((s, v) => s + v, 0) / n;
+  const meanB = b.reduce((s, v) => s + v, 0) / n;
+  let num = 0, denA = 0, denB = 0;
+  for (let i = 0; i < n; i++) {
+    const da = a[i] - meanA, db = b[i] - meanB;
+    num += da * db;
+    denA += da * da;
+    denB += db * db;
+  }
+  const den = Math.sqrt(denA * denB);
+  return den === 0 ? 0 : num / den;
+}
+
+// Finds the highest/lowest row for a given numeric field, so insights can
+// cite a real record instead of a synthetic figure.
+function computePeakTrough(ledger, key) {
+  if (!ledger || !ledger.length) return null;
+  let maxRow = null, minRow = null;
+  ledger.forEach(row => {
+    const v = parseFloat(row?.[key]);
+    if (isNaN(v)) return;
+    if (!maxRow || v > parseFloat(maxRow[key])) maxRow = row;
+    if (!minRow || v < parseFloat(minRow[key])) minRow = row;
+  });
+  if (!maxRow || !minRow) return null;
+  return {
+    max: parseFloat(maxRow[key]), maxId: maxRow.id,
+    min: parseFloat(minRow[key]), minId: minRow.id,
+  };
+}
+
+// Derives extra chart-ready data + narrative stats from the ledger
+function computeExtraAnalytics(ledger) {
+  if (!ledger.length) return null;
+
+  const total = ledger.length;
+  const stableCount   = ledger.filter(r => r.status === "STABLE").length;
+  const criticalCount = total - stableCount;
+
+  const topAccounts = [...ledger]
+    .sort((a, b) => b.spent - a.spent)
+    .slice(0, 8)
+    .map(r => ({ id: String(r.id).slice(0, 10), spent: r.spent }));
+
+  const topROI = [...ledger]
+    .sort((a, b) => parseFloat(b.roi) - parseFloat(a.roi))
+    .slice(0, 8)
+    .map(r => ({ id: String(r.id).slice(0, 10), roi: parseFloat(r.roi) }));
+
+  const criticalSpend = ledger.filter(r => r.status === "CRITICAL").reduce((s, r) => s + r.spent, 0);
+  const totalSpend    = ledger.reduce((s, r) => s + r.spent, 0);
+  const riskConcentration = totalSpend > 0 ? ((criticalSpend / totalSpend) * 100).toFixed(1) : "0.0";
+
+  const spendVals = ledger.map(r => r.spent);
+  const engVals    = ledger.map(r => r.engagement);
+  const corr = pearsonCorrelation(spendVals, engVals);
+
+  const mid = Math.floor(total / 2);
+  const firstHalfAvgEng  = ledger.slice(0, mid).reduce((s, r) => s + r.engagement, 0) / (mid || 1);
+  const secondHalfAvgEng = ledger.slice(mid).reduce((s, r) => s + r.engagement, 0) / ((total - mid) || 1);
+  const trendDirection = secondHalfAvgEng >= firstHalfAvgEng ? "improving" : "declining";
+  const trendDelta = Math.abs(secondHalfAvgEng - firstHalfAvgEng).toFixed(1);
+
+  const avg = (key) => ledger.reduce((s, r) => s + (typeof r[key] === "string" ? parseFloat(r[key]) : r[key]), 0) / total;
+  const radarData = [
+    { metric: "Engagement",  value: Math.min(100, avg("engagement")) },
+    { metric: "Sessions",    value: Math.min(100, avg("sessions") / 2) },
+    { metric: "Conversion",  value: Math.min(100, avg("conversion") * 1000) },
+    { metric: "Spend",       value: Math.min(100, avg("spent") / 50) },
+    { metric: "ROI",         value: Math.min(100, ledger.reduce((s, r) => s + parseFloat(r.roi), 0) / total) },
+  ];
+
+  return {
+    statusPie: [
+      { name: "Stable",   value: stableCount },
+      { name: "Critical", value: criticalCount },
+    ],
+    topAccounts,
+    topROI,
+    stableCount,
+    criticalCount,
+    criticalSpend,
+    totalSpend,
+    riskConcentration,
+    corr,
+    trendDirection,
+    trendDelta,
+    radarData,
+  };
+}
+
+// Builds a fully CSV-driven insight list — every sentence is computed from
+// the uploaded ledger for the active tab, mirroring the Finance dashboard's
+// generateInsights() approach instead of static hardcoded copy.
+function generateMarketingInsights(ledger, activeFunc, extra) {
+  const insights = [];
+  if (!ledger || !ledger.length || !extra) return insights;
+
+  const total = ledger.length;
+  const stablePct = ((extra.stableCount / total) * 100).toFixed(1);
+
+  // 1. Overall status split
+  insights.push(
+    `Out of ${total} analyzed profiles, ${extra.stableCount} (${stablePct}%) are STABLE while ` +
+    `${extra.criticalCount} show CRITICAL risk signals.`
+  );
+
+  // 2. Spend ↔ engagement correlation
+  const corrLabel = Math.abs(extra.corr) > 0.5 ? "a strong" : Math.abs(extra.corr) > 0.2 ? "a moderate" : "a weak";
+  const corrDir = extra.corr >= 0 ? "positive" : "negative";
+  insights.push(
+    `Spend and engagement show ${corrLabel} ${corrDir} correlation (r=${extra.corr.toFixed(2)}) across the dataset.`
+  );
+
+  // 3. Risk concentration
+  insights.push(
+    `${extra.riskConcentration}% of total ad spend ($${extra.totalSpend.toLocaleString()}) sits in flagged CRITICAL accounts.`
+  );
+
+  // 4. Engagement trend across the reporting window
+  insights.push(
+    `Engagement is ${extra.trendDirection} across the record set (Δ${extra.trendDelta} pts, first half vs second half of uploaded rows).`
+  );
+
+  // 5. Peak / trough on spend, citing real record IDs
+  const pt = computePeakTrough(ledger, "spent");
+  if (pt) {
+    insights.push(
+      `Highest spend recorded is $${pt.max.toLocaleString()} (ID ${pt.maxId}), while the lowest is $${pt.min.toLocaleString()} (ID ${pt.minId}).`
+    );
+  }
+
+  // 6. Tab-specific stat
+  const avgEng      = computeAverage(ledger.map(r => r.engagement));
+  const avgSessions = computeAverage(ledger.map(r => r.sessions));
+  const avgConv     = computeAverage(ledger.map(r => r.conversion));
+  const avgRoi      = computeAverage(ledger.map(r => parseFloat(r.roi)));
+
+  if (activeFunc === "Market Trends") {
+    insights.push(
+      `Average engagement score across all profiles is ${avgEng.toFixed(1)}%, with an average of ${avgSessions.toFixed(0)} web sessions per profile.`
+    );
+  } else if (activeFunc === "Lead Prioritization") {
+    const highValue = ledger.filter(r => r.conversion > 0.05 || r.engagement > 70).length;
+    insights.push(
+      `${highValue} profiles qualify as high-value leads (conversion rate above 5% or engagement above 70), out of ${total} total.`
+    );
+  } else if (activeFunc === "Retention & Churn") {
+    insights.push(
+      `${extra.criticalCount} profiles are flagged for churn risk, representing $${extra.criticalSpend.toLocaleString()} of revenue at risk.`
+    );
+  } else if (activeFunc === "Campaign Analysis") {
+    insights.push(
+      `Average campaign ROI multiplier stands at ${avgRoi.toFixed(2)}x against total ad spend of $${extra.totalSpend.toLocaleString()}.`
+    );
+  }
+
+  // 7. Average conversion, always useful context
+  insights.push(`Average conversion rate across all records is ${(avgConv * 100).toFixed(2)}%.`);
+
+  // 8. Closing audit line
+  insights.push(`Analysis based on ${total} uploaded records — no anomalies detected outside the flagged CRITICAL segment.`);
+
+  return insights;
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function MarketingDashboard() {
   const [activeFunc,    setActiveFunc]    = useState("Market Trends");
@@ -327,100 +503,7 @@ export default function MarketingDashboard() {
       status:     (row.predicted_churn === 1 || row.status === "CRITICAL" || eng < 30) ? "CRITICAL" : "STABLE",
     };
   };
-// Simple Pearson correlation coefficient
-function pearsonCorrelation(a, b) {
-  const n = a.length;
-  if (n === 0) return 0;
-  const meanA = a.reduce((s, v) => s + v, 0) / n;
-  const meanB = b.reduce((s, v) => s + v, 0) / n;
-  let num = 0, denA = 0, denB = 0;
-  for (let i = 0; i < n; i++) {
-    const da = a[i] - meanA, db = b[i] - meanB;
-    num += da * db;
-    denA += da * da;
-    denB += db * db;
-  }
-  const den = Math.sqrt(denA * denB);
-  return den === 0 ? 0 : num / den;
-}
 
-// Derives extra chart-ready data + narrative insights from the ledger
-function computeExtraAnalytics(ledger) {
-  if (!ledger.length) return null;
-
-  const total = ledger.length;
-  const stableCount   = ledger.filter(r => r.status === "STABLE").length;
-  const criticalCount = total - stableCount;
-
-  const topAccounts = [...ledger]
-    .sort((a, b) => b.spent - a.spent)
-    .slice(0, 8)
-    .map(r => ({ id: String(r.id).slice(0, 10), spent: r.spent }));
-
-  const criticalSpend = ledger.filter(r => r.status === "CRITICAL").reduce((s, r) => s + r.spent, 0);
-  const totalSpend    = ledger.reduce((s, r) => s + r.spent, 0);
-  const riskConcentration = totalSpend > 0 ? ((criticalSpend / totalSpend) * 100).toFixed(1) : "0.0";
-
-  const spendVals = ledger.map(r => r.spent);
-  const engVals    = ledger.map(r => r.engagement);
-  const corr = pearsonCorrelation(spendVals, engVals);
-
-  const mid = Math.floor(total / 2);
-  const firstHalfAvgEng  = ledger.slice(0, mid).reduce((s, r) => s + r.engagement, 0) / (mid || 1);
-  const secondHalfAvgEng = ledger.slice(mid).reduce((s, r) => s + r.engagement, 0) / ((total - mid) || 1);
-  const trendDirection = secondHalfAvgEng >= firstHalfAvgEng ? "improving" : "declining";
-  const trendDelta = Math.abs(secondHalfAvgEng - firstHalfAvgEng).toFixed(1);
-
-  const avg = (key) => ledger.reduce((s, r) => s + (typeof r[key] === "string" ? parseFloat(r[key]) : r[key]), 0) / total;
-  const radarData = [
-    { metric: "Engagement",  value: Math.min(100, avg("engagement")) },
-    { metric: "Sessions",    value: Math.min(100, avg("sessions") / 2) },
-    { metric: "Conversion",  value: Math.min(100, avg("conversion") * 1000) },
-    { metric: "Spend",       value: Math.min(100, avg("spent") / 50) },
-    { metric: "ROI",         value: Math.min(100, ledger.reduce((s, r) => s + parseFloat(r.roi), 0) / total) },
-  ];
-
-  return {
-    statusPie: [
-      { name: "Stable",   value: stableCount },
-      { name: "Critical", value: criticalCount },
-    ],
-    topAccounts,
-    riskConcentration,
-    corr,
-    trendDirection,
-    trendDelta,
-    radarData,
-  };
-}
-  const getInsightsFor = (tab, flaggedCount) => {
-    if (tab === "Market Trends") return [
-      { label: "Market Reach",      text: "Organic growth trend suggests a 12% expansion in target demographics." },
-      { label: "Segment Velocity",  text: "High-engagement clusters are forming around the mid-tier spending bracket." },
-    ];
-    if (tab === "Retention & Churn") return [
-      { label: "Churn Velocity",    text: `${flaggedCount} profiles show signs of engagement decay.` },
-      { label: "Retention Strategy",text: "Re-engagement campaigns recommended for segments with high risk drop-offs." },
-    ];
-    if (tab === "Lead Prioritization") return [
-      { label: "Hot Leads Identified", text: "Targeted conversions score highly across returning web sessions." },
-      { label: "Pipeline Velocity",    text: "Accelerating routing mechanisms for immediate stable profile captures." },
-    ];
-    return [
-      { label: "ROI Optimization",  text: "Multi-channel advertising campaigns verified steady scale multipliers." },
-      { label: "Capital Efficiency",text: "Budget distribution matrix validates lower customer acquisition costs." },
-    ];
-  };
-  function getExtraInsights(extra) {
-    if (!extra) return [];
-    const corrLabel = Math.abs(extra.corr) > 0.5 ? "a strong" : Math.abs(extra.corr) > 0.2 ? "a moderate" : "a weak";
-    const corrDir = extra.corr >= 0 ? "positive" : "negative";
-    return [
-      { label: "Spend-Engagement Link", text: `Analysis shows ${corrLabel} ${corrDir} correlation (r=${extra.corr.toFixed(2)}) between spend and engagement.` },
-      { label: "Risk Concentration",    text: `${extra.riskConcentration}% of total spend sits in flagged CRITICAL accounts.` },
-      { label: "Engagement Trend",      text: `Engagement is ${extra.trendDirection} across the record set (Δ${extra.trendDelta} pts, first half vs second half).` },
-    ];
-  }
   const renderContent = () => {
     const raw = dataStore[activeFunc];
     if (!raw || !raw.ledger || raw.ledger.length === 0) {
@@ -440,10 +523,9 @@ function computeExtraAnalytics(ledger) {
     const ledger     = raw.ledger.map((row, i) => normalizeRow(row, i));
     const flagged    = ledger.filter(l => l.status === "CRITICAL").length;
     const timeSeries = ledger.slice(0, 15).map((d, index) => ({ x: index, val: d.engagement, reach: d.sessions || d.spent }));
-    const insights   = getInsightsFor(activeFunc, flagged);
+    const extra      = computeExtraAnalytics(ledger);
+    const insights   = generateMarketingInsights(ledger, activeFunc, extra);
     const data       = { ...raw, ledger, flagged, timeSeries, insights };
-    const extra = computeExtraAnalytics(ledger);
-const extraInsights = getExtraInsights(extra);
 
     const config = {
       "Market Trends":       { kpi1: "Total Audience",  kpi2: "Avg Engagement", kpi3: "Market Cap",      accent: theme.primary },
@@ -490,184 +572,201 @@ const extraInsights = getExtraInsights(extra);
 
     return (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+        {/* ── KPI row ── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", marginBottom: "30px" }}>
           <KPICard title={config.kpi1} value={kpiVals[0]} color={config.accent} delay={0.1} />
           <KPICard title={config.kpi2} value={kpiVals[1]} color={theme.text}    delay={0.2} />
           <KPICard title={config.kpi3} value={kpiVals[2]} color={theme.success} delay={0.3} />
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.2fr 0.8fr", gap: "25px", marginBottom: "30px" }}>
-          <div style={cardStyle}>
-            <div style={cardHeader}>Spend-Engagement Matrix</div>
-            <ResponsiveContainer width="100%" height={180}>
-              <ScatterChart>
-                <XAxis type="number" dataKey="spent"      name="Spend"      stroke={theme.subtext} fontSize={10} hide />
-                <YAxis type="number" dataKey="engagement" name="Engagement" stroke={theme.subtext} fontSize={10} hide />
-                <Tooltip
-                  cursor={{ strokeDasharray: "3 3" }}
-                  contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "6px", fontSize: "12px", color: theme.text }}
-                />
-                <Scatter data={data.ledger} fill={theme.primary}>
-                  {data.ledger.map((e, i) => (
-                    <Cell key={i} fill={e.status === "CRITICAL" ? theme.danger : theme.success} />
-                  ))}
-                </Scatter>
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div style={cardStyle}>
+        {/* ── Primary chart + CSV-driven Insights panel ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "25px", marginBottom: "30px", alignItems: "stretch" }}>
+          <div style={{ ...cardStyle, display: "flex", flexDirection: "column" }}>
             <div style={cardHeader}>{activeFunc} Reach Timeline</div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={data.timeSeries}>
-                <defs>
-                  <linearGradient id="colorAcc" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={config.accent} stopOpacity={0.3} />
-                    <stop offset="95%" stopColor={config.accent} stopOpacity={0}   />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
-                <XAxis dataKey="x" stroke={theme.subtext} fontSize={10} tickLine={false} />
-                <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }}
-                />
-                <Area type="monotone" dataKey="reach" stroke={config.accent} fill="url(#colorAcc)" strokeWidth={3} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <div style={{ flex: 1, minHeight: 260 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data.timeSeries} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorAcc" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor={config.accent} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={config.accent} stopOpacity={0}   />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                  <XAxis dataKey="x" stroke={theme.subtext} fontSize={10} tickLine={false} />
+                  <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} />
+                  <Tooltip
+                    contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }}
+                  />
+                  <Area type="monotone" dataKey="reach" stroke={config.accent} fill="url(#colorAcc)" strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           <div style={{ ...cardStyle, borderLeft: `4px solid ${config.accent}` }}>
             <div style={{ ...cardHeader, color: config.accent }}>Marketing Insights</div>
-            <p style={{ fontSize: "14px", lineHeight: "1.6", color: theme.text, margin: 0 }}>
-              Analyzed {data.total} consumer profiles.
-              Engagement patterns indicate a highly unified architecture across primary acquisition and verification channels.
-            </p>
-           
-          </div>
-        </div>
-        {extra && (
-  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1.2fr", gap: "25px", marginBottom: "30px" }}>
-    <div style={cardStyle}>
-      <div style={cardHeader}>Top Accounts by Spend</div>
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart data={extra.topAccounts}>
-          <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
-          <XAxis dataKey="id" stroke={theme.subtext} fontSize={9} tickLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
-          <YAxis stroke={theme.subtext} fontSize={10} tickLine={false} axisLine={false} />
-          <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
-          <Bar dataKey="spent" radius={[4, 4, 0, 0]}>
-            {extra.topAccounts.map((_, i) => <Cell key={i} fill={theme.primary} fillOpacity={1 - i * 0.08} />)}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-
-    <div style={cardStyle}>
-      <div style={cardHeader}>Status Distribution</div>
-      <ResponsiveContainer width="100%" height={200}>
-        <PieChart>
-          <Pie data={extra.statusPie} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>
-            {extra.statusPie.map((entry, i) => (
-              <Cell key={i} fill={entry.name === "Critical" ? theme.danger : theme.success} />
-            ))}
-          </Pie>
-          <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
-          <Legend wrapperStyle={{ fontSize: "11px", color: theme.subtext }} />
-        </PieChart>
-      </ResponsiveContainer>
-    </div>
-
-    <div style={cardStyle}>
-      <div style={cardHeader}>Metric Profile (Radar)</div>
-      <ResponsiveContainer width="100%" height={200}>
-        <RadarChart data={extra.radarData} outerRadius={70}>
-          <PolarGrid stroke={theme.border} />
-          <PolarAngleAxis dataKey="metric" stroke={theme.subtext} fontSize={10} />
-          <PolarRadiusAxis stroke={theme.border} fontSize={9} tick={false} axisLine={false} />
-          <Radar dataKey="value" stroke={theme.accent} fill={theme.accent} fillOpacity={0.35} />
-          <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
-        </RadarChart>
-      </ResponsiveContainer>
-    </div>
-  </div>
-)}
-
-{extra && (
-  <div style={{ ...cardStyle, marginBottom: "30px" }}>
-    <div style={cardHeader}>Engagement vs Sessions Trend</div>
-    <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={timeSeries}>
-        <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
-        <XAxis dataKey="x" stroke={theme.subtext} fontSize={10} tickLine={false} />
-        <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
-        <Legend wrapperStyle={{ fontSize: "11px", color: theme.subtext }} />
-        <Line type="monotone" dataKey="val"   name="Engagement" stroke={theme.primary} strokeWidth={2.5} dot={false} />
-        <Line type="monotone" dataKey="reach" name="Sessions/Spend" stroke={theme.accent}  strokeWidth={2.5} dot={false} />
-      </LineChart>
-    </ResponsiveContainer>
-  </div>
-)}
-
-        <div style={{ ...cardStyle, marginBottom: "30px" }}>
-          <div style={{ ...cardHeader, display: "flex", justifyContent: "space-between" }}>
-            <span>{activeFunc}  </span>
-       
-          </div>
-          <div style={{ maxHeight: "250px", overflowY: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
-              {data.insights.map((insight, idx) => (
-                <motion.div
-                  key={idx}
-                  whileHover={{ x: 5, background: "rgba(88,166,255,0.05)" }}
-                  style={{ padding: "15px", borderBottom: `1px solid ${theme.border}`, display: "flex", gap: "15px", alignItems: "center", borderRadius: "4px" }}
-                >
-                  <span style={{ color: theme.primary, fontSize: "12px", fontWeight: "800", minWidth: "120px" }}>{insight.label}</span>
-                  <span style={{ color: theme.text, fontSize: "13px" }}>{insight.text}</span>
-                </motion.div>
+            <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: "12px", maxHeight: 300, overflowY: "auto" }}>
+              {data.insights.map((text, i) => (
+                <li key={i} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: "50%", background: config.accent,
+                    marginTop: "7px", flexShrink: 0,
+                  }} />
+                  <span style={{ fontSize: "13.5px", lineHeight: "1.65", color: theme.text }}>
+                    {text}
+                  </span>
+                </li>
               ))}
-            </div>
+            </ul>
           </div>
         </div>
 
+        {/* ── Advanced Analytics — balanced 3-column grid, all CSV-driven ── */}
+        {extra && (
+          <>
+            <div style={{ marginBottom: "18px" }}>
+              <div style={{ ...cardHeader, marginBottom: "16px" }}>Advanced Analytics</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "25px", marginBottom: "30px" }}>
+
+              <div style={cardStyle}>
+                <div style={cardHeader}>Spend-Engagement Matrix</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <ScatterChart>
+                    <CartesianGrid stroke={theme.border} strokeDasharray="3 3" />
+                    <XAxis type="number" dataKey="spent"      name="Spend"      stroke={theme.subtext} fontSize={10} hide />
+                    <YAxis type="number" dataKey="engagement" name="Engagement" stroke={theme.subtext} fontSize={10} hide />
+                    <Tooltip
+                      cursor={{ strokeDasharray: "3 3" }}
+                      contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "6px", fontSize: "12px", color: theme.text }}
+                    />
+                    <Scatter data={data.ledger} fill={theme.primary}>
+                      {data.ledger.map((e, i) => (
+                        <Cell key={i} fill={e.status === "CRITICAL" ? theme.danger : theme.success} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={cardHeader}>Status Distribution</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <PieChart>
+                    <Pie data={extra.statusPie} dataKey="value" nameKey="name" innerRadius={45} outerRadius={75} paddingAngle={3}>
+                      {extra.statusPie.map((entry, i) => (
+                        <Cell key={i} fill={entry.name === "Critical" ? theme.danger : theme.success} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+                    <Legend wrapperStyle={{ fontSize: "11px", color: theme.subtext }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={cardHeader}>Top Accounts by Spend</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={extra.topAccounts}>
+                    <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="id" stroke={theme.subtext} fontSize={9} tickLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
+                    <YAxis stroke={theme.subtext} fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+                    <Bar dataKey="spent" radius={[4, 4, 0, 0]}>
+                      {extra.topAccounts.map((_, i) => <Cell key={i} fill={theme.primary} fillOpacity={1 - i * 0.08} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={cardHeader}>Metric Profile (Radar)</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <RadarChart data={extra.radarData} outerRadius={70}>
+                    <PolarGrid stroke={theme.border} />
+                    <PolarAngleAxis dataKey="metric" stroke={theme.subtext} fontSize={10} />
+                    <PolarRadiusAxis stroke={theme.border} fontSize={9} tick={false} axisLine={false} />
+                    <Radar dataKey="value" stroke={theme.accent} fill={theme.accent} fillOpacity={0.35} />
+                    <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={cardHeader}>Engagement vs Sessions Trend</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={data.timeSeries}>
+                    <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="x" stroke={theme.subtext} fontSize={10} tickLine={false} />
+                    <YAxis stroke={theme.subtext} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+                    <Legend wrapperStyle={{ fontSize: "11px", color: theme.subtext }} />
+                    <Line type="monotone" dataKey="val"   name="Engagement"    stroke={theme.primary} strokeWidth={2.5} dot={false} />
+                    <Line type="monotone" dataKey="reach" name="Sessions/Spend" stroke={theme.accent}  strokeWidth={2.5} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={cardStyle}>
+                <div style={cardHeader}>Top Accounts by ROI</div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={extra.topROI}>
+                    <CartesianGrid stroke={theme.border} vertical={false} strokeDasharray="3 3" />
+                    <XAxis dataKey="id" stroke={theme.subtext} fontSize={9} tickLine={false} interval={0} angle={-25} textAnchor="end" height={50} />
+                    <YAxis stroke={theme.subtext} fontSize={10} tickLine={false} axisLine={false} />
+                    <Tooltip contentStyle={{ background: theme.card, border: `1px solid ${theme.border}`, borderRadius: "8px", fontSize: "12px", color: theme.text }} />
+                    <Bar dataKey="roi" radius={[4, 4, 0, 0]}>
+                      {extra.topROI.map((_, i) => <Cell key={i} fill={theme.success} fillOpacity={1 - i * 0.08} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+            </div>
+          </>
+        )}
+
+        {/* ── Operational Ledger ── */}
         <div style={cardStyle}>
           <div style={{ ...cardHeader, display: "flex", justifyContent: "space-between" }}>
             <span>{activeFunc} Operational Ledger</span>
             <span style={{ color: theme.primary }}>Records</span>
           </div>
-          <table style={tableStyle}>
-            <thead>
-              <tr style={thStyle}>
-                <th style={{ padding: "15px" }}>ID Identifier</th>
-                <th>Capital Investment</th>
-                <th>{metricConfig.label}</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.ledger.map((row, i) => (
-                <tr key={i} style={trStyle}>
-                  <td style={{ padding: "15px", color: theme.primary, fontWeight: "600" }}>{row.id}</td>
-                  <td style={{ color: theme.textMuted }}>${row.spent.toLocaleString()}</td>
-                  <td style={{ color: theme.text, fontWeight: "500" }}>
-                    {metricConfig.format(row[metricConfig.valueKey])}
-                  </td>
-                  <td>
-                    <span style={{
-                      background: row.status === "CRITICAL" ? "rgba(248,81,73,0.1)" : "rgba(63,185,80,0.1)",
-                      color: row.status === "CRITICAL" ? theme.danger : theme.success,
-                      padding: "5px 12px", borderRadius: "6px",
-                      border: `1px solid ${row.status === "CRITICAL" ? "rgba(248,81,73,0.2)" : "rgba(63,185,80,0.2)"}`,
-                      fontSize: "11px", fontWeight: "800",
-                    }}>
-                      {row.status}
-                    </span>
-                  </td>
+          <div style={{ overflowX: "auto" }}>
+            <table style={tableStyle}>
+              <thead>
+                <tr style={thStyle}>
+                  <th style={{ padding: "15px" }}>ID Identifier</th>
+                  <th>Capital Investment</th>
+                  <th>{metricConfig.label}</th>
+                  <th>Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {data.ledger.map((row, i) => (
+                  <tr key={i} style={trStyle}>
+                    <td style={{ padding: "15px", color: theme.primary, fontWeight: "600" }}>{row.id}</td>
+                    <td style={{ color: theme.textMuted }}>${row.spent.toLocaleString()}</td>
+                    <td style={{ color: theme.text, fontWeight: "500" }}>
+                      {metricConfig.format(row[metricConfig.valueKey])}
+                    </td>
+                    <td>
+                      <span style={{
+                        background: row.status === "CRITICAL" ? "rgba(248,81,73,0.1)" : "rgba(63,185,80,0.1)",
+                        color: row.status === "CRITICAL" ? theme.danger : theme.success,
+                        padding: "5px 12px", borderRadius: "6px",
+                        border: `1px solid ${row.status === "CRITICAL" ? "rgba(248,81,73,0.2)" : "rgba(63,185,80,0.2)"}`,
+                        fontSize: "11px", fontWeight: "800",
+                      }}>
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </motion.div>
     );
@@ -796,8 +895,8 @@ const extraInsights = getExtraInsights(extra);
                 }}
               >
                 <input type="file" multiple hidden accept=".csv" onChange={handleFileInput} />
-                <div style={{ fontSize: files.length > 0 ? "1.2rem" : "1.8rem", marginBottom: 6 }}>
-                  {isDragOver ? "📥" : "📊"}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 6, color: theme.primary }}>
+                  {isDragOver ? <Icons.Upload size={26} /> : <Icons.BarChart size={26} />}
                 </div>
                 <span style={{ color: theme.subtext, fontSize: "13px" }}>
                   {isDragOver
